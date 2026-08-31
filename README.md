@@ -55,6 +55,24 @@ node <plugin-dir>/dist/cli.mjs whoami # plugin install
 
 The server acts as **you**. It reaches exactly the projects your account can reach, and every change is attributed to you in the project's activity feed. There is no service account and no shared credential.
 
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `/prompt-studio:login` | The sign-in command for *this* installation, with the path filled in. |
+| `/prompt-studio:projects` | Your projects, as a table. |
+| `/prompt-studio:link` | Tie this repo to a project and a `.flow` file. |
+| `/prompt-studio:sync` | Whether the file and the project still agree. |
+| `/prompt-studio:flow` | Change the project by describing what you want. |
+| `/prompt-studio:prompt` | The build prompt, ready to paste elsewhere. |
+
+You never have to use them — asking in plain English reaches the same tools.
+They exist because nothing in the slash menu otherwise says the server is here.
+
+`/prompt-studio:flow` is the one worth knowing: it reads the grammar first and
+checks the source before saving, which is the difference between one write and
+three failed ones against a live project.
+
 ## What Claude can do
 
 | Tool | What it does |

@@ -1,6 +1,6 @@
 {
   "name": "prompt-studio-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Prompt Studio as an MCP server \u2014 Claude Code reads and writes your product diagram as Flow, and keeps a .flow file in your repo in step with it.",
   "type": "module",
   "license": "MIT",

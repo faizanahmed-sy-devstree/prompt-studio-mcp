@@ -1,7 +1,7 @@
 {
   "name": "prompt-studio",
   "displayName": "Prompt Studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "An MCP server that lets Claude read and write your Prompt Studio project directly — as Flow text, in your repo, with a version behind every change.",
   "keywords": [
     "mcp",
@@ -17,5 +17,8 @@
     "name": "Faizan Ahmed",
     "url": "https://github.com/faizanahmed-sy-devstree"
   },
-  "mcpServers": "./.claude-plugin/mcp.json"
+  "mcpServers": "./.claude-plugin/mcp.json",
+  "commands": [
+    "./commands"
+  ]
 }

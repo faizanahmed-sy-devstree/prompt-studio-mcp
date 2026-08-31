@@ -1,0 +1,53 @@
+{
+  "name": "prompt-studio-mcp",
+  "version": "1.0.0",
+  "description": "Prompt Studio as an MCP server \u2014 Claude Code reads and writes your product diagram as Flow, and keeps a .flow file in your repo in step with it.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "prompt-studio-mcp": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "sync": "node scripts/sync-studio.mjs ../prompt-studio",
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "prompt-studio",
+    "flow"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/faizanahmed-sy-devstree/prompt-studio-mcp.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

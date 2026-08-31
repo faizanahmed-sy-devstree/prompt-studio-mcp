@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Written by `login`, and by the tests through PROMPT_STUDIO_HOME.
+.prompt-studio/

@@ -13,6 +13,26 @@ git:     prompt-studio.flow updated, ready to commit
 
 ## Install
 
+### As a Claude Code plugin — nothing to install first
+
+```
+/plugin marketplace add faizanahmed-sy-devstree/prompt-studio-mcp
+/plugin install prompt-studio@prompt-studio
+```
+
+The server is bundled in the repo, so this needs no npm, no build step and no
+Node toolchain beyond the one Claude Code already runs on. Then sign in once —
+the server tells you the exact command for your installation if you ask it to
+do anything before you have:
+
+```bash
+node ~/.claude/plugins/cache/*/prompt-studio/*/dist/cli.mjs login
+```
+
+### From npm
+
+Not published yet — use the plugin above until it is.
+
 ```bash
 # 1. sign in once, on this machine
 npx prompt-studio-mcp login
@@ -21,12 +41,16 @@ npx prompt-studio-mcp login
 claude mcp add prompt-studio -- npx -y prompt-studio-mcp serve
 ```
 
-That's it. `login` asks for your Prompt Studio email and password, exchanges them for tokens, and stores **only the tokens** in `~/.prompt-studio/credentials.json` (owner-readable). Your password is never written to disk, and never goes anywhere near your Claude Code config.
+### Either way
 
-Check it worked:
+`login` asks for your Prompt Studio email and password, exchanges them for tokens, and stores **only the tokens** in `~/.prompt-studio/credentials.json` (owner-readable). Your password is never written to disk, and never goes anywhere near your Claude Code config.
+
+Check it worked — `whoami` sits next to `login`, so use whichever of the two
+paths above you installed with:
 
 ```bash
-npx prompt-studio-mcp whoami
+npx prompt-studio-mcp whoami          # npm install
+node <plugin-dir>/dist/cli.mjs whoami # plugin install
 ```
 
 The server acts as **you**. It reaches exactly the projects your account can reach, and every change is attributed to you in the project's activity feed. There is no service account and no shared credential.

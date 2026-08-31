@@ -19,6 +19,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 
 export const DEFAULT_API_URL = "https://prompt-studio-backend.onrender.com"
 
@@ -104,12 +105,33 @@ export function resolveAuth(env: NodeJS.ProcessEnv = process.env): Resolved {
 }
 
 /** The message a tool shows when nobody has signed in yet. */
+/**
+ * The command that will actually sign this particular installation in.
+ *
+ * `npx prompt-studio-mcp login` is right for an npm install and useless for a
+ * Claude Code plugin install, where nothing was fetched from npm and there is
+ * no bin on PATH. The server knows where it is running from, so it can name
+ * the CLI sitting next to it rather than send a plugin user to a package that
+ * may not be installed.
+ */
+export function loginCommand(): string {
+  try {
+    const self = fileURLToPath(import.meta.url)
+    // Bundled, so this module *is* dist/server.mjs; the CLI is its sibling.
+    const cli = join(dirname(self), "cli.mjs")
+    if (existsSync(cli)) return `node ${JSON.stringify(cli)} login`
+  } catch {
+    // Not running from a file (tests, a REPL) — fall through to the npm form.
+  }
+  return "npx prompt-studio-mcp login"
+}
+
 export const NOT_SIGNED_IN = [
   "Not signed in to Prompt Studio.",
   "",
   "Run this once, in a terminal:",
   "",
-  "    npx prompt-studio-mcp login",
+  `    ${loginCommand()}`,
   "",
   "It asks for the email and password of your Prompt Studio account and stores",
   "the resulting tokens in ~/.prompt-studio/credentials.json. Your password is",

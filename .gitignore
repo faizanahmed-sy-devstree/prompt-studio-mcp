@@ -1,5 +1,6 @@
 node_modules/
-dist/
+# dist/ is committed on purpose: the Claude Code plugin runs it directly,
+# so `/plugin install` must not require a build step.
 *.tsbuildinfo
 .DS_Store
 

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "prompt-studio",
+  "description": "Prompt Studio for Claude Code — read and write your product diagram as Flow, with a version behind every change.",
+  "owner": {
+    "name": "Faizan Ahmed",
+    "url": "https://github.com/faizanahmed-sy-devstree"
+  },
+  "plugins": [
+    {
+      "name": "prompt-studio",
+      "description": "Claude reads, writes and maintains your Prompt Studio project as Flow, and keeps a .flow file in your repo in step with it.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

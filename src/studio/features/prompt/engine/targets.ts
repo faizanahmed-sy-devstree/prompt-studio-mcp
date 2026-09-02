@@ -16,6 +16,8 @@ export type BlockId =
   | "views"
   | "sections"
   | "design"
+  | "tokens"
+  | "ui_conventions"
   | "stack"
   | "structure"
   | "conventions"
@@ -76,6 +78,8 @@ export const promptTargets: PromptTarget[] = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "requirements",
       "additional",
       "security",
@@ -104,6 +108,8 @@ export const promptTargets: PromptTarget[] = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "requirements",
       "structure",
       "additional",
@@ -137,6 +143,8 @@ export const promptTargets: PromptTarget[] = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "requirements",
       "additional",
       "security",
@@ -165,6 +173,8 @@ export const promptTargets: PromptTarget[] = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "stack",
       "requirements",
       "additional",
@@ -198,6 +208,8 @@ export const promptTargets: PromptTarget[] = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "requirements",
       "additional",
       "security",

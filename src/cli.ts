@@ -133,7 +133,7 @@ else if (command === "serve") {
   // talks to over stdio.
   await import("./server")
 } else {
-  console.log(USAGE)
+  console.error(USAGE)
   code = command === "help" || command === "--help" || command === "-h" ? 0 : 1
 }
 if (command !== "serve") process.exit(code)

@@ -166,7 +166,7 @@ export class Api {
   }
 
   getProject(id: string): Promise<ProjectDetail> {
-    return this.request<ProjectDetail>("GET", `/projects/${id}`)
+    return this.request<ProjectDetail>("GET", `/projects/${encodeURIComponent(id)}`)
   }
 
   createProject(body: {
@@ -182,25 +182,25 @@ export class Api {
     id: string,
     body: { doc: unknown; base_version: number; schema_version: number }
   ): Promise<ProjectSummary> {
-    return this.request<ProjectSummary>("PUT", `/projects/${id}/document`, body)
+    return this.request<ProjectSummary>("PUT", `/projects/${encodeURIComponent(id)}/document`, body)
   }
 
   // ── version history ───────────────────────────────────────────────────────
 
   listVersions(id: string): Promise<Page<VersionSummary>> {
-    return this.request<Page<VersionSummary>>("GET", `/projects/${id}/versions?size=50`)
+    return this.request<Page<VersionSummary>>("GET", `/projects/${encodeURIComponent(id)}/versions?size=50`)
   }
 
   saveVersion(id: string, label: string): Promise<VersionSummary> {
-    return this.request<VersionSummary>("POST", `/projects/${id}/versions`, { label })
+    return this.request<VersionSummary>("POST", `/projects/${encodeURIComponent(id)}/versions`, { label })
   }
 
   getVersion(id: string, versionId: string): Promise<VersionDetail> {
-    return this.request<VersionDetail>("GET", `/projects/${id}/versions/${versionId}`)
+    return this.request<VersionDetail>("GET", `/projects/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`)
   }
 
   restoreVersion(id: string, versionId: string): Promise<ProjectSummary> {
-    return this.request<ProjectSummary>("POST", `/projects/${id}/versions/${versionId}/restore`)
+    return this.request<ProjectSummary>("POST", `/projects/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`)
   }
 }
 

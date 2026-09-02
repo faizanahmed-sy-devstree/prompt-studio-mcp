@@ -1,7 +1,17 @@
 // Vendored from Prompt Studio (features/flow-lang/serializer.ts). Do not edit here — run `pnpm sync`.
 import { sectionTypeMap } from "../library/data/section-types"
 import { uiLevelOf } from "../theme/data/ui-levels"
-import type { ProjectDoc, UserStory } from "../../types/project"
+import { type ProjectDoc, projectDocSchema, type UserStory } from "../../types/project"
+
+/**
+ * The schema's own defaults.
+ *
+ * "Same as the default" is asked of the schema rather than restated here: a
+ * default that moves in `types/project.ts` would otherwise quietly start being
+ * written into every file, or stop being written at all — and the second of
+ * those is silent data loss, which is exactly what this file must not do.
+ */
+const defaults = projectDocSchema.parse({})
 
 /**
  * Emits canonical `.flow` source for a project document.
@@ -23,24 +33,23 @@ export function serializeFlow(doc: ProjectDoc): string {
   // silently means "web", and a reader has no way to tell that from "nobody
   // has decided yet".
   out.push(`  builds ${buildWords(doc).join(", ")}`)
-  out.push(
-    // Every theme field, not the six this used to write.
-    //
-    // Flow is the app's own round-trip format — Copy Flow, Paste Flow, the
-    // share link, the MCP server all go through it — so a field the serializer
-    // omits is a field the user loses. Typography, elevation, motion and the
-    // dark-mode choice silently reverted to defaults on every round trip,
-    // which is the worst kind of data loss: quiet, and only noticed later.
-    //
-    // Split across several lines because one line of thirteen settings is not
-    // something a person can read or edit, and this file is meant to be both.
-    `  theme {`,
-    `    design ${doc.theme.designLanguage}; primary ${doc.theme.primaryColor}; secondary ${doc.theme.secondaryColor}`,
-    `    radius ${doc.theme.borderRadius}; buttons ${doc.theme.buttonStyle}; density ${doc.theme.density}`,
-    `    headings ${doc.theme.headingFont}; body ${doc.theme.bodyFont}; scale ${doc.theme.typeScale}`,
-    `    icons ${doc.theme.iconStyle}; elevation ${doc.theme.elevation}; motion ${doc.theme.motion}; scheme ${doc.theme.colorScheme}`,
-    `  }`
-  )
+  // What the build is for, which decides what the generated prompt contains
+  // rather than merely how it is ordered. Written only when it is not
+  // "logic-first": that is what a file saying nothing means, and what every
+  // project written before the field existed does, so putting the line on every
+  // brief would be a line saying nothing has changed.
+  if (doc.priority !== defaults.priority) out.push(`  priority ${doc.priority}`)
+  // Every theme field, not the six this used to write.
+  //
+  // Flow is the app's own round-trip format — Copy Flow, Paste Flow, the
+  // share link, the MCP server all go through it — so a field the serializer
+  // omits is a field the user loses. Typography, elevation, motion and the
+  // dark-mode choice silently reverted to defaults on every round trip,
+  // which is the worst kind of data loss: quiet, and only noticed later.
+  //
+  // Split across several lines because one line of twenty-two settings is not
+  // something a person can read or edit, and this file is meant to be both.
+  out.push(`  theme {`, ...themeLines(doc.theme), `  }`)
   out.push("}")
 
   if (doc.views.length) {
@@ -265,6 +274,102 @@ export function serializeFlow(doc: ProjectDoc): string {
   }
 
   return `${out.join("\n")}\n`
+}
+
+/**
+ * The body of the `theme { … }` block.
+ *
+ * The named choices come first and are always written — the preset, the
+ * colours, the type, the depth. They are what the block is *for*, and a theme
+ * that showed only the settings differing from a default would read as a diff
+ * rather than a description of the design.
+ *
+ * The dials under them are written only when they differ, which is safe for one
+ * specific reason: the parser starts from `projectDocSchema.parse({})`, so a
+ * line that is absent comes back as exactly the value it was omitted for. That
+ * is not true of a field the serializer has no line for at all — the loss this
+ * block exists to prevent, and why every field in the schema has a line here.
+ */
+function themeLines(theme: ProjectDoc["theme"]): string[] {
+  const base = defaults.theme
+  const lines = [
+    // The preset every value below came from. Written even when it is the
+    // default one: it is the name of the design, and a file that omits it reads
+    // as though nobody chose.
+    `    preset ${theme.preset}`,
+    `    design ${theme.designLanguage}; primary ${theme.primaryColor}; secondary ${theme.secondaryColor}`,
+    `    radius ${theme.borderRadius}; buttons ${theme.buttonStyle}; density ${theme.density}`,
+    `    headings ${theme.headingFont}; body ${theme.bodyFont}; scale ${theme.typeScale}`,
+    `    icons ${theme.iconStyle}; elevation ${theme.elevation}; motion ${theme.motion}; scheme ${theme.colorScheme}`,
+  ]
+
+  // Four radii on one line: they are read together — "square, with round cards"
+  // is one decision, not three — and `pill` is a flag on the same thought.
+  const { shape } = theme
+  if (
+    shape.control !== base.shape.control ||
+    shape.card !== base.shape.card ||
+    shape.overlay !== base.shape.overlay ||
+    shape.pill !== base.shape.pill
+  ) {
+    const pill = shape.pill ? " pill" : ""
+    lines.push(
+      `    shape control ${shape.control} card ${shape.card} overlay ${shape.overlay}${pill}`
+    )
+  }
+
+  // Real family names, quoted because they have spaces in them. An empty slot
+  // means "follow the character chosen above", which is said by leaving the
+  // slot out rather than by writing an empty string the parser would then have
+  // to tell apart from a mistake.
+  const families: string[] = []
+  if (theme.fonts.display) families.push(`display ${quote(theme.fonts.display)}`)
+  if (theme.fonts.body) families.push(`body ${quote(theme.fonts.body)}`)
+  if (theme.fonts.mono) families.push(`mono ${quote(theme.fonts.mono)}`)
+  if (families.length) lines.push(`    fonts ${families.join(" ")}`)
+
+  const dials: string[] = []
+  if (theme.scaleRatio !== base.scaleRatio) dials.push(`scale_ratio ${theme.scaleRatio}`)
+  if (theme.vividness !== base.vividness) dials.push(`vividness ${theme.vividness}`)
+  if (theme.neutralHue !== base.neutralHue) dials.push(`neutral_hue ${theme.neutralHue}`)
+  if (dials.length) lines.push(`    ${dials.join("; ")}`)
+
+  const depth: string[] = []
+  if (theme.elevationStrategy !== base.elevationStrategy) {
+    depth.push(`elevation_strategy ${theme.elevationStrategy}`)
+  }
+  if (theme.motionModel !== base.motionModel) depth.push(`motion_model ${theme.motionModel}`)
+  if (theme.inputStyle !== base.inputStyle) depth.push(`inputs ${theme.inputStyle}`)
+  if (depth.length) lines.push(`    ${depth.join("; ")}`)
+
+  // Overrides only, one block per mode, and nothing at all when the preset was
+  // left alone — which is the usual case and should cost no lines.
+  for (const mode of ["light", "dark"] as const) {
+    const entries = Object.entries(theme.palette[mode])
+    if (!entries.length) continue
+    lines.push(`    palette ${mode} {`)
+    for (const [token, value] of entries) {
+      lines.push(`      ${token} ${colorValue(value)}`)
+    }
+    lines.push(`    }`)
+  }
+
+  return lines
+}
+
+/**
+ * A colour override, bare where it can be.
+ *
+ * `oklch(0.55 0.12 250)` reads better unquoted than in quotes, and the
+ * tokenizer copes: it treats `#` as a comment only before whitespace, so a hex
+ * literal survives too. Quoting is kept for the values that would not — a
+ * `;` or a brace inside one would otherwise end the statement early — and for
+ * an override someone has emptied, where a bare value would leave the token
+ * name alone on the line with nothing to read back.
+ */
+function colorValue(value: string) {
+  const trimmed = value.trim()
+  return !trimmed || /[";{}]|\/\//.test(trimmed) ? quote(trimmed) : trimmed
 }
 
 /**

@@ -24,8 +24,8 @@
  *   and says to read again. It never lands on top of their work.
  */
 
-import { readFileSync, writeFileSync } from "node:fs"
-import { dirname, relative, resolve } from "node:path"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { dirname, relative, resolve, sep } from "node:path"
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
@@ -367,6 +367,14 @@ server.registerTool(
       const root = existing?.root ?? process.cwd()
       const source = toFlow(project.doc)
       const target = resolve(root, flow_file)
+      // The path comes from a model, and `resolve` happily walks out of the
+      // repository: `../../../escape.flow` wrote three levels up and then
+      // persisted that path, so every later pull overwrote the same file again.
+      const inside = target === root || target.startsWith(`${root}${sep}`)
+      if (!inside) {
+        return `The flow file has to live inside this repository. "${flow_file}" resolves to ${target}.`
+      }
+      mkdirSync(dirname(target), { recursive: true })
       writeFileSync(target, `${source}\n`)
       const path = upsertLink(root, {
         projectId: project.id,
@@ -420,7 +428,11 @@ server.registerTool(
       "Send the linked .flow file to Prompt Studio. Snapshots first, and refuses if the project moved on since the file was pulled.",
     inputSchema: {
       project_id: z.string().default("").describe("Omit when the repository links one project"),
-      mode: z.enum(["merge", "replace"]).default("replace"),
+      // `merge` for the same reason `write_flow` uses it: `replace` rebuilds the
+      // document from the file, which mints new ids for every screen, module
+      // and edge. Comments are anchored to those ids, so one push that changed
+      // nothing orphaned every pinned comment on the project.
+      mode: z.enum(["merge", "replace"]).default("merge"),
       label: z.string().default(""),
     },
   },

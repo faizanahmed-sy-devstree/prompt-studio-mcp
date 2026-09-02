@@ -54,6 +54,106 @@ export const elevationValues = ["flat", "subtle", "layered"] as const
 export const motionValues = ["none", "restrained", "expressive"] as const
 export const colorSchemeValues = ["light", "both", "dark-first"] as const
 
+/**
+ * How a preset carries depth.
+ *
+ * `elevation` above says how *much*; this says by what means. They are separate
+ * because "flat" and "subtle" describe a shadow ramp, and the presets that read
+ * as designed rather than generated are usually the ones that carry depth some
+ * other way — a surface ladder with no shadow at all, a hairline grid, a tonal
+ * tint. A single enum covering both collapses those into "less shadow".
+ */
+export const elevationStrategyValues = [
+  "shadow",
+  "ladder",
+  "hairline",
+  "grid",
+  "tinted",
+  "glass",
+  "offset",
+] as const
+
+/** Duration-based, spring-based, or nothing moves at all. */
+export const motionModelValues = ["none", "duration", "spring"] as const
+
+/**
+ * How a text field is drawn, and where its label sits.
+ *
+ * Its own axis rather than a consequence of `buttonStyle`, because a form is
+ * most of what people actually touch in an application and the two decisions
+ * genuinely come apart: a filled button over an underlined field is a common,
+ * deliberate pairing. It also settles a question every generated app answers
+ * differently on every screen — a floating label on one form and a label above
+ * the next is the single clearest sign nobody decided.
+ */
+export const inputStyleValues = [
+  /** a 1px box, the label above it — the safe default */
+  "outlined",
+  /** a tinted fill with no border, the label above */
+  "filled",
+  /** a rule under the field only, the label above */
+  "underline",
+  /** the label starts inside the field and rises on focus */
+  "floating",
+  /** the label sits permanently inside the field, above the value */
+  "inset",
+  /** no chrome at all until hover or focus */
+  "borderless",
+] as const
+
+/**
+ * Whether this build is a prototype or the whole system.
+ *
+ * It changes what the generated prompt *contains*, not merely the order it is
+ * in — see `priority` on the document below.
+ */
+export const priorityValues = ["logic-first", "ui-first"] as const
+
+/**
+ * Radius as four independent tokens rather than one scalar with fixed ratios.
+ *
+ * A single `--radius` cannot express a design that is square everywhere with
+ * one pill in it, or one whose overlays are rounder than its cards. Those are
+ * not edge cases — they are what separates a preset from a hue rotation of the
+ * previous preset.
+ */
+export const shapeSchema = z.object({
+  /** buttons, inputs, chips */
+  control: z.number().min(0).max(64).default(8),
+  /** cards, panels, table shells */
+  card: z.number().min(0).max(64).default(12),
+  /** dialogs, popovers, sheets */
+  overlay: z.number().min(0).max(64).default(16),
+  /** actions are fully round, whatever `control` says */
+  pill: z.boolean().default(false),
+})
+
+/**
+ * Per-mode colour overrides, keyed by shadcn token name without the `--`.
+ *
+ * Empty by default: the preset supplies every value, and this records only
+ * what the user changed. Storing the full resolved palette would mean a preset
+ * improved later never reaches a project that has already been opened once.
+ */
+export const paletteSchema = z.object({
+  light: z.record(z.string()).default({}),
+  dark: z.record(z.string()).default({}),
+})
+
+/**
+ * Real family names, unlike `headingFont` above which names a character.
+ *
+ * Both exist on purpose. The character survives into a prompt where the agent
+ * has no licence for a specific face; the name is what the editor renders and
+ * what a generated `globals.css` actually loads. Empty means "follow the
+ * character".
+ */
+export const fontsSchema = z.object({
+  display: z.string().default(""),
+  body: z.string().default(""),
+  mono: z.string().default(""),
+})
+
 export const themeSchema = z.object({
   /** id from features/theme/data/design-languages.ts */
   designLanguage: z.string().default("modern-soft"),
@@ -70,6 +170,21 @@ export const themeSchema = z.object({
   elevation: z.enum(elevationValues).default("subtle"),
   motion: z.enum(motionValues).default("restrained"),
   colorScheme: z.enum(colorSchemeValues).default("both"),
+
+  /** id from features/theme/data/presets.ts — the source of every value below */
+  preset: z.string().default("atrium"),
+  shape: shapeSchema.default({}),
+  palette: paletteSchema.default({}),
+  fonts: fontsSchema.default({}),
+  /** step ratio between type sizes; 1.2 minor third, 1.25 major third */
+  scaleRatio: z.number().min(1.05).max(1.7).default(1.25),
+  /** chroma as a percentage of what the hue can actually reach in sRGB */
+  vividness: z.number().min(0).max(100).default(60),
+  /** the hue every neutral is biased toward, so greys read as chosen */
+  neutralHue: z.number().min(0).max(360).default(160),
+  elevationStrategy: z.enum(elevationStrategyValues).default("shadow"),
+  motionModel: z.enum(motionModelValues).default("duration"),
+  inputStyle: z.enum(inputStyleValues).default("outlined"),
 })
 
 /**
@@ -444,6 +559,16 @@ export const projectDocSchema = z.object({
    * what it generated yesterday.
    */
   startFrom: z.enum(["scratch", "boilerplate"]).default("boilerplate"),
+  /**
+   * What this build is for, and therefore what the prompt should contain.
+   *
+   * "ui-first" is a prototype: the design is chosen before the flow is drawn,
+   * and the generated prompt drops the data model, the backend and deployment
+   * — a frontend brief carrying a Prisma schema is the thing that makes people
+   * stop reading. "logic-first" is the whole system, and is what every project
+   * written before this field existed keeps doing.
+   */
+  priority: z.enum(priorityValues).default("logic-first"),
   target: z.string().default("claude-code"),
   deployment: deploymentSchema.default({}),
   /**

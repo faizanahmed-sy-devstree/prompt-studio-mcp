@@ -1474,12 +1474,12 @@ var require_applicability = __commonJS({
     }
     exports.schemaHasRulesForType = schemaHasRulesForType;
     function shouldUseGroup(schema, group) {
-      return group.rules.some((rule) => shouldUseRule(schema, rule));
+      return group.rules.some((rule2) => shouldUseRule(schema, rule2));
     }
     exports.shouldUseGroup = shouldUseGroup;
-    function shouldUseRule(schema, rule) {
+    function shouldUseRule(schema, rule2) {
       var _a;
-      return schema[rule.keyword] !== void 0 || ((_a = rule.definition.implements) === null || _a === void 0 ? void 0 : _a.some((kwd) => schema[kwd] !== void 0));
+      return schema[rule2.keyword] !== void 0 || ((_a = rule2.definition.implements) === null || _a === void 0 ? void 0 : _a.some((kwd) => schema[kwd] !== void 0));
     }
     exports.shouldUseRule = shouldUseRule;
   }
@@ -2531,9 +2531,9 @@ var require_validate = __commonJS({
       if (useDefaults)
         (0, defaults_1.assignDefaults)(it, group.type);
       gen.block(() => {
-        for (const rule of group.rules) {
-          if ((0, applicability_1.shouldUseRule)(schema, rule)) {
-            keywordCode(it, rule.keyword, rule.definition, group.type);
+        for (const rule2 of group.rules) {
+          if ((0, applicability_1.shouldUseRule)(schema, rule2)) {
+            keywordCode(it, rule2.keyword, rule2.definition, group.type);
           }
         }
       });
@@ -2568,9 +2568,9 @@ var require_validate = __commonJS({
     function checkKeywordTypes(it, ts) {
       const rules = it.self.RULES.all;
       for (const keyword in rules) {
-        const rule = rules[keyword];
-        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
-          const { type } = rule.definition;
+        const rule2 = rules[keyword];
+        if (typeof rule2 == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule2)) {
+          const { type } = rule2.definition;
           if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
             strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
           }
@@ -4588,8 +4588,8 @@ var require_core = __commonJS({
         return this;
       }
       getKeyword(keyword) {
-        const rule = this.RULES.all[keyword];
-        return typeof rule == "object" ? rule.definition : !!rule;
+        const rule2 = this.RULES.all[keyword];
+        return typeof rule2 == "object" ? rule2.definition : !!rule2;
       }
       // Remove keyword
       removeKeyword(keyword) {
@@ -4597,7 +4597,7 @@ var require_core = __commonJS({
         delete RULES.keywords[keyword];
         delete RULES.all[keyword];
         for (const group of RULES.rules) {
-          const i = group.rules.findIndex((rule) => rule.keyword === keyword);
+          const i = group.rules.findIndex((rule2) => rule2.keyword === keyword);
           if (i >= 0)
             group.rules.splice(i, 1);
         }
@@ -4624,10 +4624,10 @@ var require_core = __commonJS({
           for (const seg of segments)
             keywords = keywords[seg];
           for (const key in rules) {
-            const rule = rules[key];
-            if (typeof rule != "object")
+            const rule2 = rules[key];
+            if (typeof rule2 != "object")
               continue;
-            const { $data } = rule.definition;
+            const { $data } = rule2.definition;
             const schema = keywords[key];
             if ($data && schema)
               keywords[key] = schemaOrData(schema);
@@ -4791,7 +4791,7 @@ var require_core = __commonJS({
       RULES.keywords[keyword] = true;
       if (!definition)
         return;
-      const rule = {
+      const rule2 = {
         keyword,
         definition: {
           ...definition,
@@ -4800,18 +4800,18 @@ var require_core = __commonJS({
         }
       };
       if (definition.before)
-        addBeforeRule.call(this, ruleGroup, rule, definition.before);
+        addBeforeRule.call(this, ruleGroup, rule2, definition.before);
       else
-        ruleGroup.rules.push(rule);
-      RULES.all[keyword] = rule;
+        ruleGroup.rules.push(rule2);
+      RULES.all[keyword] = rule2;
       (_a = definition.implements) === null || _a === void 0 ? void 0 : _a.forEach((kwd) => this.addKeyword(kwd));
     }
-    function addBeforeRule(ruleGroup, rule, before) {
+    function addBeforeRule(ruleGroup, rule2, before) {
       const i = ruleGroup.rules.findIndex((_rule) => _rule.keyword === before);
       if (i >= 0) {
-        ruleGroup.rules.splice(i, 0, rule);
+        ruleGroup.rules.splice(i, 0, rule2);
       } else {
-        ruleGroup.rules.push(rule);
+        ruleGroup.rules.push(rule2);
         this.logger.warn(`rule ${before} is not defined`);
       }
     }
@@ -7188,8 +7188,8 @@ var require_dist = __commonJS({
 });
 
 // src/server.ts
-import { readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "node:fs";
-import { relative, resolve as resolve2 } from "node:path";
+import { mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "node:fs";
+import { dirname as dirname3, relative, resolve as resolve2, sep } from "node:path";
 
 // node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
 var external_exports = {};
@@ -21599,26 +21599,26 @@ var Api = class {
     return this.request("GET", "/projects?size=100&sort=recent");
   }
   getProject(id) {
-    return this.request("GET", `/projects/${id}`);
+    return this.request("GET", `/projects/${encodeURIComponent(id)}`);
   }
   createProject(body) {
     return this.request("POST", "/projects", body);
   }
   saveDocument(id, body) {
-    return this.request("PUT", `/projects/${id}/document`, body);
+    return this.request("PUT", `/projects/${encodeURIComponent(id)}/document`, body);
   }
   // ── version history ───────────────────────────────────────────────────────
   listVersions(id) {
-    return this.request("GET", `/projects/${id}/versions?size=50`);
+    return this.request("GET", `/projects/${encodeURIComponent(id)}/versions?size=50`);
   }
   saveVersion(id, label) {
-    return this.request("POST", `/projects/${id}/versions`, { label });
+    return this.request("POST", `/projects/${encodeURIComponent(id)}/versions`, { label });
   }
   getVersion(id, versionId) {
-    return this.request("GET", `/projects/${id}/versions/${versionId}`);
+    return this.request("GET", `/projects/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`);
   }
   restoreVersion(id, versionId) {
-    return this.request("POST", `/projects/${id}/versions/${versionId}/restore`);
+    return this.request("POST", `/projects/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`);
   }
 };
 async function login(baseUrl, email2, password) {
@@ -21901,9 +21901,9 @@ function plural(count) {
 
 // src/studio/features/builder/utils/graph.ts
 function analyseGraph(screens, edges) {
-  const byId = new Map(screens.map((s) => [s.id, s]));
-  const danglingEdges = edges.filter((e) => !byId.has(e.from) || !byId.has(e.to));
-  const live = edges.filter((e) => byId.has(e.from) && byId.has(e.to));
+  const byId2 = new Map(screens.map((s) => [s.id, s]));
+  const danglingEdges = edges.filter((e) => !byId2.has(e.from) || !byId2.has(e.to));
+  const live = edges.filter((e) => byId2.has(e.from) && byId2.has(e.to));
   const outgoing = /* @__PURE__ */ new Map();
   const incoming = /* @__PURE__ */ new Map();
   for (const screen of screens) {
@@ -21922,7 +21922,7 @@ function analyseGraph(screens, edges) {
     const id = queue.shift();
     if (seen.has(id)) continue;
     seen.add(id);
-    const screen = byId.get(id);
+    const screen = byId2.get(id);
     if (screen) ordered.push(screen);
     for (const edge of outgoing.get(id) ?? []) {
       if (!seen.has(edge.to)) queue.push(edge.to);
@@ -21966,18 +21966,18 @@ function findCycles(screens, outgoing) {
   return cycles;
 }
 function entryNodes(nodes, edges) {
-  const byId = new Set(nodes.map((n) => n.id));
+  const byId2 = new Set(nodes.map((n) => n.id));
   const targeted = new Set(
-    edges.filter((e) => byId.has(e.from) && byId.has(e.to)).map((e) => e.to)
+    edges.filter((e) => byId2.has(e.from) && byId2.has(e.to)).map((e) => e.to)
   );
   return nodes.filter((n) => !targeted.has(n.id));
 }
 function breadthFirstOrder(nodes, edges) {
-  const byId = new Set(nodes.map((n) => n.id));
+  const byId2 = new Set(nodes.map((n) => n.id));
   const outgoing = /* @__PURE__ */ new Map();
   for (const node of nodes) outgoing.set(node.id, []);
   for (const edge of edges) {
-    if (byId.has(edge.from) && byId.has(edge.to)) {
+    if (byId2.has(edge.from) && byId2.has(edge.to)) {
       outgoing.get(edge.from)?.push(edge.to);
     }
   }
@@ -21997,9 +21997,9 @@ function breadthFirstOrder(nodes, edges) {
   return order;
 }
 function layerScreens(screens, edges) {
-  const byId = new Map(screens.map((s) => [s.id, s]));
+  const byId2 = new Map(screens.map((s) => [s.id, s]));
   const live = edges.filter(
-    (e) => byId.has(e.from) && byId.has(e.to) && e.from !== e.to
+    (e) => byId2.has(e.from) && byId2.has(e.to) && e.from !== e.to
   );
   const out = /* @__PURE__ */ new Map();
   for (const screen of screens) out.set(screen.id, []);
@@ -22081,9 +22081,9 @@ function autoLayout(screens, edges, opts = {}) {
   const widthRead = reader(opts.widths);
   const heightOf = (id) => heightRead(id) ?? rowHeight - rowGap;
   const widthOf = (id) => widthRead(id) ?? nodeWidth;
-  const byId = new Map(screens.map((s) => [s.id, s]));
+  const byId2 = new Map(screens.map((s) => [s.id, s]));
   const live = edges.filter(
-    (e) => byId.has(e.from) && byId.has(e.to) && e.from !== e.to
+    (e) => byId2.has(e.from) && byId2.has(e.to) && e.from !== e.to
   );
   const { depth, backEdges } = layerScreens(screens, edges);
   const forward = live.filter((e) => !backEdges.has(e.id));
@@ -24943,6 +24943,8 @@ var promptTargets = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "requirements",
       "additional",
       "security",
@@ -24969,6 +24971,8 @@ var promptTargets = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "requirements",
       "structure",
       "additional",
@@ -25000,6 +25004,8 @@ var promptTargets = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "requirements",
       "additional",
       "security",
@@ -25026,6 +25032,8 @@ var promptTargets = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "stack",
       "requirements",
       "additional",
@@ -25057,6 +25065,8 @@ var promptTargets = [
       "views",
       "sections",
       "design",
+      "tokens",
+      "ui_conventions",
       "requirements",
       "additional",
       "security",
@@ -26371,6 +26381,50 @@ var iconStyleValues = ["line", "solid", "duotone"];
 var elevationValues = ["flat", "subtle", "layered"];
 var motionValues = ["none", "restrained", "expressive"];
 var colorSchemeValues = ["light", "both", "dark-first"];
+var elevationStrategyValues = [
+  "shadow",
+  "ladder",
+  "hairline",
+  "grid",
+  "tinted",
+  "glass",
+  "offset"
+];
+var motionModelValues = ["none", "duration", "spring"];
+var inputStyleValues = [
+  /** a 1px box, the label above it — the safe default */
+  "outlined",
+  /** a tinted fill with no border, the label above */
+  "filled",
+  /** a rule under the field only, the label above */
+  "underline",
+  /** the label starts inside the field and rises on focus */
+  "floating",
+  /** the label sits permanently inside the field, above the value */
+  "inset",
+  /** no chrome at all until hover or focus */
+  "borderless"
+];
+var priorityValues = ["logic-first", "ui-first"];
+var shapeSchema = external_exports.object({
+  /** buttons, inputs, chips */
+  control: external_exports.number().min(0).max(64).default(8),
+  /** cards, panels, table shells */
+  card: external_exports.number().min(0).max(64).default(12),
+  /** dialogs, popovers, sheets */
+  overlay: external_exports.number().min(0).max(64).default(16),
+  /** actions are fully round, whatever `control` says */
+  pill: external_exports.boolean().default(false)
+});
+var paletteSchema = external_exports.object({
+  light: external_exports.record(external_exports.string()).default({}),
+  dark: external_exports.record(external_exports.string()).default({})
+});
+var fontsSchema = external_exports.object({
+  display: external_exports.string().default(""),
+  body: external_exports.string().default(""),
+  mono: external_exports.string().default("")
+});
 var themeSchema = external_exports.object({
   /** id from features/theme/data/design-languages.ts */
   designLanguage: external_exports.string().default("modern-soft"),
@@ -26386,7 +26440,21 @@ var themeSchema = external_exports.object({
   iconStyle: external_exports.enum(iconStyleValues).default("line"),
   elevation: external_exports.enum(elevationValues).default("subtle"),
   motion: external_exports.enum(motionValues).default("restrained"),
-  colorScheme: external_exports.enum(colorSchemeValues).default("both")
+  colorScheme: external_exports.enum(colorSchemeValues).default("both"),
+  /** id from features/theme/data/presets.ts — the source of every value below */
+  preset: external_exports.string().default("atrium"),
+  shape: shapeSchema.default({}),
+  palette: paletteSchema.default({}),
+  fonts: fontsSchema.default({}),
+  /** step ratio between type sizes; 1.2 minor third, 1.25 major third */
+  scaleRatio: external_exports.number().min(1.05).max(1.7).default(1.25),
+  /** chroma as a percentage of what the hue can actually reach in sRGB */
+  vividness: external_exports.number().min(0).max(100).default(60),
+  /** the hue every neutral is biased toward, so greys read as chosen */
+  neutralHue: external_exports.number().min(0).max(360).default(160),
+  elevationStrategy: external_exports.enum(elevationStrategyValues).default("shadow"),
+  motionModel: external_exports.enum(motionModelValues).default("duration"),
+  inputStyle: external_exports.enum(inputStyleValues).default("outlined")
 });
 var userStorySchema = external_exports.object({
   /** "an operations admin" */
@@ -26663,6 +26731,16 @@ var projectDocSchema = external_exports.object({
    * what it generated yesterday.
    */
   startFrom: external_exports.enum(["scratch", "boilerplate"]).default("boilerplate"),
+  /**
+   * What this build is for, and therefore what the prompt should contain.
+   *
+   * "ui-first" is a prototype: the design is chosen before the flow is drawn,
+   * and the generated prompt drops the data model, the backend and deployment
+   * — a frontend brief carrying a Prisma schema is the thing that makes people
+   * stop reading. "logic-first" is the whole system, and is what every project
+   * written before this field existed keeps doing.
+   */
+  priority: external_exports.enum(priorityValues).default("logic-first"),
   target: external_exports.string().default("claude-code"),
   deployment: deploymentSchema.default({}),
   /**
@@ -26898,6 +26976,51 @@ var densityAliases = {
   default: "comfortable",
   spacious: "spacious",
   roomy: "spacious"
+};
+var shapeAliases = {
+  control: "control",
+  controls: "control",
+  button: "control",
+  buttons: "control",
+  input: "control",
+  inputs: "control",
+  card: "card",
+  cards: "card",
+  panel: "card",
+  panels: "card",
+  surface: "card",
+  overlay: "overlay",
+  overlays: "overlay",
+  dialog: "overlay",
+  modal: "overlay",
+  sheet: "overlay"
+};
+var fontSlotAliases = {
+  display: "display",
+  heading: "display",
+  headings: "display",
+  title: "display",
+  body: "body",
+  text: "body",
+  paragraph: "body",
+  mono: "mono",
+  code: "mono",
+  monospace: "mono"
+};
+var PILL_WORDS = /\b(pill|no_pill|nopill|not_pill|square|squared)\b/gi;
+var priorityAliases = {
+  "logic-first": "logic-first",
+  logic_first: "logic-first",
+  logicfirst: "logic-first",
+  logic: "logic-first",
+  system: "logic-first",
+  full: "logic-first",
+  "ui-first": "ui-first",
+  ui_first: "ui-first",
+  uifirst: "ui-first",
+  ui: "ui-first",
+  design: "ui-first",
+  prototype: "ui-first"
 };
 function parseFlow(source) {
   const { lines, heredocs } = tokenize(source);
@@ -27263,6 +27386,22 @@ function parseFlow(source) {
       }
       continue;
     }
+    if (current.kind === "palette") {
+      const token = words[0] ?? "";
+      if (!token) continue;
+      const bare = raw.slice(raw.indexOf(token) + token.length).trim();
+      const value = quoted.length ? quoted[0] : bare;
+      if (!quoted.length && !bare) {
+        warnings.push({
+          line,
+          message: `\`${token}\` has no colour after it \u2014 ignored.`
+        });
+        continue;
+      }
+      const name = token.replace(/^--/, "").replace(/:$/, "").toLowerCase();
+      doc.theme.palette[current.mode][name] = value;
+      continue;
+    }
     if (current.kind === "flows") {
       const declares = keyword === "flow" || keyword === "journey" || keyword === "group";
       const key = declares ? words[1] ?? slugify(quoted[0] ?? "") : words[0] ?? slugify(quoted[0] ?? "");
@@ -27362,7 +27501,9 @@ function parseFlow(source) {
     }
     if (current.kind === "theme") {
       const value = words.slice(1).join(" ").trim() || quoted[0] || "";
-      applyThemeProp(doc, keyword, value, line, warnings);
+      const args = raw.replace(/^\S+\s*/, "");
+      const opens = applyThemeProp(doc, keyword, value, line, warnings, args);
+      if (opens) pending = { kind: "palette", mode: opens };
       continue;
     }
     if (current.kind === "stack") {
@@ -27571,6 +27712,23 @@ function parseFlow(source) {
         for (const word of named) {
           const surface = surfaceWord(word, line, warnings);
           doc.builds[surface] = true;
+        }
+        continue;
+      }
+      // What the build is for. A sibling of `builds` and `target` because it is
+      // the same kind of fact — one of the few decisions that changes what the
+      // generated prompt contains rather than what it says.
+      case "priority":
+      case "focus": {
+        const word = (words[1] ?? quoted[0] ?? "").toLowerCase().trim();
+        const match = priorityAliases[word];
+        if (match) {
+          doc.priority = match;
+        } else {
+          warnings.push({
+            line,
+            message: `"${word}" is not a priority \u2014 keeping ${doc.priority}. One of: ${priorityValues.join(", ")}.`
+          });
         }
         continue;
       }
@@ -27818,7 +27976,7 @@ function bracketList(text2) {
   const body = match ? match[1] : text2.replace(/^\s*\w+/, "");
   return body.split(/[\s,]+/).map((v) => v.trim()).filter((v) => v && v !== "[" && v !== "]");
 }
-function applyThemeProp(doc, key, value, line, warnings) {
+function applyThemeProp(doc, key, value, line, warnings, args = "") {
   const normalised = value.trim().toLowerCase();
   switch (key) {
     case "design":
@@ -27950,9 +28108,202 @@ function applyThemeProp(doc, key, value, line, warnings) {
         warnings
       );
       return;
+    // The nine settings the presets brought with them. Same rule as the block
+    // above — an unrecognised value keeps the current one and says which word
+    // was not understood, so a typo costs a line rather than the file — and the
+    // same reason for being here at all: what the serializer writes, the parser
+    // has to read, or a round trip resets the design to the defaults.
+    case "preset":
+    case "theme_preset": {
+      if (!normalised) {
+        warnings.push({
+          line,
+          message: `\`preset\` needs a name \u2014 keeping ${doc.theme.preset}.`
+        });
+        return;
+      }
+      doc.theme.preset = normalised;
+      return;
+    }
+    case "shape":
+    case "radii":
+    case "corners": {
+      const text2 = args || value;
+      if (/\bpill\b/i.test(text2)) doc.theme.shape.pill = true;
+      if (/\b(no_pill|nopill|not_pill|square|squared)\b/i.test(text2)) {
+        doc.theme.shape.pill = false;
+      }
+      for (const [name, radius] of readPairs(text2.replace(PILL_WORDS, " "))) {
+        const slot = shapeAliases[name];
+        if (!slot) {
+          warnings.push({
+            line,
+            message: `"${name}" is not a shape \u2014 keeping the current radii. One of: control, card, overlay, pill.`
+          });
+          continue;
+        }
+        doc.theme.shape[slot] = clampNumber(
+          radius,
+          0,
+          64,
+          doc.theme.shape[slot],
+          `shape ${slot}`,
+          line,
+          warnings
+        );
+      }
+      return;
+    }
+    case "pill":
+      doc.theme.shape.pill = !/^(false|no|off|0)$/i.test(normalised);
+      return;
+    case "fonts":
+    case "font":
+    case "typefaces": {
+      for (const [name, family] of readPairs(args)) {
+        const slot = fontSlotAliases[name];
+        if (!slot) {
+          warnings.push({
+            line,
+            message: `"${name}" is not a font slot \u2014 ignored. One of: display, body, mono.`
+          });
+          continue;
+        }
+        doc.theme.fonts[slot] = family;
+      }
+      return;
+    }
+    case "scale_ratio":
+    case "scaleratio":
+    case "ratio":
+      doc.theme.scaleRatio = clampNumber(
+        value,
+        1.05,
+        1.7,
+        doc.theme.scaleRatio,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "vividness":
+    case "chroma":
+    case "saturation":
+      doc.theme.vividness = clampNumber(
+        value,
+        0,
+        100,
+        doc.theme.vividness,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "neutral_hue":
+    case "neutralhue":
+    case "neutral":
+    case "grey_hue":
+    case "gray_hue":
+      doc.theme.neutralHue = clampNumber(
+        value,
+        0,
+        360,
+        doc.theme.neutralHue,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "elevation_strategy":
+    case "elevationstrategy":
+    case "depth":
+      doc.theme.elevationStrategy = pickThemeValue(
+        normalised,
+        elevationStrategyValues,
+        doc.theme.elevationStrategy,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "motion_model":
+    case "motionmodel":
+    case "motion_style":
+      doc.theme.motionModel = pickThemeValue(
+        normalised,
+        motionModelValues,
+        doc.theme.motionModel,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "inputs":
+    case "inputstyle":
+    case "input_style":
+    case "fields":
+      doc.theme.inputStyle = pickThemeValue(
+        normalised,
+        inputStyleValues,
+        doc.theme.inputStyle,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "palette":
+    case "colors":
+    case "colours": {
+      const head = args.trim().split(/\s+/)[0] ?? "";
+      const mode = paletteMode(head);
+      if (!mode) {
+        warnings.push({
+          line,
+          message: `"${head}" is not a palette mode \u2014 expected \`palette light\` or \`palette dark\`.`
+        });
+        return;
+      }
+      const pairs = readPairs(args.trim().slice(head.length));
+      for (const [token, color] of pairs) {
+        doc.theme.palette[mode][token.replace(/^--/, "")] = color;
+      }
+      return pairs.length ? void 0 : mode;
+    }
     default:
       warnings.push({ line, message: `Unknown theme property "${key}" \u2014 ignored.` });
   }
+}
+function paletteMode(word) {
+  const normalised = word.toLowerCase().replace(/[^a-z]/g, "");
+  if (normalised === "light" || normalised === "day") return "light";
+  if (normalised === "dark" || normalised === "night") return "dark";
+  return null;
+}
+function readPairs(text2) {
+  const pairs = [];
+  for (const match of text2.matchAll(/([a-z_][a-z0-9_-]*)\s+(?:"([^"]*)"|([^\s"]+))/gi)) {
+    pairs.push([match[1].toLowerCase(), (match[2] ?? match[3] ?? "").trim()]);
+  }
+  return pairs;
+}
+function clampNumber(value, min, max, fallback, key, line, warnings) {
+  const written = value.trim();
+  const parsed = Number.parseFloat(written);
+  if (!Number.isFinite(parsed)) {
+    warnings.push({
+      line,
+      message: `\`${key}\` must be a number between ${min} and ${max} \u2014 "${written}" is not one, keeping ${fallback}.`
+    });
+    return fallback;
+  }
+  const clamped = Math.min(max, Math.max(min, parsed));
+  if (clamped !== parsed) {
+    warnings.push({
+      line,
+      message: `\`${key}\` must be between ${min} and ${max} \u2014 "${written}" clamped to ${clamped}.`
+    });
+  }
+  return clamped;
 }
 function surfaceWord(word, line, warnings) {
   if (!word) return "web";
@@ -28227,30 +28578,15 @@ var FLAG_WORDS = /* @__PURE__ */ new Set([
 ]);
 
 // src/studio/features/flow-lang/serializer.ts
+var defaults = projectDocSchema.parse({});
 function serializeFlow(doc) {
   const out = [];
   out.push(`app ${quote(doc.name)} {`);
   out.push(`  target ${doc.target}`);
   out.push(`  ui_level ${uiLevelOf(doc)}`);
   out.push(`  builds ${buildWords(doc).join(", ")}`);
-  out.push(
-    // Every theme field, not the six this used to write.
-    //
-    // Flow is the app's own round-trip format — Copy Flow, Paste Flow, the
-    // share link, the MCP server all go through it — so a field the serializer
-    // omits is a field the user loses. Typography, elevation, motion and the
-    // dark-mode choice silently reverted to defaults on every round trip,
-    // which is the worst kind of data loss: quiet, and only noticed later.
-    //
-    // Split across several lines because one line of thirteen settings is not
-    // something a person can read or edit, and this file is meant to be both.
-    `  theme {`,
-    `    design ${doc.theme.designLanguage}; primary ${doc.theme.primaryColor}; secondary ${doc.theme.secondaryColor}`,
-    `    radius ${doc.theme.borderRadius}; buttons ${doc.theme.buttonStyle}; density ${doc.theme.density}`,
-    `    headings ${doc.theme.headingFont}; body ${doc.theme.bodyFont}; scale ${doc.theme.typeScale}`,
-    `    icons ${doc.theme.iconStyle}; elevation ${doc.theme.elevation}; motion ${doc.theme.motion}; scheme ${doc.theme.colorScheme}`,
-    `  }`
-  );
+  if (doc.priority !== defaults.priority) out.push(`  priority ${doc.priority}`);
+  out.push(`  theme {`, ...themeLines(doc.theme), `  }`);
   out.push("}");
   if (doc.views.length) {
     out.push("");
@@ -28334,17 +28670,17 @@ function serializeFlow(doc) {
       out.push("}");
     }
   }
-  const byId = new Map(doc.screens.map((s) => [s.id, s]));
-  const liveEdges = doc.edges.filter((e) => byId.has(e.from) && byId.has(e.to));
+  const byId2 = new Map(doc.screens.map((s) => [s.id, s]));
+  const liveEdges = doc.edges.filter((e) => byId2.has(e.from) && byId2.has(e.to));
   if (liveEdges.length) {
     out.push("");
     out.push("flow {");
     const width = Math.max(
-      ...liveEdges.map((e) => byId.get(e.from)?.key.length ?? 0)
+      ...liveEdges.map((e) => byId2.get(e.from)?.key.length ?? 0)
     );
     for (const edge of liveEdges) {
-      const from = byId.get(edge.from);
-      const to = byId.get(edge.to);
+      const from = byId2.get(edge.from);
+      const to = byId2.get(edge.to);
       const label = edge.trigger.trim() ? ` : ${quote(edge.trigger.trim())}` : "";
       const tags = viewKeys(edge.views);
       const scope = tags.length ? ` ${tags.map((k) => `@${k}`).join(" ")}` : "";
@@ -28441,6 +28777,57 @@ function serializeFlow(doc) {
   }
   return `${out.join("\n")}
 `;
+}
+function themeLines(theme) {
+  const base = defaults.theme;
+  const lines = [
+    // The preset every value below came from. Written even when it is the
+    // default one: it is the name of the design, and a file that omits it reads
+    // as though nobody chose.
+    `    preset ${theme.preset}`,
+    `    design ${theme.designLanguage}; primary ${theme.primaryColor}; secondary ${theme.secondaryColor}`,
+    `    radius ${theme.borderRadius}; buttons ${theme.buttonStyle}; density ${theme.density}`,
+    `    headings ${theme.headingFont}; body ${theme.bodyFont}; scale ${theme.typeScale}`,
+    `    icons ${theme.iconStyle}; elevation ${theme.elevation}; motion ${theme.motion}; scheme ${theme.colorScheme}`
+  ];
+  const { shape } = theme;
+  if (shape.control !== base.shape.control || shape.card !== base.shape.card || shape.overlay !== base.shape.overlay || shape.pill !== base.shape.pill) {
+    const pill2 = shape.pill ? " pill" : "";
+    lines.push(
+      `    shape control ${shape.control} card ${shape.card} overlay ${shape.overlay}${pill2}`
+    );
+  }
+  const families = [];
+  if (theme.fonts.display) families.push(`display ${quote(theme.fonts.display)}`);
+  if (theme.fonts.body) families.push(`body ${quote(theme.fonts.body)}`);
+  if (theme.fonts.mono) families.push(`mono ${quote(theme.fonts.mono)}`);
+  if (families.length) lines.push(`    fonts ${families.join(" ")}`);
+  const dials = [];
+  if (theme.scaleRatio !== base.scaleRatio) dials.push(`scale_ratio ${theme.scaleRatio}`);
+  if (theme.vividness !== base.vividness) dials.push(`vividness ${theme.vividness}`);
+  if (theme.neutralHue !== base.neutralHue) dials.push(`neutral_hue ${theme.neutralHue}`);
+  if (dials.length) lines.push(`    ${dials.join("; ")}`);
+  const depth = [];
+  if (theme.elevationStrategy !== base.elevationStrategy) {
+    depth.push(`elevation_strategy ${theme.elevationStrategy}`);
+  }
+  if (theme.motionModel !== base.motionModel) depth.push(`motion_model ${theme.motionModel}`);
+  if (theme.inputStyle !== base.inputStyle) depth.push(`inputs ${theme.inputStyle}`);
+  if (depth.length) lines.push(`    ${depth.join("; ")}`);
+  for (const mode of ["light", "dark"]) {
+    const entries = Object.entries(theme.palette[mode]);
+    if (!entries.length) continue;
+    lines.push(`    palette ${mode} {`);
+    for (const [token, value] of entries) {
+      lines.push(`      ${token} ${colorValue(value)}`);
+    }
+    lines.push(`    }`);
+  }
+  return lines;
+}
+function colorValue(value) {
+  const trimmed = value.trim();
+  return !trimmed || /[";{}]|\/\//.test(trimmed) ? quote(trimmed) : trimmed;
 }
 function stackLines(stack) {
   const keys = [
@@ -29650,7 +30037,7 @@ function joinTableName(doc, relation) {
 }
 function checkDataModel(doc) {
   const issues = [];
-  const byId = new Map(doc.entities.map((entity) => [entity.id, entity]));
+  const byId2 = new Map(doc.entities.map((entity) => [entity.id, entity]));
   const keys = /* @__PURE__ */ new Map();
   for (const entity of doc.entities) {
     keys.set(entity.key, (keys.get(entity.key) ?? 0) + 1);
@@ -29742,8 +30129,8 @@ function checkDataModel(doc) {
     }
   }
   for (const relation of doc.relations) {
-    const from = byId.get(relation.from);
-    const to = byId.get(relation.to);
+    const from = byId2.get(relation.from);
+    const to = byId2.get(relation.to);
     if (!from || !to) {
       issues.push({
         level: "error",
@@ -29777,6 +30164,2261 @@ function checkDataModel(doc) {
     }
   }
   return issues;
+}
+
+// src/studio/features/theme/data/presets.ts
+var presets = [
+  {
+    id: "atrium",
+    name: "Atrium",
+    character: "A daylit room: warm greys, one soft shadow, radii that nest inside each other.",
+    axes: [
+      "Concentric radii \u2014 8px control inside a 12px card inside a 16px overlay",
+      "One shadow, used once: cards rest, only overlays lift",
+      "Warm neutral at hue 70, so greys read as plaster rather than steel",
+      "Humanist sans throughout, weight rather than family for hierarchy"
+    ],
+    fonts: {
+      display: "Source Sans 3",
+      body: "Source Sans 3",
+      mono: "JetBrains Mono"
+    },
+    scaleRatio: 1.25,
+    shape: { control: 8, card: 12, overlay: 16, pill: false },
+    density: "comfortable",
+    elevationStrategy: "shadow",
+    motionModel: "duration",
+    inputStyle: "outlined",
+    neutralHue: 70,
+    vividness: 58,
+    light: {
+      background: "oklch(0.99 0.003 70)",
+      foreground: "oklch(0.24 0.009 70)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.009 70)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.009 70)",
+      primary: "oklch(0.52 0.166 264)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.005 70)",
+      "secondary-foreground": "oklch(0.3 0.009 70)",
+      muted: "oklch(0.97 0.005 70)",
+      "muted-foreground": "oklch(0.52 0.007 70)",
+      accent: "oklch(0.96 0.005 70)",
+      "accent-foreground": "oklch(0.3 0.009 70)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.006 70)",
+      input: "oklch(0.92 0.006 70)",
+      ring: "oklch(0.62 0.112 264)",
+      "chart-1": "oklch(0.62 0.127 264)",
+      "chart-2": "oklch(0.62 0.065 205)",
+      "chart-3": "oklch(0.62 0.095 155)",
+      "chart-4": "oklch(0.62 0.095 55)",
+      "chart-5": "oklch(0.62 0.175 330)",
+      sidebar: "oklch(0.985 0.003 70)",
+      "sidebar-foreground": "oklch(0.24 0.009 70)",
+      "sidebar-primary": "oklch(0.52 0.166 264)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.005 70)",
+      "sidebar-accent-foreground": "oklch(0.3 0.009 70)",
+      "sidebar-border": "oklch(0.92 0.006 70)",
+      "sidebar-ring": "oklch(0.62 0.112 264)"
+    },
+    dark: {
+      background: "oklch(0.16 0.006 70)",
+      foreground: "oklch(0.94 0.011 70)",
+      card: "oklch(0.21 0.006 70)",
+      "card-foreground": "oklch(0.94 0.011 70)",
+      popover: "oklch(0.235 0.006 70)",
+      "popover-foreground": "oklch(0.94 0.011 70)",
+      primary: "oklch(0.86 0.033 264)",
+      "primary-foreground": "oklch(0.14 0.015 264)",
+      secondary: "oklch(0.26 0.006 70)",
+      "secondary-foreground": "oklch(0.9 0.011 70)",
+      muted: "oklch(0.26 0.006 70)",
+      "muted-foreground": "oklch(0.805 0.008 70)",
+      accent: "oklch(0.32 0.006 70)",
+      "accent-foreground": "oklch(0.9 0.011 70)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.086 264)",
+      "chart-1": "oklch(0.71 0.081 264)",
+      "chart-2": "oklch(0.71 0.065 205)",
+      "chart-3": "oklch(0.71 0.095 155)",
+      "chart-4": "oklch(0.71 0.095 55)",
+      "chart-5": "oklch(0.71 0.162 330)",
+      sidebar: "oklch(0.2 0.006 70)",
+      "sidebar-foreground": "oklch(0.94 0.011 70)",
+      "sidebar-primary": "oklch(0.86 0.033 264)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 264)",
+      "sidebar-accent": "oklch(0.26 0.006 70)",
+      "sidebar-accent-foreground": "oklch(0.9 0.011 70)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.086 264)"
+    },
+    promptDetails: "Radii nest: 8px on buttons, inputs and chips, 12px on cards and panels, 16px on dialogs and sheets \u2014 a control inside a card must never be rounder than the card. Exactly one shadow exists, `0 1px 3px rgb(0 0 0 / 0.08)`, and it is spent on overlays; cards get a 1px border and no shadow at all. Neutrals are warm (OKLCH hue 70, chroma 0.005\u20130.009) so nothing is a true grey. Spacing runs on a 4px grid with 24px card padding and 16px between fields. Type scale steps by 1.25 from a 16px body, headings at 600 with -0.01em tracking, body line-height 1.55. Transitions are 150ms ease-out on colour and 200ms on transform; nothing else moves."
+  },
+  {
+    id: "slate-console",
+    name: "Slate Console",
+    character: "A tool for people who keep it open all day: hairlines, tight rows, no shadows anywhere.",
+    axes: [
+      "Surface ladder instead of shadow \u2014 depth is a lighter surface, never a blur",
+      "1px hairline borders at low contrast, on every panel",
+      "Tabular mono figures for every number, including inline ones",
+      "32px rows, 6px radii, nothing decorative survives"
+    ],
+    fonts: { display: "Inter", body: "Inter", mono: "IBM Plex Mono" },
+    scaleRatio: 1.2,
+    shape: { control: 6, card: 8, overlay: 10, pill: false },
+    density: "compact",
+    elevationStrategy: "ladder",
+    motionModel: "duration",
+    inputStyle: "borderless",
+    neutralHue: 258,
+    vividness: 42,
+    light: {
+      background: "oklch(0.99 0.003 258)",
+      foreground: "oklch(0.24 0.011 258)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.011 258)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.011 258)",
+      primary: "oklch(0.5 0.155 272)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.965 0.006 258)",
+      "secondary-foreground": "oklch(0.3 0.011 258)",
+      muted: "oklch(0.965 0.006 258)",
+      "muted-foreground": "oklch(0.52 0.008 258)",
+      accent: "oklch(0.955 0.006 258)",
+      "accent-foreground": "oklch(0.3 0.011 258)",
+      destructive: "oklch(0.55 0.174 25)",
+      border: "oklch(0.915 0.007 258)",
+      input: "oklch(0.915 0.007 258)",
+      ring: "oklch(0.6 0.109 272)",
+      "chart-1": "oklch(0.62 0.113 272)",
+      "chart-2": "oklch(0.62 0.064 225)",
+      "chart-3": "oklch(0.62 0.058 195)",
+      "chart-4": "oklch(0.62 0.084 155)",
+      "chart-5": "oklch(0.62 0.164 320)",
+      sidebar: "oklch(0.985 0.003 258)",
+      "sidebar-foreground": "oklch(0.24 0.011 258)",
+      "sidebar-primary": "oklch(0.5 0.155 272)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.95 0.006 258)",
+      "sidebar-accent-foreground": "oklch(0.3 0.011 258)",
+      "sidebar-border": "oklch(0.915 0.007 258)",
+      "sidebar-ring": "oklch(0.6 0.109 272)"
+    },
+    dark: {
+      background: "oklch(0.155 0.008 258)",
+      foreground: "oklch(0.94 0.014 258)",
+      card: "oklch(0.19 0.008 258)",
+      "card-foreground": "oklch(0.94 0.014 258)",
+      popover: "oklch(0.215 0.008 258)",
+      "popover-foreground": "oklch(0.94 0.014 258)",
+      primary: "oklch(0.56 0.146 272)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.245 0.008 258)",
+      "secondary-foreground": "oklch(0.9 0.014 258)",
+      muted: "oklch(0.245 0.008 258)",
+      "muted-foreground": "oklch(0.8 0.011 258)",
+      accent: "oklch(0.29 0.008 258)",
+      "accent-foreground": "oklch(0.9 0.014 258)",
+      destructive: "oklch(0.63 0.169 25)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.64 0.085 272)",
+      "chart-1": "oklch(0.71 0.072 272)",
+      "chart-2": "oklch(0.71 0.064 225)",
+      "chart-3": "oklch(0.71 0.058 195)",
+      "chart-4": "oklch(0.71 0.084 155)",
+      "chart-5": "oklch(0.71 0.119 320)",
+      sidebar: "oklch(0.175 0.008 258)",
+      "sidebar-foreground": "oklch(0.94 0.014 258)",
+      "sidebar-primary": "oklch(0.56 0.146 272)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.245 0.008 258)",
+      "sidebar-accent-foreground": "oklch(0.9 0.014 258)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.64 0.085 272)"
+    },
+    promptDetails: "Depth is a surface ladder, not a shadow: page 0.985, card 1.0, popover 1.0 in light; 0.155 / 0.19 / 0.215 in dark, each step about 0.03 in OKLCH lightness. `box-shadow` is not used anywhere, including on dropdowns and dialogs \u2014 those get a 1px border at 8% contrast instead. Radii are 6px control, 8px card, 10px overlay. Rows are 32px with 8px vertical padding and 12px gutters; the sidebar is 240px. Every number, in tables and inline in prose, is set in IBM Plex Mono with `font-variant-numeric: tabular-nums`. Type scale steps by 1.2 from a 14px body. Transitions are 120ms ease-out and apply to background and border colour only."
+  },
+  {
+    id: "bureau",
+    name: "Bureau",
+    character: "One institutional blue, 2px corners, and enough line-height to read a page of policy.",
+    axes: [
+      "A single blue at five lightnesses \u2014 no second accent hue exists",
+      "2px radius everywhere, so nothing reads as a consumer app",
+      "Display set at 300 weight, large, against 1.7 body line-height",
+      "Hairline rules carry structure; there is no shadow"
+    ],
+    fonts: {
+      display: "Libre Franklin",
+      body: "Libre Franklin",
+      mono: "IBM Plex Mono"
+    },
+    scaleRatio: 1.2,
+    shape: { control: 2, card: 2, overlay: 4, pill: false },
+    density: "spacious",
+    elevationStrategy: "hairline",
+    motionModel: "duration",
+    inputStyle: "outlined",
+    neutralHue: 250,
+    vividness: 48,
+    light: {
+      background: "oklch(0.99 0.003 250)",
+      foreground: "oklch(0.24 0.007 250)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.007 250)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.007 250)",
+      primary: "oklch(0.44 0.093 256)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.965 0.004 250)",
+      "secondary-foreground": "oklch(0.3 0.007 250)",
+      muted: "oklch(0.965 0.004 250)",
+      "muted-foreground": "oklch(0.52 0.006 250)",
+      accent: "oklch(0.955 0.004 250)",
+      "accent-foreground": "oklch(0.3 0.007 250)",
+      destructive: "oklch(0.55 0.174 25)",
+      border: "oklch(0.9 0.005 250)",
+      input: "oklch(0.9 0.005 250)",
+      ring: "oklch(0.55 0.109 256)",
+      "chart-1": "oklch(0.36 0.074 256)",
+      "chart-2": "oklch(0.46 0.086 256)",
+      "chart-3": "oklch(0.56 0.092 256)",
+      "chart-4": "oklch(0.66 0.073 256)",
+      "chart-5": "oklch(0.78 0.034 256)",
+      sidebar: "oklch(0.985 0.003 250)",
+      "sidebar-foreground": "oklch(0.24 0.007 250)",
+      "sidebar-primary": "oklch(0.44 0.093 256)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.95 0.004 250)",
+      "sidebar-accent-foreground": "oklch(0.3 0.007 250)",
+      "sidebar-border": "oklch(0.9 0.005 250)",
+      "sidebar-ring": "oklch(0.55 0.109 256)"
+    },
+    dark: {
+      background: "oklch(0.17 0.005 250)",
+      foreground: "oklch(0.94 0.009 250)",
+      card: "oklch(0.21 0.005 250)",
+      "card-foreground": "oklch(0.94 0.009 250)",
+      popover: "oklch(0.235 0.005 250)",
+      "popover-foreground": "oklch(0.94 0.009 250)",
+      primary: "oklch(0.555 0.114 256)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.26 0.005 250)",
+      "secondary-foreground": "oklch(0.9 0.009 250)",
+      muted: "oklch(0.26 0.005 250)",
+      "muted-foreground": "oklch(0.805 0.007 250)",
+      accent: "oklch(0.32 0.005 250)",
+      "accent-foreground": "oklch(0.9 0.009 250)",
+      destructive: "oklch(0.63 0.169 25)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.62 0.095 256)",
+      "chart-1": "oklch(0.55 0.098 256)",
+      "chart-2": "oklch(0.63 0.093 256)",
+      "chart-3": "oklch(0.71 0.061 256)",
+      "chart-4": "oklch(0.79 0.034 256)",
+      "chart-5": "oklch(0.87 0.015 256)",
+      sidebar: "oklch(0.2 0.005 250)",
+      "sidebar-foreground": "oklch(0.94 0.009 250)",
+      "sidebar-primary": "oklch(0.555 0.114 256)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.26 0.005 250)",
+      "sidebar-accent-foreground": "oklch(0.9 0.009 250)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.62 0.095 256)"
+    },
+    promptDetails: "One accent hue, OKLCH 256, and it appears at five lightnesses (0.44 primary, then 0.36 / 0.46 / 0.56 / 0.66 / 0.78 for data) \u2014 no green, no amber, no second brand colour anywhere including charts and status pills. Radius is 2px on every control and card, 4px on dialogs. Structure comes from 1px rules at 10% contrast: rules under section headings, between table rows, above footers; `box-shadow` is never used. Body is 16px at line-height 1.7 with a 68-character measure; H1 is 40px at weight 300 with -0.02em tracking, which is the whole typographic idea. Spacing is generous \u2014 32px card padding, 40px between sections. Transitions 160ms ease."
+  },
+  {
+    id: "hearth",
+    name: "Hearth",
+    character: "Everything is round, everything is warm, and nothing is smaller than your thumb.",
+    axes: [
+      "44px minimum touch target, on every interactive thing",
+      "Fully round actions \u2014 pill buttons, 16/24/28px radii elsewhere",
+      "High-chroma warm accents at 82% of the sRGB ceiling",
+      "Spring motion, 240ms, with a small overshoot on press"
+    ],
+    fonts: { display: "Nunito", body: "Nunito Sans", mono: "Fira Code" },
+    scaleRatio: 1.333,
+    shape: { control: 16, card: 24, overlay: 28, pill: true },
+    density: "spacious",
+    elevationStrategy: "shadow",
+    motionModel: "spring",
+    inputStyle: "filled",
+    neutralHue: 45,
+    vividness: 82,
+    light: {
+      background: "oklch(0.99 0.003 45)",
+      foreground: "oklch(0.26 0.014 45)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.26 0.014 45)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.26 0.014 45)",
+      primary: "oklch(0.55 0.194 30)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.965 0.008 45)",
+      "secondary-foreground": "oklch(0.3 0.014 45)",
+      muted: "oklch(0.965 0.008 45)",
+      "muted-foreground": "oklch(0.52 0.011 45)",
+      accent: "oklch(0.955 0.022 30)",
+      "accent-foreground": "oklch(0.3 0.014 45)",
+      destructive: "oklch(0.55 0.172 20)",
+      border: "oklch(0.91 0.01 45)",
+      input: "oklch(0.91 0.01 45)",
+      ring: "oklch(0.65 0.165 30)",
+      "chart-1": "oklch(0.62 0.179 30)",
+      "chart-2": "oklch(0.62 0.094 75)",
+      "chart-3": "oklch(0.62 0.11 155)",
+      "chart-4": "oklch(0.62 0.214 320)",
+      "chart-5": "oklch(0.62 0.126 250)",
+      sidebar: "oklch(0.985 0.003 45)",
+      "sidebar-foreground": "oklch(0.26 0.014 45)",
+      "sidebar-primary": "oklch(0.55 0.194 30)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.955 0.022 30)",
+      "sidebar-accent-foreground": "oklch(0.3 0.014 45)",
+      "sidebar-border": "oklch(0.91 0.01 45)",
+      "sidebar-ring": "oklch(0.65 0.165 30)"
+    },
+    dark: {
+      background: "oklch(0.185 0.01 45)",
+      foreground: "oklch(0.94 0.018 45)",
+      card: "oklch(0.235 0.01 45)",
+      "card-foreground": "oklch(0.94 0.018 45)",
+      popover: "oklch(0.26 0.01 45)",
+      "popover-foreground": "oklch(0.94 0.018 45)",
+      primary: "oklch(0.87 0.047 30)",
+      "primary-foreground": "oklch(0.14 0.015 30)",
+      secondary: "oklch(0.28 0.01 45)",
+      "secondary-foreground": "oklch(0.9 0.018 45)",
+      muted: "oklch(0.28 0.01 45)",
+      "muted-foreground": "oklch(0.815 0.014 45)",
+      accent: "oklch(0.34 0.035 30)",
+      "accent-foreground": "oklch(0.9 0.018 45)",
+      destructive: "oklch(0.63 0.167 20)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.72 0.101 30)",
+      "chart-1": "oklch(0.71 0.11 30)",
+      "chart-2": "oklch(0.71 0.09 75)",
+      "chart-3": "oklch(0.71 0.105 155)",
+      "chart-4": "oklch(0.71 0.149 320)",
+      "chart-5": "oklch(0.71 0.094 250)",
+      sidebar: "oklch(0.22 0.01 45)",
+      "sidebar-foreground": "oklch(0.94 0.018 45)",
+      "sidebar-primary": "oklch(0.87 0.047 30)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 30)",
+      "sidebar-accent": "oklch(0.28 0.035 30)",
+      "sidebar-accent-foreground": "oklch(0.9 0.018 45)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.72 0.101 30)"
+    },
+    promptDetails: "Every interactive element is at least 44x44px including icon buttons, checkboxes and table row actions; inputs are 48px tall. Buttons and chips are fully round (`border-radius: 9999px`); cards are 24px, dialogs 28px, inputs 16px. Accents run hot \u2014 82% of the achievable chroma for their hue \u2014 and are used on fills, not just text. Motion is spring-based: `transition: transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1)`, with buttons scaling to 0.96 on press and back with a small overshoot; honour `prefers-reduced-motion` by dropping to a 120ms fade. Shadows are soft and large, `0 8px 24px rgb(0 0 0 / 0.08)`. Spacing is loose: 28px card padding, 20px between fields, 1.6 body line-height."
+  },
+  {
+    id: "ledger",
+    name: "Ledger",
+    character: "A spreadsheet that someone designed: 28px rows, grid lines, no cards.",
+    axes: [
+      "28px table rows and 4px vertical padding \u2014 density is the feature",
+      "Grid lines instead of cards; sections are separated by rules, not boxes",
+      "Tabular figures with aligned decimals in every numeric column",
+      "No motion at all \u2014 sorting and filtering are instant"
+    ],
+    fonts: {
+      display: "IBM Plex Sans",
+      body: "IBM Plex Sans",
+      mono: "IBM Plex Mono"
+    },
+    scaleRatio: 1.125,
+    shape: { control: 3, card: 0, overlay: 6, pill: false },
+    density: "compact",
+    elevationStrategy: "grid",
+    motionModel: "none",
+    inputStyle: "underline",
+    neutralHue: 240,
+    vividness: 35,
+    light: {
+      background: "oklch(0.99 0.003 240)",
+      foreground: "oklch(0.22 0.007 240)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.22 0.007 240)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.22 0.007 240)",
+      primary: "oklch(0.42 0.047 245)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.96 0.004 240)",
+      "secondary-foreground": "oklch(0.3 0.007 240)",
+      muted: "oklch(0.96 0.004 240)",
+      "muted-foreground": "oklch(0.5 0.006 240)",
+      accent: "oklch(0.95 0.004 240)",
+      "accent-foreground": "oklch(0.3 0.007 240)",
+      destructive: "oklch(0.55 0.174 25)",
+      border: "oklch(0.895 0.005 240)",
+      input: "oklch(0.895 0.005 240)",
+      ring: "oklch(0.55 0.058 245)",
+      "chart-1": "oklch(0.62 0.086 245)",
+      "chart-2": "oklch(0.62 0.058 200)",
+      "chart-3": "oklch(0.62 0.084 155)",
+      "chart-4": "oklch(0.62 0.07 85)",
+      "chart-5": "oklch(0.62 0.138 25)",
+      sidebar: "oklch(0.985 0.003 240)",
+      "sidebar-foreground": "oklch(0.22 0.007 240)",
+      "sidebar-primary": "oklch(0.42 0.047 245)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.95 0.004 240)",
+      "sidebar-accent-foreground": "oklch(0.3 0.007 240)",
+      "sidebar-border": "oklch(0.895 0.005 240)",
+      "sidebar-ring": "oklch(0.55 0.058 245)"
+    },
+    dark: {
+      background: "oklch(0.155 0.005 240)",
+      foreground: "oklch(0.94 0.009 240)",
+      card: "oklch(0.185 0.005 240)",
+      "card-foreground": "oklch(0.94 0.009 240)",
+      popover: "oklch(0.215 0.005 240)",
+      "popover-foreground": "oklch(0.94 0.009 240)",
+      primary: "oklch(0.555 0.07 245)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.235 0.005 240)",
+      "secondary-foreground": "oklch(0.9 0.009 240)",
+      muted: "oklch(0.235 0.005 240)",
+      "muted-foreground": "oklch(0.8 0.007 240)",
+      accent: "oklch(0.28 0.005 240)",
+      "accent-foreground": "oklch(0.9 0.009 240)",
+      destructive: "oklch(0.63 0.169 25)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.64 0.058 245)",
+      "chart-1": "oklch(0.71 0.078 245)",
+      "chart-2": "oklch(0.71 0.058 200)",
+      "chart-3": "oklch(0.71 0.084 155)",
+      "chart-4": "oklch(0.71 0.07 85)",
+      "chart-5": "oklch(0.71 0.087 25)",
+      sidebar: "oklch(0.17 0.005 240)",
+      "sidebar-foreground": "oklch(0.94 0.009 240)",
+      "sidebar-primary": "oklch(0.555 0.07 245)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.235 0.005 240)",
+      "sidebar-accent-foreground": "oklch(0.9 0.009 240)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.64 0.058 245)"
+    },
+    promptDetails: "Table rows are 28px tall with 4px vertical and 12px horizontal padding; the header row is sticky, 32px, and uppercase at 11px with 0.06em tracking. Data lives in a grid: 1px lines on every row boundary and on column boundaries in numeric regions, no card wrapper, no shadow, no radius on the table (controls get 3px, dialogs 6px). Numbers use `font-variant-numeric: tabular-nums`, right-aligned, decimals aligned, negatives in the destructive colour with a leading minus rather than parentheses. Type is 13px body on a 1.125 scale \u2014 headings barely differ in size and carry weight instead. Nothing animates: sorts, filters and pagination repaint immediately, and hover is a background change with no transition."
+  },
+  {
+    id: "quarto",
+    name: "Quarto",
+    character: "A page, not a screen: serif display, one column, rules instead of boxes.",
+    axes: [
+      "Serif display against a serif text face, 1.5 scale ratio",
+      "68-character measure, held even on wide viewports",
+      "Chroma near zero \u2014 colour appears only in links and errors",
+      "Horizontal rules do all the dividing; nothing is a card"
+    ],
+    fonts: {
+      display: "Playfair Display",
+      body: "Source Serif 4",
+      mono: "Courier Prime"
+    },
+    scaleRatio: 1.5,
+    shape: { control: 0, card: 0, overlay: 2, pill: false },
+    density: "spacious",
+    elevationStrategy: "hairline",
+    motionModel: "none",
+    inputStyle: "underline",
+    neutralHue: 65,
+    vividness: 12,
+    light: {
+      background: "oklch(0.99 0.003 65)",
+      foreground: "oklch(0.25 0.007 65)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.25 0.007 65)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.25 0.007 65)",
+      primary: "oklch(0.26 0.008 65)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.965 0.004 65)",
+      "secondary-foreground": "oklch(0.3 0.007 65)",
+      muted: "oklch(0.965 0.004 65)",
+      "muted-foreground": "oklch(0.5 0.006 65)",
+      accent: "oklch(0.955 0.004 65)",
+      "accent-foreground": "oklch(0.3 0.007 65)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.88 0.005 65)",
+      input: "oklch(0.88 0.005 65)",
+      ring: "oklch(0.5 0.013 65)",
+      "chart-1": "oklch(0.26 0.006 65)",
+      "chart-2": "oklch(0.42 0.008 65)",
+      "chart-3": "oklch(0.56 0.01 65)",
+      "chart-4": "oklch(0.7 0.011 65)",
+      "chart-5": "oklch(0.55 0.122 25)",
+      sidebar: "oklch(0.985 0.003 65)",
+      "sidebar-foreground": "oklch(0.25 0.007 65)",
+      "sidebar-primary": "oklch(0.26 0.008 65)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.004 65)",
+      "sidebar-accent-foreground": "oklch(0.3 0.007 65)",
+      "sidebar-border": "oklch(0.88 0.005 65)",
+      "sidebar-ring": "oklch(0.5 0.013 65)"
+    },
+    dark: {
+      background: "oklch(0.175 0.005 65)",
+      foreground: "oklch(0.94 0.009 65)",
+      card: "oklch(0.175 0.005 65)",
+      "card-foreground": "oklch(0.94 0.009 65)",
+      popover: "oklch(0.205 0.005 65)",
+      "popover-foreground": "oklch(0.94 0.009 65)",
+      primary: "oklch(0.92 0.005 65)",
+      "primary-foreground": "oklch(0.14 0.015 65)",
+      secondary: "oklch(0.245 0.005 65)",
+      "secondary-foreground": "oklch(0.9 0.009 65)",
+      muted: "oklch(0.245 0.005 65)",
+      "muted-foreground": "oklch(0.8 0.007 65)",
+      accent: "oklch(0.285 0.005 65)",
+      "accent-foreground": "oklch(0.9 0.009 65)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.7 0.016 65)",
+      "chart-1": "oklch(0.92 0.004 65)",
+      "chart-2": "oklch(0.82 0.009 65)",
+      "chart-3": "oklch(0.7 0.009 65)",
+      "chart-4": "oklch(0.58 0.008 65)",
+      "chart-5": "oklch(0.68 0.094 25)",
+      sidebar: "oklch(0.195 0.005 65)",
+      "sidebar-foreground": "oklch(0.94 0.009 65)",
+      "sidebar-primary": "oklch(0.92 0.005 65)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 65)",
+      "sidebar-accent": "oklch(0.245 0.005 65)",
+      "sidebar-accent-foreground": "oklch(0.9 0.009 65)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.7 0.016 65)"
+    },
+    promptDetails: "Body is 19px Source Serif 4 at line-height 1.65 with a 68ch max-width that does not grow on large screens; H1 is Playfair Display at 48px weight 500, and the scale steps by 1.5 so the gap between levels is unmistakable. Nothing is a card: sections are separated by 1px rules with 48px of space above and 24px below, and dialogs are the only rounded thing at 2px. Chroma is essentially zero (0.004\u20130.008) apart from links, which are the ink colour underlined at 1px with a 3px offset, and errors. Paragraph spacing is 1em; no `text-align: justify`; drop the first-line indent. Nothing animates."
+  },
+  {
+    id: "kiosk",
+    name: "Kiosk",
+    character: "Square, loud and unmissable across a room \u2014 with exactly one pill in it.",
+    axes: [
+      "0px radius on every surface; the primary action is the only pill",
+      "Pure neutrals, zero chroma, black-on-white contrast at Lc 100+",
+      "Flat fills only \u2014 no shadow, no gradient, no border on filled things",
+      "2px borders on anything that is not filled"
+    ],
+    fonts: { display: "Archivo Black", body: "Archivo", mono: "Space Mono" },
+    // biome-ignore lint/suspicious/noApproximativeNumericConstant: the augmented-fourth type scale is written 1.414 wherever type scales are discussed; Math.SQRT2 here would obscure that
+    scaleRatio: 1.414,
+    shape: { control: 0, card: 0, overlay: 0, pill: true },
+    density: "compact",
+    elevationStrategy: "hairline",
+    motionModel: "none",
+    inputStyle: "outlined",
+    neutralHue: 0,
+    vividness: 92,
+    light: {
+      background: "oklch(0.99 0 0)",
+      foreground: "oklch(0.16 0 0)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.16 0 0)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.16 0 0)",
+      primary: "oklch(0.89 0.177 102)",
+      "primary-foreground": "oklch(0.14 0.015 102)",
+      secondary: "oklch(0.95 0 0)",
+      "secondary-foreground": "oklch(0.16 0 0)",
+      muted: "oklch(0.95 0 0)",
+      "muted-foreground": "oklch(0.44 0 0)",
+      accent: "oklch(0.93 0 0)",
+      "accent-foreground": "oklch(0.16 0 0)",
+      destructive: "oklch(0.55 0.176 29)",
+      border: "oklch(0.75 0 0)",
+      input: "oklch(0.75 0 0)",
+      ring: "oklch(0.55 0.103 102)",
+      "chart-1": "oklch(0.86 0.165 102)",
+      "chart-2": "oklch(0.52 0.129 250)",
+      "chart-3": "oklch(0.58 0.219 29)",
+      "chart-4": "oklch(0.62 0.15 150)",
+      "chart-5": "oklch(0.55 0.232 320)",
+      sidebar: "oklch(0.985 0 0)",
+      "sidebar-foreground": "oklch(0.16 0 0)",
+      "sidebar-primary": "oklch(0.89 0.177 102)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 102)",
+      "sidebar-accent": "oklch(0.93 0 0)",
+      "sidebar-accent-foreground": "oklch(0.16 0 0)",
+      "sidebar-border": "oklch(0.75 0 0)",
+      "sidebar-ring": "oklch(0.55 0.103 102)"
+    },
+    dark: {
+      background: "oklch(0.13 0 0)",
+      foreground: "oklch(0.98 0 0)",
+      card: "oklch(0.17 0 0)",
+      "card-foreground": "oklch(0.98 0 0)",
+      popover: "oklch(0.2 0 0)",
+      "popover-foreground": "oklch(0.98 0 0)",
+      primary: "oklch(0.89 0.171 102)",
+      "primary-foreground": "oklch(0.14 0.015 102)",
+      secondary: "oklch(0.24 0 0)",
+      "secondary-foreground": "oklch(0.98 0 0)",
+      muted: "oklch(0.24 0 0)",
+      "muted-foreground": "oklch(0.8 0 0)",
+      accent: "oklch(0.3 0 0)",
+      "accent-foreground": "oklch(0.98 0 0)",
+      destructive: "oklch(0.63 0.169 29)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.7 0.117 102)",
+      "chart-1": "oklch(0.88 0.162 102)",
+      "chart-2": "oklch(0.66 0.142 250)",
+      "chart-3": "oklch(0.65 0.193 29)",
+      "chart-4": "oklch(0.72 0.151 150)",
+      "chart-5": "oklch(0.65 0.241 320)",
+      sidebar: "oklch(0.15 0 0)",
+      "sidebar-foreground": "oklch(0.98 0 0)",
+      "sidebar-primary": "oklch(0.89 0.171 102)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 102)",
+      "sidebar-accent": "oklch(0.24 0 0)",
+      "sidebar-accent-foreground": "oklch(0.98 0 0)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.7 0.117 102)"
+    },
+    promptDetails: "`border-radius: 0` on every element \u2014 buttons, inputs, cards, dialogs, avatars, badges \u2014 with exactly one exception: the single primary action per screen is a full pill. Neutrals have zero chroma; text is Lc 100+ against its background in both modes. Fills are flat: no shadow, no gradient, no inner border on a filled control. Anything unfilled carries a 2px solid border in the foreground colour. Type is Archivo Black at 48px+ for display on a 1.414 scale, uppercase for buttons and labels at 0.04em tracking; body is 15px Archivo. Controls are 44px tall with 20px horizontal padding. Nothing animates, hover inverts foreground and background outright."
+  },
+  {
+    id: "phosphor",
+    name: "Phosphor",
+    character: "A dark screen with one green on it, and glow where a shadow would be.",
+    axes: [
+      "Dark mode is the design; light mode is the port",
+      "One signal hue at 150 \u2014 every accent is a lightness of it",
+      "Glow instead of shadow: coloured outer glow at 12% on raised things",
+      "2px/4px radii, mono figures, 1.2 scale"
+    ],
+    fonts: {
+      display: "Space Grotesk",
+      body: "Space Grotesk",
+      mono: "JetBrains Mono"
+    },
+    scaleRatio: 1.2,
+    shape: { control: 2, card: 4, overlay: 4, pill: false },
+    density: "compact",
+    elevationStrategy: "shadow",
+    motionModel: "duration",
+    inputStyle: "borderless",
+    neutralHue: 155,
+    vividness: 75,
+    light: {
+      background: "oklch(0.99 0.003 155)",
+      foreground: "oklch(0.23 0.011 155)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.23 0.011 155)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.23 0.011 155)",
+      primary: "oklch(0.5 0.099 150)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.955 0.006 155)",
+      "secondary-foreground": "oklch(0.3 0.011 155)",
+      muted: "oklch(0.955 0.006 155)",
+      "muted-foreground": "oklch(0.5 0.008 155)",
+      accent: "oklch(0.945 0.006 155)",
+      "accent-foreground": "oklch(0.3 0.011 155)",
+      destructive: "oklch(0.55 0.174 25)",
+      border: "oklch(0.9 0.007 155)",
+      input: "oklch(0.9 0.007 155)",
+      ring: "oklch(0.6 0.109 150)",
+      "chart-1": "oklch(0.55 0.106 150)",
+      "chart-2": "oklch(0.62 0.075 168)",
+      "chart-3": "oklch(0.68 0.104 132)",
+      "chart-4": "oklch(0.6 0.056 195)",
+      "chart-5": "oklch(0.65 0.08 95)",
+      sidebar: "oklch(0.985 0.003 155)",
+      "sidebar-foreground": "oklch(0.23 0.011 155)",
+      "sidebar-primary": "oklch(0.5 0.099 150)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.945 0.006 155)",
+      "sidebar-accent-foreground": "oklch(0.3 0.011 155)",
+      "sidebar-border": "oklch(0.9 0.007 155)",
+      "sidebar-ring": "oklch(0.6 0.109 150)"
+    },
+    dark: {
+      background: "oklch(0.14 0.012 155)",
+      foreground: "oklch(0.95 0.022 155)",
+      card: "oklch(0.175 0.012 155)",
+      "card-foreground": "oklch(0.95 0.022 155)",
+      popover: "oklch(0.2 0.012 155)",
+      "popover-foreground": "oklch(0.95 0.022 155)",
+      primary: "oklch(0.86 0.147 150)",
+      "primary-foreground": "oklch(0.14 0.015 150)",
+      secondary: "oklch(0.24 0.012 155)",
+      "secondary-foreground": "oklch(0.9 0.022 155)",
+      muted: "oklch(0.24 0.012 155)",
+      "muted-foreground": "oklch(0.805 0.017 155)",
+      accent: "oklch(0.29 0.012 155)",
+      "accent-foreground": "oklch(0.9 0.022 155)",
+      destructive: "oklch(0.63 0.169 25)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.8 0.121 150)",
+      "chart-1": "oklch(0.85 0.145 150)",
+      "chart-2": "oklch(0.76 0.08 168)",
+      "chart-3": "oklch(0.68 0.09 132)",
+      "chart-4": "oklch(0.72 0.056 195)",
+      "chart-5": "oklch(0.8 0.085 95)",
+      sidebar: "oklch(0.155 0.012 155)",
+      "sidebar-foreground": "oklch(0.95 0.022 155)",
+      "sidebar-primary": "oklch(0.86 0.147 150)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 150)",
+      "sidebar-accent": "oklch(0.24 0.012 155)",
+      "sidebar-accent-foreground": "oklch(0.9 0.022 155)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.8 0.121 150)"
+    },
+    promptDetails: "Design the dark mode first and derive the light one from it; the dark background is OKLCH 0.14 with a green cast (chroma 0.012 at hue 155), never a pure grey. One signal hue, 150: primary, focus, links, success and every chart series are lightnesses of it \u2014 an unrelated hue appears only for destructive. Raised surfaces glow rather than cast: `box-shadow: 0 0 0 1px oklch(0.86 0.16 150 / 0.18), 0 0 24px oklch(0.86 0.16 150 / 0.12)` on the active panel, no downward offset anywhere. Radii are 2px on controls, 4px on cards and dialogs. All numerals and IDs are JetBrains Mono; body is 14px on a 1.2 scale. Transitions are 100ms linear, so the interface feels wired rather than animated."
+  },
+  {
+    id: "aurora",
+    name: "Aurora",
+    character: "Tonal surfaces, a five-step shape scale, and motion that carries weight.",
+    axes: [
+      "Five shape steps \u2014 4 / 8 / 12 / 20 / 28px, assigned by element size",
+      "Elevation is tone: raised surfaces are tinted with the primary hue, not shadowed",
+      "Spring motion, 300ms, on anything that changes position",
+      "Full-round actions against 12px cards"
+    ],
+    fonts: { display: "Outfit", body: "DM Sans", mono: "DM Mono" },
+    scaleRatio: 1.333,
+    shape: { control: 20, card: 12, overlay: 28, pill: true },
+    density: "comfortable",
+    elevationStrategy: "tinted",
+    motionModel: "spring",
+    inputStyle: "floating",
+    neutralHue: 295,
+    vividness: 70,
+    light: {
+      background: "oklch(0.99 0.003 295)",
+      foreground: "oklch(0.25 0.022 295)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.25 0.022 295)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.25 0.022 295)",
+      primary: "oklch(0.5 0.198 295)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.955 0.012 295)",
+      "secondary-foreground": "oklch(0.3 0.022 295)",
+      muted: "oklch(0.955 0.012 295)",
+      "muted-foreground": "oklch(0.52 0.017 295)",
+      accent: "oklch(0.94 0.031 295)",
+      "accent-foreground": "oklch(0.3 0.022 295)",
+      destructive: "oklch(0.55 0.174 25)",
+      border: "oklch(0.9 0.014 295)",
+      input: "oklch(0.9 0.014 295)",
+      ring: "oklch(0.62 0.139 295)",
+      "chart-1": "oklch(0.62 0.157 295)",
+      "chart-2": "oklch(0.62 0.139 255)",
+      "chart-3": "oklch(0.62 0.071 200)",
+      "chart-4": "oklch(0.62 0.104 155)",
+      "chart-5": "oklch(0.62 0.171 25)",
+      sidebar: "oklch(0.985 0.003 295)",
+      "sidebar-foreground": "oklch(0.25 0.022 295)",
+      "sidebar-primary": "oklch(0.5 0.198 295)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.94 0.031 295)",
+      "sidebar-accent-foreground": "oklch(0.3 0.022 295)",
+      "sidebar-border": "oklch(0.9 0.014 295)",
+      "sidebar-ring": "oklch(0.62 0.139 295)"
+    },
+    dark: {
+      background: "oklch(0.17 0.016 295)",
+      foreground: "oklch(0.94 0.029 295)",
+      card: "oklch(0.215 0.016 295)",
+      "card-foreground": "oklch(0.94 0.029 295)",
+      popover: "oklch(0.245 0.016 295)",
+      "popover-foreground": "oklch(0.94 0.029 295)",
+      primary: "oklch(0.88 0.038 295)",
+      "primary-foreground": "oklch(0.14 0.015 295)",
+      secondary: "oklch(0.27 0.016 295)",
+      "secondary-foreground": "oklch(0.9 0.029 295)",
+      muted: "oklch(0.27 0.016 295)",
+      "muted-foreground": "oklch(0.81 0.022 295)",
+      accent: "oklch(0.33 0.056 295)",
+      "accent-foreground": "oklch(0.9 0.029 295)",
+      destructive: "oklch(0.63 0.169 25)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.72 0.085 295)",
+      "chart-1": "oklch(0.71 0.095 295)",
+      "chart-2": "oklch(0.71 0.086 255)",
+      "chart-3": "oklch(0.71 0.068 200)",
+      "chart-4": "oklch(0.71 0.098 155)",
+      "chart-5": "oklch(0.71 0.102 25)",
+      sidebar: "oklch(0.2 0.016 295)",
+      "sidebar-foreground": "oklch(0.94 0.029 295)",
+      "sidebar-primary": "oklch(0.88 0.038 295)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 295)",
+      "sidebar-accent": "oklch(0.27 0.056 295)",
+      "sidebar-accent-foreground": "oklch(0.9 0.029 295)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.72 0.085 295)"
+    },
+    promptDetails: "Shape is a five-step scale \u2014 4px on chips and badges, 8px on inputs, 12px on cards, 20px on buttons, 28px on dialogs and sheets \u2014 and the step is chosen by the element's size, never by taste. Elevation is tonal: each level up is a surface tinted further toward the primary hue (light 0.99 / 0.975 / 0.955, dark 0.17 / 0.215 / 0.245 with chroma 0.012\u20130.016 at hue 295), with shadow reserved for the one floating action. Buttons and FABs are fully round. Motion is spring, `cubic-bezier(0.2, 0, 0, 1)` over 300ms for anything that changes position or size, 150ms for colour; state layers on hover and press are the primary at 8% and 12%. Type steps by 1.333 from a 16px body; DM Mono for numerals."
+  },
+  {
+    id: "vellum",
+    name: "Vellum",
+    character: "Warm paper, a slab display, and a hard offset edge instead of a blur.",
+    axes: [
+      "No pure white and no pure black \u2014 the lightest surface is 0.985",
+      "Offset border shadow: 2px 2px 0 in the border colour, never blurred",
+      "Slab display against a low-contrast humanist text face",
+      "Neutrals carry real warmth at chroma 0.014, hue 78"
+    ],
+    fonts: { display: "Zilla Slab", body: "Karla", mono: "Anonymous Pro" },
+    scaleRatio: 1.25,
+    shape: { control: 4, card: 6, overlay: 8, pill: false },
+    density: "comfortable",
+    elevationStrategy: "offset",
+    motionModel: "duration",
+    inputStyle: "inset",
+    neutralHue: 78,
+    vividness: 30,
+    light: {
+      background: "oklch(0.99 0.003 78)",
+      foreground: "oklch(0.26 0.025 78)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.26 0.025 78)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.26 0.025 78)",
+      primary: "oklch(0.42 0.059 40)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.95 0.014 78)",
+      "secondary-foreground": "oklch(0.3 0.025 78)",
+      muted: "oklch(0.95 0.014 78)",
+      "muted-foreground": "oklch(0.51 0.02 78)",
+      accent: "oklch(0.935 0.014 78)",
+      "accent-foreground": "oklch(0.3 0.025 78)",
+      destructive: "oklch(0.55 0.173 22)",
+      border: "oklch(0.86 0.017 78)",
+      input: "oklch(0.86 0.017 78)",
+      ring: "oklch(0.58 0.073 40)",
+      "chart-1": "oklch(0.62 0.087 40)",
+      "chart-2": "oklch(0.62 0.058 78)",
+      "chart-3": "oklch(0.62 0.077 150)",
+      "chart-4": "oklch(0.62 0.07 245)",
+      "chart-5": "oklch(0.62 0.111 15)",
+      sidebar: "oklch(0.985 0.003 78)",
+      "sidebar-foreground": "oklch(0.26 0.025 78)",
+      "sidebar-primary": "oklch(0.42 0.059 40)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.935 0.014 78)",
+      "sidebar-accent-foreground": "oklch(0.3 0.025 78)",
+      "sidebar-border": "oklch(0.86 0.017 78)",
+      "sidebar-ring": "oklch(0.58 0.073 40)"
+    },
+    dark: {
+      background: "oklch(0.19 0.016 78)",
+      foreground: "oklch(0.93 0.029 78)",
+      card: "oklch(0.235 0.016 78)",
+      "card-foreground": "oklch(0.93 0.029 78)",
+      popover: "oklch(0.26 0.016 78)",
+      "popover-foreground": "oklch(0.93 0.029 78)",
+      primary: "oklch(0.86 0.028 40)",
+      "primary-foreground": "oklch(0.14 0.015 40)",
+      secondary: "oklch(0.28 0.016 78)",
+      "secondary-foreground": "oklch(0.9 0.029 78)",
+      muted: "oklch(0.28 0.016 78)",
+      "muted-foreground": "oklch(0.815 0.022 78)",
+      accent: "oklch(0.335 0.016 78)",
+      "accent-foreground": "oklch(0.9 0.029 78)",
+      destructive: "oklch(0.63 0.167 22)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.7 0.063 40)",
+      "chart-1": "oklch(0.71 0.075 40)",
+      "chart-2": "oklch(0.71 0.059 78)",
+      "chart-3": "oklch(0.71 0.078 150)",
+      "chart-4": "oklch(0.71 0.065 245)",
+      "chart-5": "oklch(0.71 0.074 15)",
+      sidebar: "oklch(0.22 0.016 78)",
+      "sidebar-foreground": "oklch(0.93 0.029 78)",
+      "sidebar-primary": "oklch(0.86 0.028 40)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 40)",
+      "sidebar-accent": "oklch(0.28 0.016 78)",
+      "sidebar-accent-foreground": "oklch(0.9 0.029 78)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.7 0.063 40)"
+    },
+    promptDetails: "No pure white and no pure black: the lightest surface is OKLCH 0.985 and the darkest 0.19, both carrying chroma 0.014\u20130.016 at hue 78, so every neutral is a paper tone. Elevation is a hard offset edge \u2014 `box-shadow: 2px 2px 0 var(--border)` with no blur and no alpha \u2014 on cards, popovers and pressed states, which shift to `1px 1px 0` and translate 1px. Radii are 4px control, 6px card, 8px overlay. Headings are Zilla Slab at weight 600 with 0 tracking; body is 16px Karla at 1.6. Borders are 1px and comparatively dark (0.86) because the offset shadow is drawn from them. Transitions 180ms ease-out on transform and shadow together."
+  },
+  {
+    id: "meridian",
+    name: "Meridian",
+    character: "Cool blue-grey steps, geometric caps, and labels set wide.",
+    axes: [
+      "Blue-grey neutrals at hue 245 \u2014 the greys are visibly cool",
+      "Surface ladder in four steps, no shadow below the overlay layer",
+      "0.08em tracking on every uppercase label and table header",
+      "Geometric display against a neutral text face"
+    ],
+    fonts: { display: "Jost", body: "Manrope", mono: "Roboto Mono" },
+    scaleRatio: 1.2,
+    shape: { control: 6, card: 10, overlay: 14, pill: false },
+    density: "comfortable",
+    elevationStrategy: "ladder",
+    motionModel: "duration",
+    inputStyle: "filled",
+    neutralHue: 245,
+    vividness: 45,
+    light: {
+      background: "oklch(0.99 0.003 245)",
+      foreground: "oklch(0.24 0.014 245)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.014 245)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.014 245)",
+      primary: "oklch(0.48 0.053 235)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.955 0.008 245)",
+      "secondary-foreground": "oklch(0.3 0.014 245)",
+      muted: "oklch(0.955 0.008 245)",
+      "muted-foreground": "oklch(0.52 0.011 245)",
+      accent: "oklch(0.945 0.008 245)",
+      "accent-foreground": "oklch(0.3 0.014 245)",
+      destructive: "oklch(0.55 0.174 25)",
+      border: "oklch(0.905 0.01 245)",
+      input: "oklch(0.905 0.01 245)",
+      ring: "oklch(0.6 0.061 235)",
+      "chart-1": "oklch(0.62 0.076 235)",
+      "chart-2": "oklch(0.62 0.061 200)",
+      "chart-3": "oklch(0.62 0.118 268)",
+      "chart-4": "oklch(0.62 0.075 165)",
+      "chart-5": "oklch(0.62 0.144 30)",
+      sidebar: "oklch(0.985 0.003 245)",
+      "sidebar-foreground": "oklch(0.24 0.014 245)",
+      "sidebar-primary": "oklch(0.48 0.053 235)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.945 0.008 245)",
+      "sidebar-accent-foreground": "oklch(0.3 0.014 245)",
+      "sidebar-border": "oklch(0.905 0.01 245)",
+      "sidebar-ring": "oklch(0.6 0.061 235)"
+    },
+    dark: {
+      background: "oklch(0.17 0.01 245)",
+      foreground: "oklch(0.94 0.018 245)",
+      card: "oklch(0.205 0.01 245)",
+      "card-foreground": "oklch(0.94 0.018 245)",
+      popover: "oklch(0.24 0.01 245)",
+      "popover-foreground": "oklch(0.94 0.018 245)",
+      primary: "oklch(0.55 0.06 235)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.26 0.01 245)",
+      "secondary-foreground": "oklch(0.9 0.018 245)",
+      muted: "oklch(0.26 0.01 245)",
+      "muted-foreground": "oklch(0.805 0.014 245)",
+      accent: "oklch(0.31 0.01 245)",
+      "accent-foreground": "oklch(0.9 0.018 245)",
+      destructive: "oklch(0.63 0.169 25)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.059 235)",
+      "chart-1": "oklch(0.71 0.075 235)",
+      "chart-2": "oklch(0.71 0.06 200)",
+      "chart-3": "oklch(0.71 0.075 268)",
+      "chart-4": "oklch(0.71 0.074 165)",
+      "chart-5": "oklch(0.71 0.092 30)",
+      sidebar: "oklch(0.19 0.01 245)",
+      "sidebar-foreground": "oklch(0.94 0.018 245)",
+      "sidebar-primary": "oklch(0.55 0.06 235)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.26 0.01 245)",
+      "sidebar-accent-foreground": "oklch(0.9 0.018 245)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.059 235)"
+    },
+    promptDetails: "Neutrals are cool: chroma 0.008\u20130.010 at OKLCH hue 245, so a grey card next to a warm photo reads blue on purpose. Four surfaces in a ladder \u2014 0.985 page, 1.0 card, 1.0 popover, 0.955 inset in light; 0.17 / 0.205 / 0.24 / 0.26 in dark \u2014 with shadow allowed only on the overlay layer and never on cards. Uppercase labels, table headers and button text carry 0.08em tracking at 11\u201312px weight 500; sentence-case body does not. Headings are Jost with -0.015em tracking; body is 15px Manrope at 1.55. Radii 6 / 10 / 14px. Transitions 140ms ease-out; the focus ring is a 2px outline with a 2px offset."
+  },
+  {
+    id: "orchard",
+    name: "Orchard",
+    character: "Five fruit tones, one to a screen, over softly tinted cards.",
+    axes: [
+      "A five-hue accent set with a strict budget: one accent per screen",
+      "Cards are tinted toward the accent, not white",
+      "Humanist sans, 1.25 scale, 12/18/20px radii",
+      "Spring motion at 220ms on entry only"
+    ],
+    fonts: { display: "Rubik", body: "Work Sans", mono: "Fira Code" },
+    scaleRatio: 1.25,
+    shape: { control: 12, card: 18, overlay: 20, pill: false },
+    density: "comfortable",
+    elevationStrategy: "tinted",
+    motionModel: "spring",
+    inputStyle: "floating",
+    neutralHue: 35,
+    vividness: 68,
+    light: {
+      background: "oklch(0.99 0.003 35)",
+      foreground: "oklch(0.25 0.014 35)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.25 0.014 35)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.25 0.014 35)",
+      primary: "oklch(0.52 0.151 22)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.955 0.008 35)",
+      "secondary-foreground": "oklch(0.3 0.014 35)",
+      muted: "oklch(0.955 0.008 35)",
+      "muted-foreground": "oklch(0.52 0.011 35)",
+      accent: "oklch(0.94 0.028 22)",
+      "accent-foreground": "oklch(0.3 0.014 35)",
+      destructive: "oklch(0.55 0.173 22)",
+      border: "oklch(0.9 0.01 35)",
+      input: "oklch(0.9 0.01 35)",
+      ring: "oklch(0.62 0.155 22)",
+      "chart-1": "oklch(0.62 0.165 22)",
+      "chart-2": "oklch(0.62 0.09 68)",
+      "chart-3": "oklch(0.62 0.129 145)",
+      "chart-4": "oklch(0.62 0.186 330)",
+      "chart-5": "oklch(0.62 0.141 285)",
+      sidebar: "oklch(0.985 0.003 35)",
+      "sidebar-foreground": "oklch(0.25 0.014 35)",
+      "sidebar-primary": "oklch(0.52 0.151 22)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.94 0.028 22)",
+      "sidebar-accent-foreground": "oklch(0.3 0.014 35)",
+      "sidebar-border": "oklch(0.9 0.01 35)",
+      "sidebar-ring": "oklch(0.62 0.155 22)"
+    },
+    dark: {
+      background: "oklch(0.175 0.01 35)",
+      foreground: "oklch(0.94 0.018 35)",
+      card: "oklch(0.22 0.01 35)",
+      "card-foreground": "oklch(0.94 0.018 35)",
+      popover: "oklch(0.25 0.01 35)",
+      "popover-foreground": "oklch(0.94 0.018 35)",
+      primary: "oklch(0.86 0.045 22)",
+      "primary-foreground": "oklch(0.14 0.015 22)",
+      secondary: "oklch(0.27 0.01 35)",
+      "secondary-foreground": "oklch(0.9 0.018 35)",
+      muted: "oklch(0.27 0.01 35)",
+      "muted-foreground": "oklch(0.81 0.014 35)",
+      accent: "oklch(0.33 0.035 22)",
+      "accent-foreground": "oklch(0.9 0.018 35)",
+      destructive: "oklch(0.63 0.167 22)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.72 0.094 22)",
+      "chart-1": "oklch(0.71 0.102 22)",
+      "chart-2": "oklch(0.71 0.087 68)",
+      "chart-3": "oklch(0.71 0.125 145)",
+      "chart-4": "oklch(0.71 0.168 330)",
+      "chart-5": "oklch(0.71 0.088 285)",
+      sidebar: "oklch(0.205 0.01 35)",
+      "sidebar-foreground": "oklch(0.94 0.018 35)",
+      "sidebar-primary": "oklch(0.86 0.045 22)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 22)",
+      "sidebar-accent": "oklch(0.27 0.035 22)",
+      "sidebar-accent-foreground": "oklch(0.9 0.018 35)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.72 0.094 22)"
+    },
+    promptDetails: "The accent set is five hues \u2014 OKLCH 22, 68, 145, 330, 285 \u2014 and the budget is one per screen: a screen picks its accent from the set and uses no other, so a five-colour system never appears five colours at once. Charts are the one exception. Cards are tinted rather than white: light 0.975 and dark 0.22 with chroma about 0.028 at the accent hue, with a 1px border half a step darker and no shadow. Radii are 12px control, 18px card, 20px dialog. Type is Rubik display over Work Sans body, 16px at 1.55, scale 1.25. Entry motion is a spring \u2014 220ms `cubic-bezier(0.34, 1.4, 0.64, 1)` with a 4px rise \u2014 while exits are a flat 120ms fade."
+  },
+  {
+    id: "foundry",
+    name: "Foundry",
+    character: "Machined: mono headings, heavy rules, square everything but the dialogs.",
+    axes: [
+      "Mono display at every heading level, uppercase, 0.02em tracking",
+      "2px rules as structure \u2014 the grid is visible and load-bearing",
+      "0px radius on controls and cards; only overlays get 10px",
+      "Primary is steel; the only saturated colour is a warning"
+    ],
+    fonts: { display: "Roboto Mono", body: "Barlow", mono: "Roboto Mono" },
+    scaleRatio: 1.15,
+    shape: { control: 0, card: 0, overlay: 10, pill: false },
+    density: "compact",
+    elevationStrategy: "grid",
+    motionModel: "duration",
+    inputStyle: "outlined",
+    neutralHue: 250,
+    vividness: 55,
+    light: {
+      background: "oklch(0.99 0.003 250)",
+      foreground: "oklch(0.22 0.011 250)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.22 0.011 250)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.22 0.011 250)",
+      primary: "oklch(0.3 0.012 250)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.95 0.006 250)",
+      "secondary-foreground": "oklch(0.3 0.011 250)",
+      muted: "oklch(0.95 0.006 250)",
+      "muted-foreground": "oklch(0.49 0.008 250)",
+      accent: "oklch(0.94 0.006 250)",
+      "accent-foreground": "oklch(0.3 0.011 250)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.84 0.007 250)",
+      input: "oklch(0.84 0.007 250)",
+      ring: "oklch(0.5 0.028 250)",
+      "chart-1": "oklch(0.62 0.138 45)",
+      "chart-2": "oklch(0.62 0.07 250)",
+      "chart-3": "oklch(0.62 0.052 200)",
+      "chart-4": "oklch(0.62 0.059 105)",
+      "chart-5": "oklch(0.62 0.161 15)",
+      sidebar: "oklch(0.985 0.003 250)",
+      "sidebar-foreground": "oklch(0.22 0.011 250)",
+      "sidebar-primary": "oklch(0.3 0.012 250)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.94 0.006 250)",
+      "sidebar-accent-foreground": "oklch(0.3 0.011 250)",
+      "sidebar-border": "oklch(0.84 0.007 250)",
+      "sidebar-ring": "oklch(0.5 0.028 250)"
+    },
+    dark: {
+      background: "oklch(0.16 0.007 250)",
+      foreground: "oklch(0.94 0.013 250)",
+      card: "oklch(0.2 0.007 250)",
+      "card-foreground": "oklch(0.94 0.013 250)",
+      popover: "oklch(0.23 0.007 250)",
+      "popover-foreground": "oklch(0.94 0.013 250)",
+      primary: "oklch(0.9 0.005 250)",
+      "primary-foreground": "oklch(0.14 0.015 250)",
+      secondary: "oklch(0.255 0.007 250)",
+      "secondary-foreground": "oklch(0.9 0.013 250)",
+      muted: "oklch(0.255 0.007 250)",
+      "muted-foreground": "oklch(0.805 0.01 250)",
+      accent: "oklch(0.3 0.007 250)",
+      "accent-foreground": "oklch(0.9 0.013 250)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.68 0.032 250)",
+      "chart-1": "oklch(0.71 0.128 45)",
+      "chart-2": "oklch(0.71 0.053 250)",
+      "chart-3": "oklch(0.71 0.051 200)",
+      "chart-4": "oklch(0.71 0.057 105)",
+      "chart-5": "oklch(0.71 0.102 15)",
+      sidebar: "oklch(0.18 0.007 250)",
+      "sidebar-foreground": "oklch(0.94 0.013 250)",
+      "sidebar-primary": "oklch(0.9 0.005 250)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 250)",
+      "sidebar-accent": "oklch(0.255 0.007 250)",
+      "sidebar-accent-foreground": "oklch(0.9 0.013 250)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.68 0.032 250)"
+    },
+    promptDetails: "Headings at every level are Roboto Mono, uppercase, weight 500, 0.02em tracking; body is Barlow at 14px, line-height 1.5, scale 1.15 so the hierarchy is carried by case and weight rather than size. Structure is drawn: 2px rules under headers and around table regions, 1px inside them, and the page uses a visible 8-column grid on wide viewports. `border-radius: 0` on controls, inputs, cards and tables; dialogs and sheets alone get 10px. The primary is steel (OKLCH 0.30 chroma 0.008) \u2014 saturation is reserved for warnings and the first chart series, a safety orange at hue 45. No shadows. Transitions are 120ms linear on colour only."
+  },
+  {
+    id: "lumen",
+    name: "Lumen",
+    character: "Translucent panels over a tinted ground, with plenty of room around them.",
+    axes: [
+      "Glass surfaces: translucent fills with a 16px backdrop blur",
+      "Pastel tints at 25% of the achievable chroma \u2014 nothing is saturated",
+      "Spacious: 32px card padding, 24px gaps, 1.65 body line-height",
+      "14/20/24px radii and a 1px light-catching top border"
+    ],
+    fonts: {
+      display: "Plus Jakarta Sans",
+      body: "Plus Jakarta Sans",
+      mono: "Fira Code"
+    },
+    scaleRatio: 1.333,
+    shape: { control: 14, card: 20, overlay: 24, pill: false },
+    density: "spacious",
+    elevationStrategy: "glass",
+    motionModel: "spring",
+    inputStyle: "filled",
+    neutralHue: 265,
+    vividness: 25,
+    light: {
+      background: "oklch(0.99 0.003 265)",
+      foreground: "oklch(0.26 0.013 265)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.26 0.013 265)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.26 0.013 265)",
+      primary: "oklch(0.54 0.081 265)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.955 0.007 265)",
+      "secondary-foreground": "oklch(0.3 0.013 265)",
+      muted: "oklch(0.955 0.007 265)",
+      "muted-foreground": "oklch(0.52 0.01 265)",
+      accent: "oklch(0.945 0.025 265)",
+      "accent-foreground": "oklch(0.3 0.013 265)",
+      destructive: "oklch(0.55 0.174 25)",
+      border: "oklch(0.9 0.008 265)",
+      input: "oklch(0.9 0.008 265)",
+      ring: "oklch(0.65 0.056 265)",
+      "chart-1": "oklch(0.62 0.082 265)",
+      "chart-2": "oklch(0.62 0.044 215)",
+      "chart-3": "oklch(0.62 0.119 320)",
+      "chart-4": "oklch(0.62 0.047 175)",
+      "chart-5": "oklch(0.62 0.071 45)",
+      sidebar: "oklch(0.985 0.003 265)",
+      "sidebar-foreground": "oklch(0.26 0.013 265)",
+      "sidebar-primary": "oklch(0.54 0.081 265)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.945 0.025 265)",
+      "sidebar-accent-foreground": "oklch(0.3 0.013 265)",
+      "sidebar-border": "oklch(0.9 0.008 265)",
+      "sidebar-ring": "oklch(0.65 0.056 265)"
+    },
+    dark: {
+      background: "oklch(0.2 0.009 265)",
+      foreground: "oklch(0.94 0.016 265)",
+      card: "oklch(0.245 0.009 265)",
+      "card-foreground": "oklch(0.94 0.016 265)",
+      popover: "oklch(0.28 0.009 265)",
+      "popover-foreground": "oklch(0.94 0.016 265)",
+      primary: "oklch(0.86 0.018 265)",
+      "primary-foreground": "oklch(0.14 0.015 265)",
+      secondary: "oklch(0.29 0.009 265)",
+      "secondary-foreground": "oklch(0.9 0.016 265)",
+      muted: "oklch(0.29 0.009 265)",
+      "muted-foreground": "oklch(0.815 0.013 265)",
+      accent: "oklch(0.35 0.032 265)",
+      "accent-foreground": "oklch(0.9 0.016 265)",
+      destructive: "oklch(0.63 0.169 25)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.7 0.041 265)",
+      "chart-1": "oklch(0.71 0.054 265)",
+      "chart-2": "oklch(0.71 0.045 215)",
+      "chart-3": "oklch(0.71 0.089 320)",
+      "chart-4": "oklch(0.71 0.048 175)",
+      "chart-5": "oklch(0.71 0.07 45)",
+      sidebar: "oklch(0.23 0.009 265)",
+      "sidebar-foreground": "oklch(0.94 0.016 265)",
+      "sidebar-primary": "oklch(0.86 0.018 265)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 265)",
+      "sidebar-accent": "oklch(0.29 0.032 265)",
+      "sidebar-accent-foreground": "oklch(0.9 0.016 265)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.7 0.041 265)"
+    },
+    promptDetails: "Panels are glass: `background: color-mix(in oklch, var(--card) 72%, transparent)` with `backdrop-filter: blur(16px) saturate(1.2)`, a 1px border at 60% and a lighter 1px inset along the top edge to catch light. In light mode the page and the cards are white; the translucency shows through to the tinted muted and accent fills behind them. In dark mode the ground is 0.20 at hue 265, which is where the tint actually lives. Chroma stays at about 25% of what each hue can reach \u2014 pastel, never neon. Spacing is open: 32px card padding, 24px between cards, 1.65 body line-height, 15px body on a 1.333 scale. Radii 14 / 20 / 24px. Motion is a soft spring, 260ms `cubic-bezier(0.22, 1, 0.36, 1)`, on open and close; provide an opaque fallback wherever `backdrop-filter` is unsupported."
+  },
+  {
+    id: "azure",
+    name: "Azure",
+    character: "A white page with one blue on it, generous radii, and every button a pill.",
+    axes: [
+      "White page at 0.99 with cards at pure white \u2014 the only depth is a soft shadow",
+      "One blue at OKLCH hue 255, used for every action and nothing else",
+      "10 / 16 / 20px radii, and every button fully pill-shaped",
+      "Floating labels, so a filled form has no label column at all"
+    ],
+    fonts: {
+      display: "Manrope",
+      body: "Manrope",
+      mono: "JetBrains Mono"
+    },
+    scaleRatio: 1.25,
+    shape: { control: 10, card: 16, overlay: 20, pill: true },
+    density: "comfortable",
+    elevationStrategy: "shadow",
+    motionModel: "duration",
+    inputStyle: "floating",
+    neutralHue: 255,
+    vividness: 62,
+    light: {
+      background: "oklch(0.99 0.003 255)",
+      foreground: "oklch(0.24 0.0072 255)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.0072 255)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.0072 255)",
+      primary: "oklch(0.52 0.17 255)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.004 255)",
+      "secondary-foreground": "oklch(0.3 0.0072 255)",
+      muted: "oklch(0.97 0.004 255)",
+      "muted-foreground": "oklch(0.52 0.0048 255)",
+      accent: "oklch(0.96 0.004 255)",
+      "accent-foreground": "oklch(0.3 0.0072 255)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.0048 255)",
+      input: "oklch(0.92 0.0048 255)",
+      ring: "oklch(0.62 0.114 255)",
+      "chart-1": "oklch(0.62 0.129 264)",
+      "chart-2": "oklch(0.62 0.065 205)",
+      "chart-3": "oklch(0.62 0.095 155)",
+      "chart-4": "oklch(0.62 0.095 55)",
+      "chart-5": "oklch(0.62 0.14 330)",
+      sidebar: "oklch(0.985 0.003 255)",
+      "sidebar-foreground": "oklch(0.24 0.0072 255)",
+      "sidebar-primary": "oklch(0.52 0.17 255)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.004 255)",
+      "sidebar-accent-foreground": "oklch(0.3 0.0072 255)",
+      "sidebar-border": "oklch(0.92 0.0048 255)",
+      "sidebar-ring": "oklch(0.62 0.114 255)"
+    },
+    dark: {
+      background: "oklch(0.17 0.0048 255)",
+      foreground: "oklch(0.94 0.0088 255)",
+      card: "oklch(0.22000000000000003 0.0048 255)",
+      "card-foreground": "oklch(0.94 0.0088 255)",
+      popover: "oklch(0.245 0.0048 255)",
+      "popover-foreground": "oklch(0.94 0.0088 255)",
+      primary: "oklch(0.86 0.033 255)",
+      "primary-foreground": "oklch(0.14 0.015 255)",
+      secondary: "oklch(0.27 0.0048 255)",
+      "secondary-foreground": "oklch(0.9 0.0088 255)",
+      muted: "oklch(0.27 0.0048 255)",
+      "muted-foreground": "oklch(0.805 0.0064 255)",
+      accent: "oklch(0.33 0.0048 255)",
+      "accent-foreground": "oklch(0.9 0.0088 255)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.088 255)",
+      "chart-1": "oklch(0.71 0.083 264)",
+      "chart-2": "oklch(0.71 0.065 205)",
+      "chart-3": "oklch(0.71 0.095 155)",
+      "chart-4": "oklch(0.71 0.095 55)",
+      "chart-5": "oklch(0.71 0.13 330)",
+      sidebar: "oklch(0.21 0.0048 255)",
+      "sidebar-foreground": "oklch(0.94 0.0088 255)",
+      "sidebar-primary": "oklch(0.86 0.033 255)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 255)",
+      "sidebar-accent": "oklch(0.27 0.0048 255)",
+      "sidebar-accent-foreground": "oklch(0.9 0.0088 255)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.088 255)"
+    },
+    promptDetails: "The page is white: background 0.99, cards a flat 1.0 white, borders at 0.92 \u2014 nothing is a tinted panel. Radii are 10px on controls, 16px on cards, 20px on dialogs, and every button is a pill (`border-radius: 9999px`) with 20px horizontal padding, which is the one shape rule you cannot break here. Exactly one shadow, `0 1px 2px rgb(15 23 42 / 0.06), 0 4px 12px rgb(15 23 42 / 0.05)`, on cards; overlays get the same shadow doubled in blur. The blue (OKLCH 0.52 0.17 255) is the only chromatic colour in the interface \u2014 links, primary buttons, focus rings, active nav, and nothing else. Text fields use floating labels: the label starts at 15px inside the 48px-tall field and animates to 11px at the top edge on focus or value, 150ms ease-out, with the field keeping its full height so nothing reflows. Spacing on a 4px grid, 24px card padding, 16px between fields; body 16px on a 1.25 scale, line-height 1.55."
+  },
+  {
+    id: "registry",
+    name: "Registry",
+    character: "The intranet that never got redesigned, done properly: grey chrome, 3px radii, no motion.",
+    axes: [
+      "3 / 4 / 4px radii \u2014 rounded enough to be 2008, never soft",
+      "Depth is a 1px grid of rules, not a shadow: every panel is boxed",
+      "Compact 28px rows and a 14px body, because the screen is a work surface",
+      "Nothing animates; state changes land instantly"
+    ],
+    fonts: {
+      display: "PT Sans",
+      body: "PT Sans",
+      mono: "PT Mono"
+    },
+    scaleRatio: 1.2,
+    shape: { control: 3, card: 4, overlay: 4, pill: false },
+    density: "compact",
+    elevationStrategy: "grid",
+    motionModel: "none",
+    inputStyle: "inset",
+    neutralHue: 250,
+    vividness: 40,
+    light: {
+      background: "oklch(0.99 0.003 250)",
+      foreground: "oklch(0.24 0.0108 250)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.0108 250)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.0108 250)",
+      primary: "oklch(0.52 0.115 250)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.006 250)",
+      "secondary-foreground": "oklch(0.3 0.0108 250)",
+      muted: "oklch(0.97 0.006 250)",
+      "muted-foreground": "oklch(0.52 0.0072 250)",
+      accent: "oklch(0.96 0.006 250)",
+      "accent-foreground": "oklch(0.3 0.0108 250)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.0072 250)",
+      input: "oklch(0.92 0.0072 250)",
+      ring: "oklch(0.62 0.077 250)",
+      "chart-1": "oklch(0.62 0.087 250)",
+      "chart-2": "oklch(0.62 0.065 205)",
+      "chart-3": "oklch(0.62 0.095 155)",
+      "chart-4": "oklch(0.62 0.095 55)",
+      "chart-5": "oklch(0.62 0.14 330)",
+      sidebar: "oklch(0.985 0.003 250)",
+      "sidebar-foreground": "oklch(0.24 0.0108 250)",
+      "sidebar-primary": "oklch(0.52 0.115 250)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.006 250)",
+      "sidebar-accent-foreground": "oklch(0.3 0.0108 250)",
+      "sidebar-border": "oklch(0.92 0.0072 250)",
+      "sidebar-ring": "oklch(0.62 0.077 250)"
+    },
+    dark: {
+      background: "oklch(0.18 0.0072 250)",
+      foreground: "oklch(0.94 0.0132 250)",
+      card: "oklch(0.22999999999999998 0.0072 250)",
+      "card-foreground": "oklch(0.94 0.0132 250)",
+      popover: "oklch(0.255 0.0072 250)",
+      "popover-foreground": "oklch(0.94 0.0132 250)",
+      primary: "oklch(0.86 0.033 250)",
+      "primary-foreground": "oklch(0.14 0.015 250)",
+      secondary: "oklch(0.28 0.0072 250)",
+      "secondary-foreground": "oklch(0.9 0.0132 250)",
+      muted: "oklch(0.28 0.0072 250)",
+      "muted-foreground": "oklch(0.805 0.0096 250)",
+      accent: "oklch(0.34 0.0072 250)",
+      "accent-foreground": "oklch(0.9 0.0132 250)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.06 250)",
+      "chart-1": "oklch(0.71 0.056 250)",
+      "chart-2": "oklch(0.71 0.065 205)",
+      "chart-3": "oklch(0.71 0.095 155)",
+      "chart-4": "oklch(0.71 0.095 55)",
+      "chart-5": "oklch(0.71 0.13 330)",
+      sidebar: "oklch(0.22 0.0072 250)",
+      "sidebar-foreground": "oklch(0.94 0.0132 250)",
+      "sidebar-primary": "oklch(0.86 0.033 250)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 250)",
+      "sidebar-accent": "oklch(0.28 0.0072 250)",
+      "sidebar-accent-foreground": "oklch(0.9 0.0132 250)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.06 250)"
+    },
+    promptDetails: "Chrome, not canvas: the page ground is 0.99 with 0.97 muted strips, content panels are white, and every panel is boxed by a 1px border with a 32px header strip in the muted colour above it. There are no shadows anywhere \u2014 depth is the grid of rules. Radii are 3px on controls and 4px on panels; nothing is pill-shaped. Density is tight: 28px table rows, 32px buttons, 14px body text, 12px labels, 12px cell padding, 16px panel padding. Tables carry visible column separators and a 1px rule under every row, headers are 12px semibold in the muted colour on a 0.97 fill, and figures are tabular. Text fields are inset \u2014 a 1px inner top shadow `inset 0 1px 2px rgb(0 0 0 / 0.06)` on a 0.99 fill \u2014 with the label above, left-aligned, 12px. Nothing transitions: no hover fades, no focus animation, no entrance. The blue (0.52 0.115 250) marks links, selection and the primary button only."
+  },
+  {
+    id: "scalpel",
+    name: "Scalpel",
+    character: "Square corners, hairline rules, near-black ink and no colour until something matters.",
+    axes: [
+      "0 / 2 / 2px radii \u2014 corners are square and stay square",
+      "Achromatic by default: the accent appears only on the primary action",
+      "Hairline borders at 1px, and no shadow anywhere in the product",
+      "Underline fields, so a form reads as a line of writing"
+    ],
+    fonts: {
+      display: "Archivo",
+      body: "Archivo",
+      mono: "Chivo Mono"
+    },
+    scaleRatio: 1.333,
+    shape: { control: 0, card: 2, overlay: 2, pill: false },
+    density: "compact",
+    elevationStrategy: "hairline",
+    motionModel: "duration",
+    inputStyle: "underline",
+    neutralHue: 250,
+    vividness: 18,
+    light: {
+      background: "oklch(0.99 0.003 250)",
+      foreground: "oklch(0.24 0.0054 250)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.0054 250)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.0054 250)",
+      primary: "oklch(0.52 0.04 250)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.003 250)",
+      "secondary-foreground": "oklch(0.3 0.0054 250)",
+      muted: "oklch(0.97 0.003 250)",
+      "muted-foreground": "oklch(0.52 0.0036 250)",
+      accent: "oklch(0.96 0.003 250)",
+      "accent-foreground": "oklch(0.3 0.0054 250)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.0036 250)",
+      input: "oklch(0.92 0.0036 250)",
+      ring: "oklch(0.62 0.027 250)",
+      "chart-1": "oklch(0.62 0.03 250)",
+      "chart-2": "oklch(0.62 0.065 210)",
+      "chart-3": "oklch(0.62 0.095 160)",
+      "chart-4": "oklch(0.62 0.095 60)",
+      "chart-5": "oklch(0.62 0.14 320)",
+      sidebar: "oklch(0.985 0.003 250)",
+      "sidebar-foreground": "oklch(0.24 0.0054 250)",
+      "sidebar-primary": "oklch(0.52 0.04 250)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.003 250)",
+      "sidebar-accent-foreground": "oklch(0.3 0.0054 250)",
+      "sidebar-border": "oklch(0.92 0.0036 250)",
+      "sidebar-ring": "oklch(0.62 0.027 250)"
+    },
+    dark: {
+      background: "oklch(0.14 0.0036 250)",
+      foreground: "oklch(0.94 0.0066 250)",
+      card: "oklch(0.19 0.0036 250)",
+      "card-foreground": "oklch(0.94 0.0066 250)",
+      popover: "oklch(0.215 0.0036 250)",
+      "popover-foreground": "oklch(0.94 0.0066 250)",
+      primary: "oklch(0.86 0.033 250)",
+      "primary-foreground": "oklch(0.14 0.015 250)",
+      secondary: "oklch(0.24 0.0036 250)",
+      "secondary-foreground": "oklch(0.9 0.0066 250)",
+      muted: "oklch(0.24 0.0036 250)",
+      "muted-foreground": "oklch(0.805 0.0048 250)",
+      accent: "oklch(0.3 0.0036 250)",
+      "accent-foreground": "oklch(0.9 0.0066 250)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.021 250)",
+      "chart-1": "oklch(0.71 0.02 250)",
+      "chart-2": "oklch(0.71 0.065 210)",
+      "chart-3": "oklch(0.71 0.095 160)",
+      "chart-4": "oklch(0.71 0.095 60)",
+      "chart-5": "oklch(0.71 0.13 320)",
+      sidebar: "oklch(0.18 0.0036 250)",
+      "sidebar-foreground": "oklch(0.94 0.0066 250)",
+      "sidebar-primary": "oklch(0.86 0.033 250)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 250)",
+      "sidebar-accent": "oklch(0.24 0.0036 250)",
+      "sidebar-accent-foreground": "oklch(0.9 0.0066 250)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.021 250)"
+    },
+    promptDetails: "Everything is square: 0px on controls, 2px on cards and dialogs, and no pill anywhere. Borders are a single 1px hairline at 0.92 in light and `oklch(1 0 0 / 10%)` in dark, and they do all the work \u2014 there is no shadow in this product, including on dialogs, which sit on a 60% scrim instead. Colour is nearly absent: the palette is achromatic (chroma 0.003\u20130.04) and the only saturated pixels on a screen are the primary button and the focus ring. Text fields are a bottom rule only \u2014 no box, no fill \u2014 1px at 0.92 becoming 2px in the foreground colour on focus, label 12px uppercase with 0.06em tracking above. Type does the hierarchy instead of colour: a 1.333 scale from 15px, headings at 700 with -0.02em tracking, body at 1.5. Density is compact: 32px rows, 20px card padding, 12px between fields. Transitions are 120ms ease-out on colour and border only."
+  },
+  {
+    id: "atelier",
+    name: "Atelier",
+    character: "A gallery wall: white walls, a deep brass accent, and a serif that earns its size.",
+    axes: [
+      "White page and white cards; the warmth at hue 70 is in the muted fills only",
+      "A high-contrast serif display against a quiet sans body",
+      "Depth is a tinted surface, never a blur or a shadow",
+      "Spacious: 40px card padding and 1.65 line-height"
+    ],
+    fonts: {
+      display: "Cormorant Garamond",
+      body: "Inter Tight",
+      mono: "IBM Plex Mono"
+    },
+    // biome-ignore lint/suspicious/noApproximativeNumericConstant: a type ratio that happens to be √2, not the constant
+    scaleRatio: 1.414,
+    shape: { control: 7, card: 11, overlay: 15, pill: false },
+    density: "spacious",
+    elevationStrategy: "tinted",
+    motionModel: "spring",
+    inputStyle: "inset",
+    neutralHue: 70,
+    vividness: 48,
+    light: {
+      background: "oklch(0.99 0.003 70)",
+      foreground: "oklch(0.24 0.0144 70)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.0144 70)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.0144 70)",
+      primary: "oklch(0.52 0.088 75)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.008 70)",
+      "secondary-foreground": "oklch(0.3 0.0144 70)",
+      muted: "oklch(0.97 0.008 70)",
+      "muted-foreground": "oklch(0.52 0.0096 70)",
+      accent: "oklch(0.96 0.008 70)",
+      "accent-foreground": "oklch(0.3 0.0144 70)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.0096 70)",
+      input: "oklch(0.92 0.0096 70)",
+      ring: "oklch(0.62 0.077 75)",
+      "chart-1": "oklch(0.62 0.087 75)",
+      "chart-2": "oklch(0.62 0.065 200)",
+      "chart-3": "oklch(0.62 0.095 150)",
+      "chart-4": "oklch(0.62 0.095 40)",
+      "chart-5": "oklch(0.62 0.14 330)",
+      sidebar: "oklch(0.985 0.003 70)",
+      "sidebar-foreground": "oklch(0.24 0.0144 70)",
+      "sidebar-primary": "oklch(0.52 0.088 75)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.008 70)",
+      "sidebar-accent-foreground": "oklch(0.3 0.0144 70)",
+      "sidebar-border": "oklch(0.92 0.0096 70)",
+      "sidebar-ring": "oklch(0.62 0.077 75)"
+    },
+    dark: {
+      background: "oklch(0.17 0.0096 70)",
+      foreground: "oklch(0.94 0.0176 70)",
+      card: "oklch(0.22000000000000003 0.0096 70)",
+      "card-foreground": "oklch(0.94 0.0176 70)",
+      popover: "oklch(0.245 0.0096 70)",
+      "popover-foreground": "oklch(0.94 0.0176 70)",
+      primary: "oklch(0.86 0.033 75)",
+      "primary-foreground": "oklch(0.14 0.015 75)",
+      secondary: "oklch(0.27 0.0096 70)",
+      "secondary-foreground": "oklch(0.9 0.0176 70)",
+      muted: "oklch(0.27 0.0096 70)",
+      "muted-foreground": "oklch(0.805 0.0128 70)",
+      accent: "oklch(0.33 0.0096 70)",
+      "accent-foreground": "oklch(0.9 0.0176 70)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.06 75)",
+      "chart-1": "oklch(0.71 0.056 75)",
+      "chart-2": "oklch(0.71 0.065 200)",
+      "chart-3": "oklch(0.71 0.095 150)",
+      "chart-4": "oklch(0.71 0.095 40)",
+      "chart-5": "oklch(0.71 0.13 330)",
+      sidebar: "oklch(0.21 0.0096 70)",
+      "sidebar-foreground": "oklch(0.94 0.0176 70)",
+      "sidebar-primary": "oklch(0.86 0.033 75)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 75)",
+      "sidebar-accent": "oklch(0.27 0.0096 70)",
+      "sidebar-accent-foreground": "oklch(0.9 0.0176 70)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.06 75)"
+    },
+    promptDetails: "In light mode the page and the cards are white; the warmth (OKLCH hue 70, chroma 0.008) lives in the muted, secondary and border fills, so the greys read as plaster while the ground stays white. Elevation is a tint, not a shadow \u2014 a raised surface takes the muted fill rather than a blur, and no shadow is used anywhere. The accent is a deep brass (0.52 0.088 75) reserved for the primary action and rules under section headings. Typography is the design: Cormorant Garamond at 40px/1.15 for page titles and 28px for section heads, at weight 600 with -0.01em tracking, against Inter Tight at 16px/1.65 for body; the size jump between them is the whole hierarchy, so never bold body text to compensate. Spacing is generous \u2014 40px card padding, 32px between blocks, 64px between page sections \u2014 and running text is capped at 62 characters. Radii 7 / 11 / 15px. Motion is a spring, `cubic-bezier(0.22, 1, 0.36, 1)` over 280ms, on entrance only."
+  },
+  {
+    id: "vantage",
+    name: "Vantage",
+    character: "Premium SaaS: a violet accent, offset borders that catch light, and springy panels.",
+    axes: [
+      "Offset elevation \u2014 a 1px inset highlight on the top edge of every raised surface",
+      "Violet at hue 300, used at full strength on one control per screen",
+      "12 / 18 / 22px radii with filled fields, so a form reads as one block",
+      "Spring motion on anything the person opened"
+    ],
+    fonts: {
+      display: "Sora",
+      body: "Inter Tight",
+      mono: "Geist Mono"
+    },
+    scaleRatio: 1.25,
+    shape: { control: 12, card: 18, overlay: 22, pill: false },
+    density: "spacious",
+    elevationStrategy: "offset",
+    motionModel: "spring",
+    inputStyle: "filled",
+    neutralHue: 290,
+    vividness: 70,
+    light: {
+      background: "oklch(0.99 0.003 290)",
+      foreground: "oklch(0.24 0.0108 290)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.0108 290)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.0108 290)",
+      primary: "oklch(0.52 0.16 300)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.006 290)",
+      "secondary-foreground": "oklch(0.3 0.0108 290)",
+      muted: "oklch(0.97 0.006 290)",
+      "muted-foreground": "oklch(0.52 0.0072 290)",
+      accent: "oklch(0.96 0.006 290)",
+      "accent-foreground": "oklch(0.3 0.0108 290)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.0072 290)",
+      input: "oklch(0.92 0.0072 290)",
+      ring: "oklch(0.62 0.107 300)",
+      "chart-1": "oklch(0.62 0.122 300)",
+      "chart-2": "oklch(0.62 0.065 260)",
+      "chart-3": "oklch(0.62 0.095 200)",
+      "chart-4": "oklch(0.62 0.095 160)",
+      "chart-5": "oklch(0.62 0.14 30)",
+      sidebar: "oklch(0.985 0.003 290)",
+      "sidebar-foreground": "oklch(0.24 0.0108 290)",
+      "sidebar-primary": "oklch(0.52 0.16 300)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.006 290)",
+      "sidebar-accent-foreground": "oklch(0.3 0.0108 290)",
+      "sidebar-border": "oklch(0.92 0.0072 290)",
+      "sidebar-ring": "oklch(0.62 0.107 300)"
+    },
+    dark: {
+      background: "oklch(0.16 0.0072 290)",
+      foreground: "oklch(0.94 0.0132 290)",
+      card: "oklch(0.21000000000000002 0.0072 290)",
+      "card-foreground": "oklch(0.94 0.0132 290)",
+      popover: "oklch(0.235 0.0072 290)",
+      "popover-foreground": "oklch(0.94 0.0132 290)",
+      primary: "oklch(0.86 0.033 300)",
+      "primary-foreground": "oklch(0.14 0.015 300)",
+      secondary: "oklch(0.26 0.0072 290)",
+      "secondary-foreground": "oklch(0.9 0.0132 290)",
+      muted: "oklch(0.26 0.0072 290)",
+      "muted-foreground": "oklch(0.805 0.0096 290)",
+      accent: "oklch(0.32 0.0072 290)",
+      "accent-foreground": "oklch(0.9 0.0132 290)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.083 300)",
+      "chart-1": "oklch(0.71 0.078 300)",
+      "chart-2": "oklch(0.71 0.065 260)",
+      "chart-3": "oklch(0.71 0.095 200)",
+      "chart-4": "oklch(0.71 0.095 160)",
+      "chart-5": "oklch(0.71 0.13 30)",
+      sidebar: "oklch(0.2 0.0072 290)",
+      "sidebar-foreground": "oklch(0.94 0.0132 290)",
+      "sidebar-primary": "oklch(0.86 0.033 300)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 300)",
+      "sidebar-accent": "oklch(0.26 0.0072 290)",
+      "sidebar-accent-foreground": "oklch(0.9 0.0132 290)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.083 300)"
+    },
+    promptDetails: "Raised surfaces are drawn with an offset, not a blur: `box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(20 12 40 / 0.06)` in light, and in dark the inset highlight becomes `rgb(255 255 255 / 0.08)` \u2014 the top edge catching light is the whole elevation language. Radii are 12 / 18 / 22px. The violet (0.52 0.16 300) appears once per screen at full strength, on the primary action; everywhere else it is used at 8\u201312% as a tint behind an active row. Text fields are filled: a 0.97 fill with no border, 44px tall, the border appearing only on focus as a 2px ring in the accent at 40% plus a 1px accent border. Spacing is open \u2014 32px card padding, 24px gaps, 15px body on a 1.25 scale at 1.6 \u2014 and page sections vary their vertical padding between 48px and 96px so the page has rhythm. Motion is a spring, 240ms `cubic-bezier(0.34, 1.4, 0.64, 1)`, on open and close only."
+  },
+  {
+    id: "harbor",
+    name: "Harbor",
+    character: "Corporate that stopped shouting: a muted teal, a surface ladder, and small radii.",
+    axes: [
+      "A surface ladder \u2014 four greys stacked, no shadow used for depth",
+      "Muted teal at 45% of the achievable chroma, so nothing is a brand colour on screen",
+      "5 / 7 / 9px radii and outlined fields with the label above",
+      "Comfortable rather than dense: 36px rows, 16px body"
+    ],
+    fonts: {
+      display: "Barlow",
+      body: "Barlow",
+      mono: "Barlow Condensed"
+    },
+    scaleRatio: 1.2,
+    shape: { control: 5, card: 7, overlay: 9, pill: false },
+    density: "comfortable",
+    elevationStrategy: "ladder",
+    motionModel: "duration",
+    inputStyle: "outlined",
+    neutralHue: 220,
+    vividness: 45,
+    light: {
+      background: "oklch(0.99 0.003 220)",
+      foreground: "oklch(0.24 0.009 220)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.009 220)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.009 220)",
+      primary: "oklch(0.52 0.078 195)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.005 220)",
+      "secondary-foreground": "oklch(0.3 0.009 220)",
+      muted: "oklch(0.97 0.005 220)",
+      "muted-foreground": "oklch(0.52 0.006 220)",
+      accent: "oklch(0.96 0.005 220)",
+      "accent-foreground": "oklch(0.3 0.009 220)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.006 220)",
+      input: "oklch(0.92 0.006 220)",
+      ring: "oklch(0.62 0.067 195)",
+      "chart-1": "oklch(0.62 0.076 195)",
+      "chart-2": "oklch(0.62 0.065 250)",
+      "chart-3": "oklch(0.62 0.095 155)",
+      "chart-4": "oklch(0.62 0.095 45)",
+      "chart-5": "oklch(0.62 0.14 320)",
+      sidebar: "oklch(0.985 0.003 220)",
+      "sidebar-foreground": "oklch(0.24 0.009 220)",
+      "sidebar-primary": "oklch(0.52 0.078 195)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.005 220)",
+      "sidebar-accent-foreground": "oklch(0.3 0.009 220)",
+      "sidebar-border": "oklch(0.92 0.006 220)",
+      "sidebar-ring": "oklch(0.62 0.067 195)"
+    },
+    dark: {
+      background: "oklch(0.18 0.006 220)",
+      foreground: "oklch(0.94 0.011 220)",
+      card: "oklch(0.22999999999999998 0.006 220)",
+      "card-foreground": "oklch(0.94 0.011 220)",
+      popover: "oklch(0.255 0.006 220)",
+      "popover-foreground": "oklch(0.94 0.011 220)",
+      primary: "oklch(0.86 0.033 195)",
+      "primary-foreground": "oklch(0.14 0.015 195)",
+      secondary: "oklch(0.28 0.006 220)",
+      "secondary-foreground": "oklch(0.9 0.011 220)",
+      muted: "oklch(0.28 0.006 220)",
+      "muted-foreground": "oklch(0.805 0.008 220)",
+      accent: "oklch(0.34 0.006 220)",
+      "accent-foreground": "oklch(0.9 0.011 220)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.052 195)",
+      "chart-1": "oklch(0.71 0.049 195)",
+      "chart-2": "oklch(0.71 0.065 250)",
+      "chart-3": "oklch(0.71 0.095 155)",
+      "chart-4": "oklch(0.71 0.095 45)",
+      "chart-5": "oklch(0.71 0.13 320)",
+      sidebar: "oklch(0.22 0.006 220)",
+      "sidebar-foreground": "oklch(0.94 0.011 220)",
+      "sidebar-primary": "oklch(0.86 0.033 195)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 195)",
+      "sidebar-accent": "oklch(0.28 0.006 220)",
+      "sidebar-accent-foreground": "oklch(0.9 0.011 220)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.052 195)"
+    },
+    promptDetails: "Depth is a ladder of four surfaces \u2014 page 0.98, card 0.995, raised 1.0, sunken 0.96 in light; 0.18 / 0.23 / 0.26 / 0.15 in dark \u2014 and no shadow appears anywhere except on a dialog, which uses the scrim instead. Radii are 5 / 7 / 9px, small enough to read as tooling. The teal (0.52 0.078 195) is deliberately muted at roughly 45% of what the hue can reach; it marks links, the primary action and the active nav item, and never appears as a large fill. Text fields are outlined: 1px border, 40px tall, 6px radius, label 13px above the field in the foreground colour, helper text 12px in the muted colour that stays in the layout when it becomes an error. Density is comfortable \u2014 36px rows, 24px card padding, 20px between fields, 16px body at 1.55 on a 1.2 scale. Transitions are 150ms ease-out on colour and border, and nothing else moves."
+  },
+  {
+    id: "sandbox",
+    name: "Sandbox",
+    character: "Playful without being childish: big soft radii, one orange, and springy pills.",
+    axes: [
+      "18 / 22 / 26px radii with pill buttons \u2014 the softest shape in the catalogue",
+      "A single warm orange doing every accent job",
+      "Filled fields with no borders, so the form has no lines in it",
+      "Spring motion on press, so controls feel physical"
+    ],
+    fonts: {
+      display: "Baloo 2",
+      body: "Nunito Sans",
+      mono: "Space Mono"
+    },
+    scaleRatio: 1.25,
+    shape: { control: 18, card: 22, overlay: 26, pill: true },
+    density: "comfortable",
+    elevationStrategy: "shadow",
+    motionModel: "spring",
+    inputStyle: "filled",
+    neutralHue: 45,
+    vividness: 72,
+    light: {
+      background: "oklch(0.99 0.003 45)",
+      foreground: "oklch(0.24 0.0126 45)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.0126 45)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.0126 45)",
+      primary: "oklch(0.52 0.11 55)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.007 45)",
+      "secondary-foreground": "oklch(0.3 0.0126 45)",
+      muted: "oklch(0.97 0.007 45)",
+      "muted-foreground": "oklch(0.52 0.0084 45)",
+      accent: "oklch(0.96 0.007 45)",
+      "accent-foreground": "oklch(0.3 0.0126 45)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.0084 45)",
+      input: "oklch(0.92 0.0084 45)",
+      ring: "oklch(0.62 0.097 55)",
+      "chart-1": "oklch(0.62 0.11 55)",
+      "chart-2": "oklch(0.62 0.065 25)",
+      "chart-3": "oklch(0.62 0.095 150)",
+      "chart-4": "oklch(0.62 0.095 200)",
+      "chart-5": "oklch(0.62 0.14 330)",
+      sidebar: "oklch(0.985 0.003 45)",
+      "sidebar-foreground": "oklch(0.24 0.0126 45)",
+      "sidebar-primary": "oklch(0.52 0.11 55)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.007 45)",
+      "sidebar-accent-foreground": "oklch(0.3 0.0126 45)",
+      "sidebar-border": "oklch(0.92 0.0084 45)",
+      "sidebar-ring": "oklch(0.62 0.097 55)"
+    },
+    dark: {
+      background: "oklch(0.17 0.0084 45)",
+      foreground: "oklch(0.94 0.0154 45)",
+      card: "oklch(0.22000000000000003 0.0084 45)",
+      "card-foreground": "oklch(0.94 0.0154 45)",
+      popover: "oklch(0.245 0.0084 45)",
+      "popover-foreground": "oklch(0.94 0.0154 45)",
+      primary: "oklch(0.86 0.033 55)",
+      "primary-foreground": "oklch(0.14 0.015 55)",
+      secondary: "oklch(0.27 0.0084 45)",
+      "secondary-foreground": "oklch(0.9 0.0154 45)",
+      muted: "oklch(0.27 0.0084 45)",
+      "muted-foreground": "oklch(0.805 0.0112 45)",
+      accent: "oklch(0.33 0.0084 45)",
+      "accent-foreground": "oklch(0.9 0.0154 45)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.075 55)",
+      "chart-1": "oklch(0.71 0.071 55)",
+      "chart-2": "oklch(0.71 0.065 25)",
+      "chart-3": "oklch(0.71 0.095 150)",
+      "chart-4": "oklch(0.71 0.095 200)",
+      "chart-5": "oklch(0.71 0.13 330)",
+      sidebar: "oklch(0.21 0.0084 45)",
+      "sidebar-foreground": "oklch(0.94 0.0154 45)",
+      "sidebar-primary": "oklch(0.86 0.033 55)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 55)",
+      "sidebar-accent": "oklch(0.27 0.0084 45)",
+      "sidebar-accent-foreground": "oklch(0.9 0.0154 45)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.075 55)"
+    },
+    promptDetails: "Shape carries the personality: 18px on controls, 22px on cards, 26px on sheets, and buttons are full pills with 24px of horizontal padding. One shadow, `0 2px 8px rgb(60 40 10 / 0.08)`, on cards, doubled to 24px blur on overlays. The orange (0.52 0.11 55) is the only accent \u2014 primary buttons, active states, chart-1 \u2014 with a warm neutral at hue 45 so the greys agree with it. Text fields are filled with no border at all: a 0.97 fill, 46px tall, 14px radius, label above at 14px, and on focus a 2px accent ring appears outside the fill. Press feedback is physical: `transform: scale(0.97)` over 120ms on `:active`, and entrances use a spring, 260ms `cubic-bezier(0.34, 1.4, 0.64, 1)`. Body is 16px at 1.6 on a 1.25 scale, headings at 600. Illustration, when present, is flat single-colour shapes from the palette \u2014 never a gradient and never a 3D render."
+  },
+  {
+    id: "telegraph",
+    name: "Telegraph",
+    character: "Set like a printed page: a slab serif, rules instead of boxes, ink red for emphasis.",
+    axes: [
+      "Rules, not cards \u2014 sections are separated by 1px lines and space alone",
+      "A slab serif for headings against a text-face body",
+      "Ink red at hue 30, used the way a printer used a second plate",
+      "Nothing moves; the page behaves like paper"
+    ],
+    fonts: {
+      display: "Roboto Slab",
+      body: "Source Serif 4",
+      mono: "Anonymous Pro"
+    },
+    scaleRatio: 1.5,
+    shape: { control: 2, card: 2, overlay: 4, pill: true },
+    density: "comfortable",
+    elevationStrategy: "hairline",
+    motionModel: "none",
+    inputStyle: "borderless",
+    neutralHue: 85,
+    vividness: 52,
+    light: {
+      background: "oklch(0.99 0.003 85)",
+      foreground: "oklch(0.24 0.0108 85)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.0108 85)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.0108 85)",
+      primary: "oklch(0.52 0.13 30)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.006 85)",
+      "secondary-foreground": "oklch(0.3 0.0108 85)",
+      muted: "oklch(0.97 0.006 85)",
+      "muted-foreground": "oklch(0.52 0.0072 85)",
+      accent: "oklch(0.96 0.006 85)",
+      "accent-foreground": "oklch(0.3 0.0108 85)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.0072 85)",
+      input: "oklch(0.92 0.0072 85)",
+      ring: "oklch(0.62 0.087 30)",
+      "chart-1": "oklch(0.62 0.099 30)",
+      "chart-2": "oklch(0.62 0.065 200)",
+      "chart-3": "oklch(0.62 0.095 150)",
+      "chart-4": "oklch(0.62 0.095 90)",
+      "chart-5": "oklch(0.62 0.14 320)",
+      sidebar: "oklch(0.985 0.003 85)",
+      "sidebar-foreground": "oklch(0.24 0.0108 85)",
+      "sidebar-primary": "oklch(0.52 0.13 30)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.006 85)",
+      "sidebar-accent-foreground": "oklch(0.3 0.0108 85)",
+      "sidebar-border": "oklch(0.92 0.0072 85)",
+      "sidebar-ring": "oklch(0.62 0.087 30)"
+    },
+    dark: {
+      background: "oklch(0.16 0.0072 85)",
+      foreground: "oklch(0.94 0.0132 85)",
+      card: "oklch(0.21000000000000002 0.0072 85)",
+      "card-foreground": "oklch(0.94 0.0132 85)",
+      popover: "oklch(0.235 0.0072 85)",
+      "popover-foreground": "oklch(0.94 0.0132 85)",
+      primary: "oklch(0.86 0.033 30)",
+      "primary-foreground": "oklch(0.14 0.015 30)",
+      secondary: "oklch(0.26 0.0072 85)",
+      "secondary-foreground": "oklch(0.9 0.0132 85)",
+      muted: "oklch(0.26 0.0072 85)",
+      "muted-foreground": "oklch(0.805 0.0096 85)",
+      accent: "oklch(0.32 0.0072 85)",
+      "accent-foreground": "oklch(0.9 0.0132 85)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.068 30)",
+      "chart-1": "oklch(0.71 0.064 30)",
+      "chart-2": "oklch(0.71 0.065 200)",
+      "chart-3": "oklch(0.71 0.095 150)",
+      "chart-4": "oklch(0.71 0.095 90)",
+      "chart-5": "oklch(0.71 0.13 320)",
+      sidebar: "oklch(0.2 0.0072 85)",
+      "sidebar-foreground": "oklch(0.94 0.0132 85)",
+      "sidebar-primary": "oklch(0.86 0.033 30)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 30)",
+      "sidebar-accent": "oklch(0.26 0.0072 85)",
+      "sidebar-accent-foreground": "oklch(0.9 0.0132 85)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.068 30)"
+    },
+    promptDetails: "The page is set, not assembled: content is separated by 1px rules and vertical space rather than cards, so most screens contain no boxed panel at all. Radii are 2px where a control needs one, and buttons are pills purely so they read as stamps rather than boxes. There is no shadow in the product. The second colour is an ink red (0.52 0.13 30) used the way a second printing plate was \u2014 a rule under a section head, a dropped initial, the primary action \u2014 never as a large fill. Type is the layout: Roboto Slab at 600 for headings on a 1.5 scale from 17px, Source Serif 4 at 1.65 for body, running text capped at 66 characters, and figures tabular. Text fields are borderless \u2014 no box, no fill, just the text sitting on the page above a 1px rule \u2014 with a 12px uppercase label at 0.08em tracking. Nothing transitions and nothing animates; hover is a colour change applied instantly."
+  },
+  {
+    id: "module",
+    name: "Module",
+    character: "Engineering surfaces: one 5px radius everywhere, a grid of rules, green for state.",
+    axes: [
+      "A single 5px radius on every element \u2014 no hierarchy of roundness at all",
+      "A grid of 1px rules doing the structure, with no shadow anywhere",
+      "Green reserved for state, never for a brand moment",
+      "Compact: 30px rows, 13px labels, tabular figures throughout"
+    ],
+    fonts: {
+      display: "Chivo Mono",
+      body: "Public Sans",
+      mono: "Chivo Mono"
+    },
+    scaleRatio: 1.2,
+    shape: { control: 5, card: 5, overlay: 5, pill: false },
+    density: "compact",
+    elevationStrategy: "grid",
+    motionModel: "duration",
+    inputStyle: "outlined",
+    neutralHue: 200,
+    vividness: 42,
+    light: {
+      background: "oklch(0.99 0.003 200)",
+      foreground: "oklch(0.24 0.009 200)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.009 200)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.009 200)",
+      primary: "oklch(0.52 0.115 150)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.005 200)",
+      "secondary-foreground": "oklch(0.3 0.009 200)",
+      muted: "oklch(0.97 0.005 200)",
+      "muted-foreground": "oklch(0.52 0.006 200)",
+      accent: "oklch(0.96 0.005 200)",
+      "accent-foreground": "oklch(0.3 0.009 200)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.006 200)",
+      input: "oklch(0.92 0.006 200)",
+      ring: "oklch(0.62 0.077 150)",
+      "chart-1": "oklch(0.62 0.087 150)",
+      "chart-2": "oklch(0.62 0.065 200)",
+      "chart-3": "oklch(0.62 0.095 255)",
+      "chart-4": "oklch(0.62 0.095 45)",
+      "chart-5": "oklch(0.62 0.14 330)",
+      sidebar: "oklch(0.985 0.003 200)",
+      "sidebar-foreground": "oklch(0.24 0.009 200)",
+      "sidebar-primary": "oklch(0.52 0.115 150)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.005 200)",
+      "sidebar-accent-foreground": "oklch(0.3 0.009 200)",
+      "sidebar-border": "oklch(0.92 0.006 200)",
+      "sidebar-ring": "oklch(0.62 0.077 150)"
+    },
+    dark: {
+      background: "oklch(0.15 0.006 200)",
+      foreground: "oklch(0.94 0.011 200)",
+      card: "oklch(0.2 0.006 200)",
+      "card-foreground": "oklch(0.94 0.011 200)",
+      popover: "oklch(0.225 0.006 200)",
+      "popover-foreground": "oklch(0.94 0.011 200)",
+      primary: "oklch(0.86 0.033 150)",
+      "primary-foreground": "oklch(0.14 0.015 150)",
+      secondary: "oklch(0.25 0.006 200)",
+      "secondary-foreground": "oklch(0.9 0.011 200)",
+      muted: "oklch(0.25 0.006 200)",
+      "muted-foreground": "oklch(0.805 0.008 200)",
+      accent: "oklch(0.31 0.006 200)",
+      "accent-foreground": "oklch(0.9 0.011 200)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.06 150)",
+      "chart-1": "oklch(0.71 0.056 150)",
+      "chart-2": "oklch(0.71 0.065 200)",
+      "chart-3": "oklch(0.71 0.095 255)",
+      "chart-4": "oklch(0.71 0.095 45)",
+      "chart-5": "oklch(0.71 0.13 330)",
+      sidebar: "oklch(0.19 0.006 200)",
+      "sidebar-foreground": "oklch(0.94 0.011 200)",
+      "sidebar-primary": "oklch(0.86 0.033 150)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 150)",
+      "sidebar-accent": "oklch(0.25 0.006 200)",
+      "sidebar-accent-foreground": "oklch(0.9 0.011 200)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.06 150)"
+    },
+    promptDetails: "One radius, 5px, on every element in the product \u2014 buttons, inputs, cards, dialogs, badges \u2014 because a hierarchy of roundness is a decision this interface does not want to make. Structure comes from a 1px grid: panels are boxed, tables carry both row and column rules, and there is no shadow anywhere. The green (0.52 0.115 150) means state, not brand: healthy, passing, connected. Red at hue 27 means failed, amber at 75 means degraded, and the primary button is the foreground colour rather than the green. Density is compact \u2014 30px rows, 13px labels, 16px panel padding, 14px body at 1.5 \u2014 and every number in the product uses `font-variant-numeric: tabular-nums`, including inline ones. Headings use Chivo Mono at 500 with 0.02em tracking against a Public Sans body. Transitions are 120ms linear on colour only; nothing scales, lifts, or fades in."
+  },
+  {
+    id: "velour",
+    name: "Velour",
+    character: "Boutique premium: a plum ground tint, a high-contrast serif, generous rounding.",
+    axes: [
+      "A white ground with plum-cast greys at hue 350 \u2014 the fills are never neutral",
+      "Depth by tint: raised surfaces get warmer, not lighter",
+      "14 / 14 / 18px radii with floating labels",
+      "Spacious with a 1.414 scale, so headings are genuinely large"
+    ],
+    fonts: {
+      display: "Fraunces",
+      body: "Karla",
+      mono: "Fira Code"
+    },
+    // biome-ignore lint/suspicious/noApproximativeNumericConstant: a type ratio that happens to be √2, not the constant
+    scaleRatio: 1.414,
+    shape: { control: 14, card: 14, overlay: 18, pill: false },
+    density: "spacious",
+    elevationStrategy: "tinted",
+    motionModel: "duration",
+    inputStyle: "floating",
+    neutralHue: 350,
+    vividness: 55,
+    light: {
+      background: "oklch(0.99 0.003 350)",
+      foreground: "oklch(0.24 0.0126 350)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.0126 350)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.0126 350)",
+      primary: "oklch(0.52 0.125 350)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.007 350)",
+      "secondary-foreground": "oklch(0.3 0.0126 350)",
+      muted: "oklch(0.97 0.007 350)",
+      "muted-foreground": "oklch(0.52 0.0084 350)",
+      accent: "oklch(0.96 0.007 350)",
+      "accent-foreground": "oklch(0.3 0.0126 350)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.0084 350)",
+      input: "oklch(0.92 0.0084 350)",
+      ring: "oklch(0.62 0.084 350)",
+      "chart-1": "oklch(0.62 0.095 350)",
+      "chart-2": "oklch(0.62 0.065 300)",
+      "chart-3": "oklch(0.62 0.095 200)",
+      "chart-4": "oklch(0.62 0.095 150)",
+      "chart-5": "oklch(0.62 0.14 55)",
+      sidebar: "oklch(0.985 0.003 350)",
+      "sidebar-foreground": "oklch(0.24 0.0126 350)",
+      "sidebar-primary": "oklch(0.52 0.125 350)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.007 350)",
+      "sidebar-accent-foreground": "oklch(0.3 0.0126 350)",
+      "sidebar-border": "oklch(0.92 0.0084 350)",
+      "sidebar-ring": "oklch(0.62 0.084 350)"
+    },
+    dark: {
+      background: "oklch(0.16 0.0084 350)",
+      foreground: "oklch(0.94 0.0154 350)",
+      card: "oklch(0.21000000000000002 0.0084 350)",
+      "card-foreground": "oklch(0.94 0.0154 350)",
+      popover: "oklch(0.235 0.0084 350)",
+      "popover-foreground": "oklch(0.94 0.0154 350)",
+      primary: "oklch(0.86 0.033 350)",
+      "primary-foreground": "oklch(0.14 0.015 350)",
+      secondary: "oklch(0.26 0.0084 350)",
+      "secondary-foreground": "oklch(0.9 0.0154 350)",
+      muted: "oklch(0.26 0.0084 350)",
+      "muted-foreground": "oklch(0.805 0.0112 350)",
+      accent: "oklch(0.32 0.0084 350)",
+      "accent-foreground": "oklch(0.9 0.0154 350)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.065 350)",
+      "chart-1": "oklch(0.71 0.061 350)",
+      "chart-2": "oklch(0.71 0.065 300)",
+      "chart-3": "oklch(0.71 0.095 200)",
+      "chart-4": "oklch(0.71 0.095 150)",
+      "chart-5": "oklch(0.71 0.13 55)",
+      sidebar: "oklch(0.2 0.0084 350)",
+      "sidebar-foreground": "oklch(0.94 0.0154 350)",
+      "sidebar-primary": "oklch(0.86 0.033 350)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 350)",
+      "sidebar-accent": "oklch(0.26 0.0084 350)",
+      "sidebar-accent-foreground": "oklch(0.9 0.0154 350)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.065 350)"
+    },
+    promptDetails: "The page and the cards are white; every other neutral \u2014 muted, secondary, accent, border \u2014 carries hue 350 at chroma 0.007, so the greys are plum-cast while the ground is not. Elevation is that tint intensified: a raised surface takes the muted fill and gains roughly 30% chroma, and no blur is used for depth anywhere in the product. Radii are 14px on both controls and cards, 18px on overlays. The plum (0.52 0.125 350) is the accent and appears at full strength only on the primary action. Fraunces sits at weight 600 with optical sizing on, 44px/1.1 for page titles on a 1.414 scale, against Karla at 16px/1.65. Spacing is generous: 32px card padding, 28px between fields, 72px between page sections. Text fields use floating labels \u2014 15px at rest inside a 52px field, 11px pinned to the top edge on focus or value, 160ms ease-out \u2014 and the field never changes height."
+  },
+  {
+    id: "signal",
+    name: "Signal",
+    character: "Dense and electric: condensed headings, an offset border, and one bright blue.",
+    axes: [
+      "Condensed uppercase headings against a plain sans body",
+      "Offset elevation \u2014 a 2px hard shadow with no blur at all",
+      "8 / 8 / 12px radii with pill badges and underline fields",
+      "Compact: 30px rows, 14px body, 12px between fields"
+    ],
+    fonts: {
+      display: "Oswald",
+      body: "IBM Plex Sans Condensed",
+      mono: "IBM Plex Mono"
+    },
+    scaleRatio: 1.333,
+    shape: { control: 8, card: 8, overlay: 12, pill: true },
+    density: "compact",
+    elevationStrategy: "offset",
+    motionModel: "duration",
+    inputStyle: "underline",
+    neutralHue: 265,
+    vividness: 82,
+    light: {
+      background: "oklch(0.99 0.003 265)",
+      foreground: "oklch(0.24 0.0072 265)",
+      card: "oklch(1 0 0)",
+      "card-foreground": "oklch(0.24 0.0072 265)",
+      popover: "oklch(1 0 0)",
+      "popover-foreground": "oklch(0.24 0.0072 265)",
+      primary: "oklch(0.52 0.18 265)",
+      "primary-foreground": "oklch(1 0 0)",
+      secondary: "oklch(0.97 0.004 265)",
+      "secondary-foreground": "oklch(0.3 0.0072 265)",
+      muted: "oklch(0.97 0.004 265)",
+      "muted-foreground": "oklch(0.52 0.0048 265)",
+      accent: "oklch(0.96 0.004 265)",
+      "accent-foreground": "oklch(0.3 0.0072 265)",
+      destructive: "oklch(0.55 0.175 27)",
+      border: "oklch(0.92 0.0048 265)",
+      input: "oklch(0.92 0.0048 265)",
+      ring: "oklch(0.62 0.121 265)",
+      "chart-1": "oklch(0.62 0.137 265)",
+      "chart-2": "oklch(0.62 0.065 200)",
+      "chart-3": "oklch(0.62 0.095 150)",
+      "chart-4": "oklch(0.62 0.095 45)",
+      "chart-5": "oklch(0.62 0.14 330)",
+      sidebar: "oklch(0.985 0.003 265)",
+      "sidebar-foreground": "oklch(0.24 0.0072 265)",
+      "sidebar-primary": "oklch(0.52 0.18 265)",
+      "sidebar-primary-foreground": "oklch(1 0 0)",
+      "sidebar-accent": "oklch(0.96 0.004 265)",
+      "sidebar-accent-foreground": "oklch(0.3 0.0072 265)",
+      "sidebar-border": "oklch(0.92 0.0048 265)",
+      "sidebar-ring": "oklch(0.62 0.121 265)"
+    },
+    dark: {
+      background: "oklch(0.15 0.0048 265)",
+      foreground: "oklch(0.94 0.0088 265)",
+      card: "oklch(0.2 0.0048 265)",
+      "card-foreground": "oklch(0.94 0.0088 265)",
+      popover: "oklch(0.225 0.0048 265)",
+      "popover-foreground": "oklch(0.94 0.0088 265)",
+      primary: "oklch(0.86 0.033 265)",
+      "primary-foreground": "oklch(0.14 0.015 265)",
+      secondary: "oklch(0.25 0.0048 265)",
+      "secondary-foreground": "oklch(0.9 0.0088 265)",
+      muted: "oklch(0.25 0.0048 265)",
+      "muted-foreground": "oklch(0.805 0.0064 265)",
+      accent: "oklch(0.31 0.0048 265)",
+      "accent-foreground": "oklch(0.9 0.0088 265)",
+      destructive: "oklch(0.63 0.169 27)",
+      border: "oklch(1 0 0 / 10%)",
+      input: "oklch(1 0 0 / 15%)",
+      ring: "oklch(0.66 0.094 265)",
+      "chart-1": "oklch(0.71 0.088 265)",
+      "chart-2": "oklch(0.71 0.065 200)",
+      "chart-3": "oklch(0.71 0.095 150)",
+      "chart-4": "oklch(0.71 0.095 45)",
+      "chart-5": "oklch(0.71 0.13 330)",
+      sidebar: "oklch(0.19 0.0048 265)",
+      "sidebar-foreground": "oklch(0.94 0.0088 265)",
+      "sidebar-primary": "oklch(0.86 0.033 265)",
+      "sidebar-primary-foreground": "oklch(0.14 0.015 265)",
+      "sidebar-accent": "oklch(0.25 0.0048 265)",
+      "sidebar-accent-foreground": "oklch(0.9 0.0088 265)",
+      "sidebar-border": "oklch(1 0 0 / 10%)",
+      "sidebar-ring": "oklch(0.66 0.094 265)"
+    },
+    promptDetails: "Elevation is a hard offset with no blur: `box-shadow: 2px 2px 0 var(--border)` on cards and `4px 4px 0` on overlays \u2014 never a soft shadow, which would undo the whole language. Radii are 8px on controls and cards, 12px on dialogs, and badges are pills. The blue is bright (0.52 0.18 265) and used at full strength, but only on the primary action, the focus ring and chart-1; it must not cover more than a tenth of any screen. Headings are Oswald at 500, uppercase with 0.04em tracking, on a 1.333 scale from 14px body \u2014 the condensed-versus-plain contrast is the hierarchy, so never letter-space the body to match. Density is compact: 30px rows, 32px buttons, 16px card padding, 12px between fields. Text fields are a bottom rule \u2014 1px at rest, 2px in the accent on focus \u2014 with a 11px uppercase label above. Transitions are 120ms ease-out on colour and 160ms on the shadow offset."
+  }
+];
+var DEFAULT_PRESET = "atrium";
+var byId = new Map(presets.map((preset) => [preset.id, preset]));
+function presetById(id) {
+  return byId.get(id) ?? byId.get(DEFAULT_PRESET);
 }
 
 // src/studio/features/theme/data/typography.ts
@@ -29827,26 +32469,6 @@ var fontCharacters = [
 var fontCharacterMap = Object.fromEntries(
   fontCharacters.map((f) => [f.id, f])
 );
-var typeScales = [
-  {
-    id: "compact",
-    label: "Compact",
-    hint: "1.150 \u2014 small steps, dense screens",
-    promptDetails: "a compact type scale (ratio ~1.150): headings sit close to body size, which keeps dense screens calm and fits more on a laptop. Rely on weight and colour for hierarchy rather than size"
-  },
-  {
-    id: "balanced",
-    label: "Balanced",
-    hint: "1.250 \u2014 the default interface rhythm",
-    promptDetails: "a balanced type scale (ratio ~1.250) \u2014 the standard interface rhythm, where each level is clearly a level without shouting"
-  },
-  {
-    id: "expressive",
-    label: "Expressive",
-    hint: "1.333+ \u2014 large display headings",
-    promptDetails: "an expressive type scale (ratio ~1.333 or wider): display headings are markedly larger than body text and carry the page. Set them with tighter tracking and shorter line height as they grow"
-  }
-];
 var iconStyles = [
   {
     id: "line",
@@ -29865,46 +32487,6 @@ var iconStyles = [
     label: "Duotone",
     hint: "Two-tone, accent-aware",
     promptDetails: "duotone icons \u2014 a solid base at low opacity with the accent picking out the meaningful part. Use one accent, and keep the second tone derived from it rather than chosen separately"
-  }
-];
-var elevations = [
-  {
-    id: "flat",
-    label: "Flat",
-    hint: "Borders only, no shadows",
-    promptDetails: "no shadows anywhere. Separation comes from hairline borders and background steps alone; overlays are distinguished by a scrim, not by elevation"
-  },
-  {
-    id: "subtle",
-    label: "Subtle shadows",
-    hint: "One soft level, borders elsewhere",
-    promptDetails: "one soft shadow level, used only for things that genuinely float \u2014 menus, popovers, dialogs, a sticky bar. Everything resting on the page is separated by a border instead"
-  },
-  {
-    id: "layered",
-    label: "Layered",
-    hint: "A real elevation scale",
-    promptDetails: "a real elevation scale of three or four steps, defined once as tokens and applied consistently: card, raised card, popover, dialog. Larger elevation means larger blur and more vertical offset, never just a darker shadow"
-  }
-];
-var motions = [
-  {
-    id: "none",
-    label: "None",
-    hint: "Instant \u2014 no transitions",
-    promptDetails: "no animation. State changes are instant. Anything that would have been a transition is a change in the rendered state instead"
-  },
-  {
-    id: "restrained",
-    label: "Restrained",
-    hint: "150\u2013200ms, only where it explains",
-    promptDetails: "restrained motion \u2014 150\u2013200ms ease-out, and only where it explains something: a menu's origin, a panel's direction, a row leaving a list. Nothing decorative, nothing that delays an interaction"
-  },
-  {
-    id: "expressive",
-    label: "Expressive",
-    hint: "Staged entrances and micro-interactions",
-    promptDetails: "expressive motion \u2014 staged entrances, shared-element transitions between related views, and micro-interactions on primary actions. Keep every duration under 400ms and make sure nothing waits on an animation to become usable"
   }
 ];
 var colorSchemes = [
@@ -29929,6 +32511,1320 @@ var colorSchemes = [
 ];
 function describeOption(set, id) {
   return set.find((o) => o.id === id) ?? set[0];
+}
+
+// src/studio/features/theme/color/oklch.ts
+var GAMUT_EPSILON = 1e-4;
+var CHROMA_CEILING = 0.5;
+var CHROMA_PRECISION = 5e-4;
+var clamp01 = (n) => n < 0 ? 0 : n > 1 ? 1 : n;
+var normalizeHue = (h) => {
+  if (!Number.isFinite(h)) return 0;
+  const wrapped = h % 360;
+  return wrapped < 0 ? wrapped + 360 : wrapped;
+};
+function hexToRgb(hex) {
+  const raw = hex.trim().replace(/^#/, "");
+  const full = raw.length === 3 || raw.length === 4 ? raw.split("").map((ch) => ch + ch).join("") : raw;
+  if (!/^[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(full)) return null;
+  const int2 = Number.parseInt(full.slice(0, 6), 16);
+  return {
+    r: (int2 >> 16 & 255) / 255,
+    g: (int2 >> 8 & 255) / 255,
+    b: (int2 & 255) / 255
+  };
+}
+function rgbToHex({ r, g, b }) {
+  const channel = (n) => Math.round(clamp01(n) * 255).toString(16).padStart(2, "0");
+  return `#${channel(r)}${channel(g)}${channel(b)}`;
+}
+function srgbToLinear(channel) {
+  const sign = channel < 0 ? -1 : 1;
+  const abs = Math.abs(channel);
+  return sign * (abs <= 0.04045 ? abs / 12.92 : ((abs + 0.055) / 1.055) ** 2.4);
+}
+function linearToSrgb(channel) {
+  const sign = channel < 0 ? -1 : 1;
+  const abs = Math.abs(channel);
+  return sign * (abs <= 31308e-7 ? abs * 12.92 : 1.055 * abs ** (1 / 2.4) - 0.055);
+}
+function linearRgbToOklab({ r, g, b }) {
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+  const l_ = Math.cbrt(l);
+  const m_ = Math.cbrt(m);
+  const s_ = Math.cbrt(s);
+  return {
+    l: 0.2104542553 * l_ + 0.793617785 * m_ - 0.0040720468 * s_,
+    a: 1.9779984951 * l_ - 2.428592205 * m_ + 0.4505937099 * s_,
+    b: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.808675766 * s_
+  };
+}
+function oklabToLinearRgb({ l, a, b }) {
+  const l_ = l + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = l - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = l - 0.0894841775 * a - 1.291485548 * b;
+  const lc2 = l_ * l_ * l_;
+  const mc = m_ * m_ * m_;
+  const sc = s_ * s_ * s_;
+  return {
+    r: 4.0767416621 * lc2 - 3.3077115913 * mc + 0.2309699292 * sc,
+    g: -1.2684380046 * lc2 + 2.6097574011 * mc - 0.3413193965 * sc,
+    b: -0.0041960863 * lc2 - 0.7034186147 * mc + 1.707614701 * sc
+  };
+}
+function oklabToOklch({ l, a, b }) {
+  const c = Math.sqrt(a * a + b * b);
+  return { l, c, h: normalizeHue(Math.atan2(b, a) * 180 / Math.PI) };
+}
+function oklchToOklab({ l, c, h }) {
+  const rad = normalizeHue(h) * Math.PI / 180;
+  return { l, a: c * Math.cos(rad), b: c * Math.sin(rad) };
+}
+function rgbToOklch(rgb) {
+  return oklabToOklch(
+    linearRgbToOklab({
+      r: srgbToLinear(rgb.r),
+      g: srgbToLinear(rgb.g),
+      b: srgbToLinear(rgb.b)
+    })
+  );
+}
+function oklchToRgb(lch) {
+  const linear = oklabToLinearRgb(oklchToOklab(lch));
+  return {
+    r: linearToSrgb(linear.r),
+    g: linearToSrgb(linear.g),
+    b: linearToSrgb(linear.b)
+  };
+}
+function hexToOklch(hex) {
+  const rgb = hexToRgb(hex);
+  return rgb ? rgbToOklch(rgb) : null;
+}
+var CHROMA_AT_FULL_PERCENT = 0.4;
+var OKLCH_PATTERN = /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)(%?)\s+([\d.]+)(?:deg)?\s*(?:\/\s*([\d.]+)(%?)\s*)?\)$/i;
+function parseOklch(input) {
+  const match = OKLCH_PATTERN.exec(input.trim());
+  if (!match) return null;
+  const [, lRaw, lPct, cRaw, cPct, hRaw, aRaw, aPct] = match;
+  const l = Number(lRaw) / (lPct ? 100 : 1);
+  const c = Number(cRaw) * (cPct ? CHROMA_AT_FULL_PERCENT / 100 : 1);
+  const h = normalizeHue(Number(hRaw));
+  const alpha = aRaw === void 0 ? 1 : Number(aRaw) / (aPct ? 100 : 1);
+  if (!Number.isFinite(l) || !Number.isFinite(c) || !Number.isFinite(alpha))
+    return null;
+  return { l, c, h, alpha };
+}
+function formatOklch({ l, c, h }) {
+  const trim = (n) => n.toFixed(3).replace(/\.?0+$/, "");
+  const lightness = trim(clamp01(Number.isFinite(l) ? l : 0));
+  const chroma = trim(Math.max(0, Number.isFinite(c) ? c : 0));
+  const hue = chroma === "0" ? "0" : trim(normalizeHue(h));
+  return `oklch(${lightness} ${chroma} ${hue})`;
+}
+function parseColor(input) {
+  const value = input.trim();
+  if (value.startsWith("#")) return hexToRgb(value);
+  const lch = parseOklch(value);
+  return lch ? oklchToRgb(lch) : null;
+}
+function inGamut(lch) {
+  const { r, g, b } = oklchToRgb(lch);
+  const within = (n) => n >= -GAMUT_EPSILON && n <= 1 + GAMUT_EPSILON;
+  return within(r) && within(g) && within(b);
+}
+function maxChroma(l, h) {
+  if (!inGamut({ l, c: 0, h })) return 0;
+  let lo = 0;
+  let hi = CHROMA_CEILING;
+  while (hi - lo > CHROMA_PRECISION) {
+    const mid = (lo + hi) / 2;
+    if (inGamut({ l, c: mid, h })) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
+function clampToGamut({ l, c, h }) {
+  if (inGamut({ l, c, h })) return { l, c, h };
+  return { l, c: Math.min(c, maxChroma(l, h)), h };
+}
+
+// src/studio/features/theme/color/apca.ts
+var normBG = 0.56;
+var normTXT = 0.57;
+var revTXT = 0.62;
+var revBG = 0.65;
+var blkThrs = 0.022;
+var blkClmp = 1.414;
+var scale = 1.14;
+var loOffset = 0.027;
+var deltaYmin = 5e-4;
+var loClip = 0.1;
+var clamp012 = (n) => n < 0 ? 0 : n > 1 ? 1 : n;
+function luminance(input) {
+  const rgb = parseColor(input);
+  if (!rgb) return null;
+  const y = 0.2126729 * clamp012(rgb.r) ** 2.4 + 0.7151522 * clamp012(rgb.g) ** 2.4 + 0.072175 * clamp012(rgb.b) ** 2.4;
+  return y < blkThrs ? y + (blkThrs - y) ** blkClmp : y;
+}
+function lc(textColor, bgColor) {
+  const txtY = luminance(textColor);
+  const bgY = luminance(bgColor);
+  if (txtY === null || bgY === null) return 0;
+  if (Math.abs(bgY - txtY) < deltaYmin) return 0;
+  if (bgY > txtY) {
+    const sapc2 = (bgY ** normBG - txtY ** normTXT) * scale;
+    return (sapc2 < loClip ? 0 : sapc2 - loOffset) * 100;
+  }
+  const sapc = (bgY ** revBG - txtY ** revTXT) * scale;
+  return (sapc > -loClip ? 0 : sapc + loOffset) * 100;
+}
+var LC_FLOORS = {
+  bodySmall: 90,
+  body: 75,
+  secondary: 60,
+  disabled: 45
+};
+
+// src/studio/features/theme/tokens/resolve.ts
+var tokenGroups = [
+  ["background", "foreground"],
+  ["card", "card-foreground", "popover", "popover-foreground"],
+  ["primary", "primary-foreground", "secondary", "secondary-foreground"],
+  ["muted", "muted-foreground", "accent", "accent-foreground"],
+  ["destructive"],
+  ["border", "input", "ring"],
+  ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5"],
+  [
+    "sidebar",
+    "sidebar-foreground",
+    "sidebar-primary",
+    "sidebar-primary-foreground",
+    "sidebar-accent",
+    "sidebar-accent-foreground",
+    "sidebar-border",
+    "sidebar-ring"
+  ]
+];
+var tokenNames = tokenGroups.flatMap((group) => [...group]);
+var INPUT_RULES = {
+  outlined: "Text fields are a 1px `--border` box on `--background`, with the label above the field. On focus the border becomes `--ring` and a 2px ring sits outside it.",
+  filled: "Text fields are filled with `--muted` and have no border, with the label above the field. On focus the fill lightens and a 2px `--ring` ring sits outside it.",
+  underline: "Text fields have no box \u2014 a 1px `--border` rule under the field only, with the label above it. On focus the rule becomes 2px `--ring`. Do not add a background or a box on focus.",
+  floating: "Text fields start with the label sitting inside them at body size, in `--muted-foreground`. On focus, and whenever the field has a value, the label rises to the top edge of the field at the `micro` size and takes `--ring`. Animate that with the state duration; it is the one place a label moves.",
+  inset: "Text fields carry the label permanently inside them, at the `micro` size in `--muted-foreground`, sitting above the value on its own line. The field is tall enough for both. The label never moves.",
+  borderless: "Text fields have no border and no fill at rest \u2014 only the value and, above it, the label. A `--muted` fill appears on hover and a 2px `--ring` ring on focus. Use this only where the form is the page's content rather than a dialog."
+};
+var BODY_SIZE = 16;
+var SPACING = [4, 8, 12, 16, 24, 32, 48, 64];
+var WEIGHTS = {
+  display: 700,
+  h1: 700,
+  h2: 600,
+  h3: 600,
+  body: 400,
+  small: 400,
+  micro: 500
+};
+var STEP_ORDER = [
+  "display",
+  "h1",
+  "h2",
+  "h3",
+  "body",
+  "small",
+  "micro"
+];
+var round = (value, places) => Number(value.toFixed(places));
+function lineHeightFor(size) {
+  return round(Math.min(1.7, 1.08 + 6.4 / size), 2);
+}
+function trackingFor(size) {
+  return `${round(0.512 / size - 0.0327, 4)}em`;
+}
+function typeScale(ratio) {
+  const down = 1 + (ratio - 1) * 0.4;
+  const raw = {
+    display: BODY_SIZE * ratio ** 4,
+    h1: BODY_SIZE * ratio ** 3,
+    h2: BODY_SIZE * ratio ** 2,
+    h3: BODY_SIZE * ratio,
+    body: BODY_SIZE,
+    small: BODY_SIZE / down,
+    micro: BODY_SIZE / (down * down)
+  };
+  const size = { ...raw };
+  let previous = BODY_SIZE;
+  for (const name of ["h3", "h2", "h1", "display"]) {
+    size[name] = Math.max(Math.round(raw[name]), previous + 1);
+    previous = size[name];
+  }
+  previous = BODY_SIZE;
+  for (const name of ["small", "micro"]) {
+    size[name] = Math.min(Math.round(raw[name]), previous - 1);
+    previous = size[name];
+  }
+  size.body = BODY_SIZE;
+  return STEP_ORDER.map((name) => ({
+    name,
+    size: size[name],
+    lineHeight: lineHeightFor(size[name]),
+    tracking: trackingFor(size[name]),
+    weight: WEIGHTS[name]
+  }));
+}
+function motionTokens(model) {
+  switch (model) {
+    case "none":
+      return { model, stateMs: 0, enterMs: 0, curve: "", overshoot: "", spring: null };
+    case "spring":
+      return {
+        model,
+        // A spring has no duration, but half the surfaces it drives are CSS,
+        // so it carries the durations that read as the same movement.
+        stateMs: 140,
+        enterMs: 260,
+        curve: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        overshoot: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        spring: { stiffness: 220, damping: 26, mass: 1 }
+      };
+    default:
+      return {
+        model: "duration",
+        stateMs: 120,
+        enterMs: 200,
+        curve: "cubic-bezier(0.2, 0, 0, 1)",
+        overshoot: "",
+        spring: null
+      };
+  }
+}
+function elevationTokens(strategy, brandHue) {
+  const hue = round(brandHue, 1);
+  switch (strategy) {
+    case "shadow":
+      return {
+        strategy,
+        shadow: "0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px -12px oklch(0 0 0 / 0.18)",
+        blur: 0,
+        rule: "Depth is one shadow, and it belongs only on something genuinely floating above the page \u2014 a menu, a dialog, a toast. Cards do not have it."
+      };
+    case "ladder":
+      return {
+        strategy,
+        shadow: "",
+        blur: 0,
+        rule: "Depth is a step in surface lightness \u2014 background, then card, then popover. Nothing casts a shadow; if two surfaces need separating, the one in front is lighter."
+      };
+    case "hairline":
+      return {
+        strategy,
+        shadow: "",
+        blur: 0,
+        rule: "Depth is a single hairline border. Nothing casts a shadow, and no border is thicker than 1px except the one carrying a selected state."
+      };
+    case "grid":
+      return {
+        strategy,
+        shadow: "",
+        blur: 0,
+        rule: "Depth is the rule grid: cells share their borders and the page reads as one ruled sheet. Nothing casts a shadow and nothing floats free of the grid."
+      };
+    case "tinted":
+      return {
+        strategy,
+        // Tinted toward the brand hue rather than neutral black, which is what
+        // stops a shadow reading as dirt on a coloured ground.
+        shadow: `0 1px 2px oklch(0.55 0.05 ${hue} / 0.1), 0 10px 30px -14px oklch(0.5 0.14 ${hue} / 0.4)`,
+        blur: 0,
+        rule: "Depth is one shadow tinted toward the brand hue, never neutral black. It belongs only on something genuinely floating above the page."
+      };
+    case "glass":
+      return {
+        strategy,
+        shadow: "",
+        blur: 16,
+        rule: "Depth is the blur behind an overlay: a translucent surface over a backdrop filter. It applies only where content genuinely passes underneath \u2014 a frosted panel with nothing behind it is decoration."
+      };
+    default:
+      return {
+        strategy: "offset",
+        // `var(--foreground)` rather than a literal so one value works in both
+        // modes; the non-CSS targets resolve it per mode when they emit.
+        shadow: "4px 4px 0 0 var(--foreground)",
+        blur: 0,
+        rule: "Depth is a hard offset with no blur, in the foreground colour. One offset distance everywhere, and it moves to 2px on press rather than fading."
+      };
+  }
+}
+function hueOf(color, fallback) {
+  return parseOklch(color ?? "")?.h ?? fallback;
+}
+function layer(base, overrides) {
+  const merged = { ...base ?? {}, ...overrides };
+  const resolved = {};
+  for (const name of tokenNames) if (merged[name]) resolved[name] = merged[name];
+  for (const name of Object.keys(merged).sort()) {
+    if (!resolved[name] && merged[name]) resolved[name] = merged[name];
+  }
+  return resolved;
+}
+function resolveFonts(theme, preset) {
+  const byCharacter = deviates("headingFont", theme.headingFont) ? LEGACY_FAMILY[theme.headingFont] : "";
+  const bodyByCharacter = theme.bodyFont !== "pair" && deviates("bodyFont", theme.bodyFont) ? LEGACY_FAMILY[theme.bodyFont] : "";
+  const display = theme.fonts.display || byCharacter || preset?.fonts.display || "";
+  const mono = theme.fonts.mono || preset?.fonts.mono || "";
+  const named = theme.fonts.body || bodyByCharacter || preset?.fonts.body || "";
+  return { display, body: named || (theme.bodyFont === "pair" ? display : ""), mono };
+}
+var NEUTRAL_CHROMA = 0.03;
+function applyDials(tokens, vividnessRatio, neutralHue) {
+  if (vividnessRatio === 1 && neutralHue === null) return tokens;
+  const out = {};
+  for (const [name, value] of Object.entries(tokens)) {
+    const parsed = parseOklch(value);
+    if (!parsed || parsed.alpha !== 1) {
+      out[name] = value;
+      continue;
+    }
+    const neutral = parsed.c <= NEUTRAL_CHROMA;
+    const h = neutral && neutralHue !== null ? neutralHue : parsed.h;
+    const c = neutral ? parsed.c : parsed.c * vividnessRatio;
+    out[name] = formatOklch(clampToGamut({ l: parsed.l, c, h }));
+  }
+  return out;
+}
+function labelFor(fill, hue) {
+  const ink = formatOklch(clampToGamut({ l: 0.16, c: 0.02, h: hue }));
+  const onWhite = Math.abs(lc("oklch(1 0 0)", fill));
+  const onInk = Math.abs(lc(ink, fill));
+  return onWhite >= onInk ? "oklch(1 0 0)" : ink;
+}
+function shade(l, c, h) {
+  return formatOklch(clampToGamut({ l, c, h }));
+}
+function readableFill(l, c, h) {
+  let nearest = shade(l, c, h);
+  let best = Math.abs(lc(labelFor(nearest, h), nearest));
+  if (best >= LC_FLOORS.body) return nearest;
+  for (let step = 0.02; step <= 0.45; step += 0.02) {
+    for (const candidate of [l - step, l + step]) {
+      if (candidate < 0.12 || candidate > 0.97) continue;
+      const fill = shade(candidate, c, h);
+      const measured = Math.abs(lc(labelFor(fill, h), fill));
+      if (measured >= LC_FLOORS.body) return fill;
+      if (measured > best) {
+        best = measured;
+        nearest = fill;
+      }
+    }
+  }
+  return nearest;
+}
+function applyBrand(tokens, mode, primary, secondary) {
+  if (!primary && !secondary) return tokens;
+  const out = { ...tokens };
+  if (primary) {
+    const brand = hexToOklch(primary);
+    if (brand) {
+      const { c, h } = brand;
+      const fill = mode === "dark" ? shade(0.86, Math.min(c, 0.06), h) : readableFill(brand.l, c, h);
+      const label = mode === "dark" ? shade(0.14, 0.015, h) : labelFor(fill, h);
+      out.primary = fill;
+      out["primary-foreground"] = label;
+      out["sidebar-primary"] = fill;
+      out["sidebar-primary-foreground"] = label;
+      out.ring = shade(mode === "dark" ? 0.66 : 0.62, c * 0.6, h);
+      out["chart-1"] = shade(mode === "dark" ? 0.71 : 0.62, c * 0.76, h);
+    }
+  }
+  if (secondary) {
+    const brand = hexToOklch(secondary);
+    if (brand) {
+      const { c, h } = brand;
+      out["chart-2"] = shade(mode === "dark" ? 0.71 : 0.62, c * 0.7, h);
+      const tint = shade(
+        mode === "dark" ? 0.32 : 0.94,
+        Math.min(c * 0.25, mode === "dark" ? 0.04 : 0.05),
+        h
+      );
+      const label = shade(mode === "dark" ? 0.9 : 0.3, 0.02, h);
+      out.accent = tint;
+      out["accent-foreground"] = label;
+      out["sidebar-accent"] = tint;
+      out["sidebar-accent-foreground"] = label;
+    }
+  }
+  return out;
+}
+var THEME_DEFAULTS = themeSchema.parse({});
+function deviates(key, value) {
+  return JSON.stringify(value) !== JSON.stringify(THEME_DEFAULTS[key]);
+}
+var LEGACY_SHAPE = {
+  none: { control: 0, card: 0, overlay: 2, pill: false },
+  small: { control: 4, card: 6, overlay: 8, pill: false },
+  medium: { control: 8, card: 12, overlay: 16, pill: false },
+  large: { control: 14, card: 18, overlay: 22, pill: false },
+  full: { control: 16, card: 20, overlay: 24, pill: true }
+};
+var LEGACY_SCALE = {
+  compact: 1.15,
+  balanced: 1.25,
+  expressive: 1.4
+};
+var LEGACY_ELEVATION = {
+  flat: "hairline",
+  subtle: "shadow",
+  layered: "ladder"
+};
+var LEGACY_MOTION = {
+  none: "none",
+  restrained: "duration",
+  expressive: "spring"
+};
+var LEGACY_FAMILY = {
+  geometric: "Outfit",
+  grotesque: "Inter",
+  humanist: "Source Sans 3",
+  serif: "Source Serif 4",
+  slab: "Roboto Slab",
+  mono: "IBM Plex Mono"
+};
+function legacyShape(theme) {
+  const radius = deviates("borderRadius", theme.borderRadius) ? LEGACY_SHAPE[theme.borderRadius] : null;
+  const buttons = deviates("buttonStyle", theme.buttonStyle) ? theme.buttonStyle : null;
+  if (!radius && !buttons) return null;
+  const base = radius ?? LEGACY_SHAPE.medium;
+  if (buttons === "rounded") return { ...base, pill: true };
+  if (buttons === "sharp") return { ...base, control: 0 };
+  return base;
+}
+function resolveTokens(theme, preview) {
+  const preset = preview ?? presetById(theme.preset);
+  const presetVividness = preset?.vividness ?? THEME_DEFAULTS.vividness;
+  const vividnessRatio = !deviates("vividness", theme.vividness) || theme.vividness === presetVividness || presetVividness === 0 ? 1 : theme.vividness / presetVividness;
+  const presetHue = preset?.neutralHue ?? THEME_DEFAULTS.neutralHue;
+  const hueShift = !deviates("neutralHue", theme.neutralHue) || theme.neutralHue === presetHue ? null : theme.neutralHue;
+  const brandPrimary = deviates("primaryColor", theme.primaryColor) ? theme.primaryColor : null;
+  const brandSecondary = deviates("secondaryColor", theme.secondaryColor) ? theme.secondaryColor : null;
+  const light = layer(
+    applyBrand(
+      applyDials(layer(preset?.light, {}), vividnessRatio, hueShift),
+      "light",
+      brandPrimary,
+      brandSecondary
+    ),
+    theme.palette.light
+  );
+  const dark = layer(
+    applyBrand(
+      applyDials(layer(preset?.dark, {}), vividnessRatio, hueShift),
+      "dark",
+      brandPrimary,
+      brandSecondary
+    ),
+    theme.palette.dark
+  );
+  const shape = deviates("shape", theme.shape) ? theme.shape : legacyShape(theme) ?? preset?.shape ?? theme.shape;
+  const scaleRatio = deviates("scaleRatio", theme.scaleRatio) ? theme.scaleRatio : deviates("typeScale", theme.typeScale) ? LEGACY_SCALE[theme.typeScale] : preset?.scaleRatio ?? theme.scaleRatio;
+  const elevationStrategy = deviates("elevationStrategy", theme.elevationStrategy) ? theme.elevationStrategy : deviates("elevation", theme.elevation) ? LEGACY_ELEVATION[theme.elevation] : preset?.elevationStrategy ?? theme.elevationStrategy;
+  const motionModel = deviates("motionModel", theme.motionModel) ? theme.motionModel : deviates("motion", theme.motion) ? LEGACY_MOTION[theme.motion] : preset?.motionModel ?? theme.motionModel;
+  const inputStyle = deviates("inputStyle", theme.inputStyle) ? theme.inputStyle : preset?.inputStyle ?? theme.inputStyle;
+  const shadowHue = deviates("neutralHue", theme.neutralHue) ? theme.neutralHue : preset?.neutralHue ?? theme.neutralHue;
+  return {
+    light,
+    dark,
+    shape: { ...shape },
+    fonts: resolveFonts(theme, preset),
+    scaleRatio,
+    scale: typeScale(scaleRatio),
+    spacing: [...SPACING],
+    motion: motionTokens(motionModel),
+    inputStyle,
+    inputRule: INPUT_RULES[inputStyle],
+    elevation: elevationTokens(elevationStrategy, hueOf(light.primary, shadowHue))
+  };
+}
+
+// src/studio/features/theme/tokens/css.ts
+function generateStylesheet(theme, styling, preview) {
+  const tokens = resolveTokens(theme, preview);
+  switch (styling) {
+    case "tailwind4-shadcn":
+      return { path: "app/globals.css", language: "css", source: tailwind4(theme, tokens) };
+    case "tailwind3-shadcn":
+      return { path: "app/globals.css", language: "css", source: tailwind3(theme, tokens) };
+    case "tailwind":
+      return { path: "app/globals.css", language: "css", source: tailwindOnly(theme, tokens) };
+    case "nativewind":
+      return { path: "global.css", language: "css", source: nativewind(theme, tokens) };
+    case "css-modules":
+      return { path: "styles/tokens.css", language: "css", source: cssModules(theme, tokens) };
+    case "styled":
+      return { path: "styles/theme.ts", language: "ts", source: styledTheme(theme, tokens) };
+    case "mui":
+      return { path: "styles/theme.ts", language: "ts", source: muiTheme(theme, tokens) };
+    case "rn-stylesheet":
+      return { path: "theme/tokens.ts", language: "ts", source: nativeTheme(theme, tokens) };
+    case "":
+      return { path: "", language: "css", source: "" };
+    default:
+      return { path: "styles/tokens.css", language: "css", source: plainTokens(theme, tokens) };
+  }
+}
+var round2 = (value, places) => Number(value.toFixed(places));
+function alphaOf(value) {
+  const lch = parseOklch(value);
+  if (lch) return lch.alpha;
+  const hex = value.trim();
+  if (hex.startsWith("#") && hex.length === 9) return Number.parseInt(hex.slice(7), 16) / 255;
+  if (hex.startsWith("#") && hex.length === 5) {
+    return Number.parseInt(hex.slice(4) + hex.slice(4), 16) / 255;
+  }
+  return 1;
+}
+function toHex(value) {
+  const rgb = parseColor(value);
+  if (!rgb) return value;
+  const alpha = alphaOf(value);
+  if (alpha >= 1) return rgbToHex(rgb);
+  const byte = Math.round(Math.min(1, Math.max(0, alpha)) * 255).toString(16).padStart(2, "0");
+  return `${rgbToHex(rgb)}${byte}`;
+}
+function toHslTriplet(value) {
+  const rgb = parseColor(value);
+  if (!rgb) return value;
+  const max = Math.max(rgb.r, rgb.g, rgb.b);
+  const min = Math.min(rgb.r, rgb.g, rgb.b);
+  const lightness = (max + min) / 2;
+  const chroma = max - min;
+  const saturation = chroma === 0 ? 0 : chroma / (1 - Math.abs(2 * lightness - 1));
+  let hue = 0;
+  if (chroma !== 0) {
+    if (max === rgb.r) hue = (rgb.g - rgb.b) / chroma % 6;
+    else if (max === rgb.g) hue = (rgb.b - rgb.r) / chroma + 2;
+    else hue = (rgb.r - rgb.g) / chroma + 4;
+    hue = (hue * 60 + 360) % 360;
+  }
+  return `${round2(hue, 1)} ${round2(saturation * 100, 1)}% ${round2(lightness * 100, 1)}%`;
+}
+var hexify = (value) => value.replace(/oklch\([^)]*\)/gi, (match) => toHex(match));
+function literalShadow(shadow, palette, format) {
+  return shadow.replace(
+    /var\(--([a-z0-9-]+)\)/gi,
+    (_, name) => format(palette[name] ?? "#000000")
+  );
+}
+function rule(selector, body) {
+  const lines = body.flatMap((entry) => entry.split("\n"));
+  return [`${selector} {`, ...lines.map((line) => line ? `  ${line}` : ""), "}"].join("\n");
+}
+function colorLines(values, format = (value) => value) {
+  const lines = [];
+  const emitted = /* @__PURE__ */ new Set();
+  for (const group of tokenGroups) {
+    const present = group.filter((name) => values[name]);
+    if (!present.length) continue;
+    if (lines.length) lines.push("");
+    for (const name of present) {
+      lines.push(`--${name}: ${format(values[name])};`);
+      emitted.add(name);
+    }
+  }
+  const extra = Object.keys(values).filter((name) => !emitted.has(name));
+  if (extra.length) {
+    lines.push("");
+    for (const name of extra) lines.push(`--${name}: ${format(values[name])};`);
+  }
+  return lines;
+}
+var ROLE_NAMES = [
+  ["background", "background"],
+  ["foreground", "foreground"],
+  ["surface", "card"],
+  ["surface-raised", "popover"],
+  ["muted", "muted"],
+  ["muted-foreground", "muted-foreground"],
+  ["accent", "primary"],
+  ["accent-foreground", "primary-foreground"],
+  ["danger", "destructive"],
+  ["border", "border"],
+  ["input", "input"],
+  ["ring", "ring"],
+  ["chart-1", "chart-1"],
+  ["chart-2", "chart-2"],
+  ["chart-3", "chart-3"],
+  ["chart-4", "chart-4"],
+  ["chart-5", "chart-5"]
+];
+var MODULE_NAMES = [
+  ["color-bg", "background"],
+  ["color-fg", "foreground"],
+  ["color-surface", "card"],
+  ["color-surface-raised", "popover"],
+  ["color-muted", "muted"],
+  ["color-fg-muted", "muted-foreground"],
+  ["color-accent", "primary"],
+  ["color-accent-fg", "primary-foreground"],
+  ["color-danger", "destructive"],
+  ["color-border", "border"],
+  ["color-input", "input"],
+  ["color-ring", "ring"],
+  ["color-chart-1", "chart-1"],
+  ["color-chart-2", "chart-2"],
+  ["color-chart-3", "chart-3"],
+  ["color-chart-4", "chart-4"],
+  ["color-chart-5", "chart-5"]
+];
+function mappedLines(names, values, format = (value) => value) {
+  return names.filter(([, token]) => values[token]).map(([name, token]) => `--${name}: ${format(values[token])};`);
+}
+function radiusLines(shape) {
+  return [
+    "/* Four radii, not one scalar with multipliers: a design can be square",
+    "   everywhere and still have one pill in it. */",
+    `--radius-control: ${shape.control}px;`,
+    `--radius-card: ${shape.card}px;`,
+    `--radius-overlay: ${shape.overlay}px;`,
+    `--radius-action: ${shape.pill ? 9999 : shape.control}px;`,
+    "--radius: var(--radius-control);"
+  ];
+}
+function familyStack(name, character) {
+  const generic = character === "mono" ? "ui-monospace, SFMono-Regular, Menlo, monospace" : character === "serif" || character === "slab" ? 'ui-serif, Georgia, "Times New Roman", serif' : 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';
+  return name ? `"${name}", ${generic}` : generic;
+}
+function stacks(theme, tokens) {
+  const bodyCharacter = theme.bodyFont === "pair" ? theme.headingFont : theme.bodyFont;
+  return {
+    display: familyStack(tokens.fonts.display, theme.headingFont),
+    body: familyStack(tokens.fonts.body, bodyCharacter),
+    mono: familyStack(tokens.fonts.mono, "mono")
+  };
+}
+function fontLines(theme, tokens) {
+  const set = stacks(theme, tokens);
+  return [
+    `--font-family-display: ${set.display};`,
+    `--font-family-body: ${set.body};`,
+    `--font-family-mono: ${set.mono};`
+  ];
+}
+function googleFontImport(fonts) {
+  const families = [...new Set([fonts.display, fonts.body, fonts.mono].filter(Boolean))];
+  if (!families.length) return "";
+  const query = families.map((family) => `family=${family.trim().replace(/\s+/g, "+")}:wght@400;500;600;700`).join("&");
+  return `@import url("https://fonts.googleapis.com/css2?${query}&display=swap");`;
+}
+function typeLines(tokens) {
+  return tokens.scale.flatMap((step) => [
+    `--text-${step.name}: ${step.size}px;`,
+    `--leading-${step.name}: ${step.lineHeight};`,
+    `--tracking-${step.name}: ${step.tracking};`,
+    `--weight-${step.name}: ${step.weight};`
+  ]);
+}
+function spacingLines(tokens) {
+  return [
+    `/* The whole spacing scale: ${tokens.spacing.join(", ")}. Nothing between them. */`,
+    ...tokens.spacing.map((value, index) => `--space-${index + 1}: ${value}px;`)
+  ];
+}
+function motionLines(tokens) {
+  const { motion } = tokens;
+  if (!motion.curve) {
+    return ["/* Nothing moves in this design, so there is no curve to declare. */"];
+  }
+  return [
+    `--motion-state: ${motion.stateMs}ms;`,
+    `--motion-enter: ${motion.enterMs}ms;`,
+    `--motion-curve: ${motion.curve};`,
+    ...motion.overshoot ? [
+      "/* Reserved for the two or three moments meant to feel playful. */",
+      `--motion-overshoot: ${motion.overshoot};`
+    ] : []
+  ];
+}
+function elevationLines(tokens, format = (v) => v) {
+  const { elevation } = tokens;
+  const lines = [`/* ${elevation.rule} */`];
+  if (elevation.shadow) lines.push(`--elevation: ${format(elevation.shadow)};`);
+  if (elevation.blur) lines.push(`--glass-blur: ${elevation.blur}px;`);
+  return lines;
+}
+var REDUCED_MOTION = `@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}`;
+function tailwind4(theme, tokens) {
+  const fontImport = googleFontImport(tokens.fonts);
+  const chunks = [];
+  if (fontImport) chunks.push(fontImport);
+  chunks.push('@import "tailwindcss";');
+  chunks.push("@custom-variant dark (&:is(.dark *));");
+  chunks.push(
+    rule(":root", [
+      ...radiusLines(tokens.shape),
+      "",
+      ...fontLines(theme, tokens),
+      "",
+      ...motionLines(tokens),
+      "",
+      ...elevationLines(tokens),
+      "",
+      ...colorLines(tokens.light)
+    ])
+  );
+  chunks.push(rule(".dark", colorLines(tokens.dark)));
+  chunks.push(rule("@theme inline", themeInline(tokens)));
+  chunks.push(baseLayer(tokens));
+  if (tokens.motion.curve) chunks.push(REDUCED_MOTION);
+  return `${chunks.join("\n\n")}
+`;
+}
+function themeColorLines(values) {
+  const lines = [];
+  for (const group of tokenGroups) {
+    const present = group.filter((name) => values[name]);
+    if (!present.length) continue;
+    if (lines.length) lines.push("");
+    for (const name of present) lines.push(`--color-${name}: var(--${name});`);
+  }
+  const extra = Object.keys(values).filter((name) => !tokenNames.includes(name));
+  if (extra.length) {
+    lines.push("");
+    for (const name of extra) lines.push(`--color-${name}: var(--${name});`);
+  }
+  return lines;
+}
+function themeInline(tokens) {
+  const { motion, elevation } = tokens;
+  return [
+    ...themeColorLines(tokens.light),
+    "",
+    "--font-display: var(--font-family-display);",
+    "--font-sans: var(--font-family-body);",
+    "--font-mono: var(--font-family-mono);",
+    "",
+    "/* shadcn's primitives reach for rounded-md on controls, rounded-lg on",
+    "   overlays and rounded-xl on cards. Mapping Tailwind's scale onto the",
+    "   four shape tokens is what makes those components take this shape. */",
+    "--radius-sm: max(0px, calc(var(--radius-control) - 2px));",
+    "--radius-md: var(--radius-action);",
+    "--radius-lg: var(--radius-overlay);",
+    "--radius-xl: var(--radius-card);",
+    "",
+    ...tokens.scale.flatMap((step) => [
+      `--text-${step.name}: ${step.size}px;`,
+      `--text-${step.name}--line-height: ${step.lineHeight};`,
+      `--text-${step.name}--letter-spacing: ${step.tracking};`,
+      `--text-${step.name}--font-weight: ${step.weight};`
+    ]),
+    "",
+    `/* Spacing is the 4px step: ${tokens.spacing.join(", ")} and nothing between. */`,
+    "--spacing: 4px;",
+    ...elevation.shadow ? ["", "--shadow-elevated: var(--elevation);"] : [],
+    ...elevation.blur ? ["", "--blur-glass: var(--glass-blur);"] : [],
+    ...motion.curve ? [
+      "",
+      "--default-transition-duration: var(--motion-state);",
+      "--default-transition-timing-function: var(--motion-curve);",
+      "--ease-standard: var(--motion-curve);",
+      ...motion.overshoot ? ["--ease-overshoot: var(--motion-overshoot);"] : []
+    ] : []
+  ];
+}
+function baseLayer(tokens) {
+  const headings = tokens.fonts.display ? "\n\n  h1,\n  h2,\n  h3,\n  h4 {\n    @apply font-display;\n  }" : "";
+  return `@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }${headings}
+}`;
+}
+function tailwind3(theme, tokens) {
+  const fontImport = googleFontImport(tokens.fonts);
+  const chunks = [];
+  if (fontImport) chunks.push(fontImport);
+  chunks.push("@tailwind base;\n@tailwind components;\n@tailwind utilities;");
+  chunks.push(
+    rule("@layer base", [
+      rule(":root", [
+        ...radiusLines(tokens.shape),
+        "",
+        ...fontLines(theme, tokens),
+        "",
+        ...motionLines(tokens),
+        "",
+        ...elevationLines(tokens, hexify),
+        "",
+        "/* Bare triplets, no hsl() wrapper: that is the form the config",
+        "   consumes as hsl(var(--x)), and it is what lets a utility add an",
+        "   opacity to a token colour. */",
+        ...colorLines(tokens.light, toHslTriplet)
+      ]),
+      "",
+      rule(".dark", colorLines(tokens.dark, toHslTriplet)),
+      "",
+      rule("*", ["@apply border-border;"]),
+      "",
+      rule("body", ["@apply bg-background text-foreground;"])
+    ])
+  );
+  chunks.push(tailwind3Config(theme, tokens));
+  return `${chunks.join("\n\n")}
+`;
+}
+function tailwind3Config(theme, tokens) {
+  const set = stacks(theme, tokens);
+  const family = (stack) => JSON.stringify(stack.split(", ").map((part) => part.replace(/^"|"$/g, "")));
+  const colors = tokenNames.filter((name) => tokens.light[name]).map((name) => `           "${name}": "hsl(var(--${name}))",`).join("\n");
+  const sizes = tokens.scale.map(
+    (step) => `           ${step.name}: ["${step.size}px", { lineHeight: "${step.lineHeight}", letterSpacing: "${step.tracking}" }],`
+  ).join("\n");
+  const motion = tokens.motion.curve ? `
+        transitionDuration: {
+          state: "var(--motion-state)",
+          enter: "var(--motion-enter)",
+        },
+        transitionTimingFunction: {
+          standard: "var(--motion-curve)",${tokens.motion.overshoot ? '\n          overshoot: "var(--motion-overshoot)",' : ""}
+        },` : "";
+  return `/* ------------------------------------------------------------------
+   tailwind.config.ts \u2014 the half of the theme v3 cannot keep in CSS.
+   Merge this into the existing config; leave its content globs alone.
+   Flat colour keys are deliberate: they generate the same class names
+   as the nested form and survive a token being added by hand.
+
+   import type { Config } from "tailwindcss"
+
+   export default {
+     darkMode: ["class"],
+     theme: {
+       extend: {
+         colors: {
+${colors}
+         },
+         borderRadius: {
+           sm: "calc(var(--radius-control) - 2px)",
+           md: "var(--radius-action)",
+           lg: "var(--radius-overlay)",
+           xl: "var(--radius-card)",
+         },
+         fontFamily: {
+           sans: ${family(set.body)},
+           display: ${family(set.display)},
+           mono: ${family(set.mono)},
+         },
+         fontSize: {
+${sizes}
+         },${tokens.elevation.shadow ? '\n         boxShadow: { elevated: "var(--elevation)" },' : ""}${motion}
+       },
+     },
+   } satisfies Config
+   ------------------------------------------------------------------ */`;
+}
+function tailwindOnly(theme, tokens) {
+  const fontImport = googleFontImport(tokens.fonts);
+  const chunks = [];
+  if (fontImport) chunks.push(fontImport);
+  chunks.push('@import "tailwindcss";');
+  chunks.push("@custom-variant dark (&:is(.dark *));");
+  chunks.push(
+    rule(":root", [
+      "/* Named by role, never by colour \u2014 the value behind --accent can",
+      "   change without a rename, and nothing in a component reads a hue. */",
+      "",
+      ...radiusLines(tokens.shape),
+      "",
+      ...fontLines(theme, tokens),
+      "",
+      ...typeLines(tokens),
+      "",
+      ...spacingLines(tokens),
+      "",
+      ...motionLines(tokens),
+      "",
+      ...elevationLines(tokens),
+      "",
+      ...mappedLines(ROLE_NAMES, tokens.light)
+    ])
+  );
+  chunks.push(rule(".dark", mappedLines(ROLE_NAMES, tokens.dark)));
+  chunks.push(
+    rule("@theme inline", [
+      "/* Tailwind v4 reads its theme from here. On v3, delete this block and",
+      "   mirror the same names under theme.extend in tailwind.config.ts. */",
+      ...ROLE_NAMES.filter(([, token]) => tokens.light[token]).map(
+        ([role]) => `--color-${role}: var(--${role});`
+      ),
+      "",
+      "--font-sans: var(--font-family-body);",
+      "--font-display: var(--font-family-display);",
+      "--font-mono: var(--font-family-mono);",
+      "",
+      "--radius-sm: max(0px, calc(var(--radius-control) - 2px));",
+      "--radius-md: var(--radius-action);",
+      "--radius-lg: var(--radius-overlay);",
+      "--radius-xl: var(--radius-card);",
+      "",
+      "--spacing: 4px;",
+      ...tokens.elevation.shadow ? ["--shadow-elevated: var(--elevation);"] : [],
+      ...tokens.motion.curve ? [
+        "--default-transition-duration: var(--motion-state);",
+        "--default-transition-timing-function: var(--motion-curve);"
+      ] : []
+    ])
+  );
+  chunks.push(`@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}`);
+  if (tokens.motion.curve) chunks.push(REDUCED_MOTION);
+  return `${chunks.join("\n\n")}
+`;
+}
+function nativewind(theme, tokens) {
+  const fontImport = googleFontImport(tokens.fonts);
+  const chunks = [];
+  if (fontImport) chunks.push(fontImport);
+  chunks.push("@tailwind base;\n@tailwind components;\n@tailwind utilities;");
+  chunks.push(
+    rule(":root", [
+      "/* Plain literals only: React Native cannot evaluate a colour function,",
+      "   and a value it cannot parse is dropped without an error. */",
+      `--radius-control: ${tokens.shape.control}px;`,
+      `--radius-card: ${tokens.shape.card}px;`,
+      `--radius-overlay: ${tokens.shape.overlay}px;`,
+      `--radius-action: ${tokens.shape.pill ? 9999 : tokens.shape.control}px;`,
+      "",
+      ...fontLines(theme, tokens),
+      "",
+      ...colorLines(tokens.light, toHex)
+    ])
+  );
+  chunks.push(rule(".dark", colorLines(tokens.dark, toHex)));
+  chunks.push(nativewindConfig(theme, tokens));
+  return `${chunks.join("\n\n")}
+`;
+}
+function nativewindConfig(theme, tokens) {
+  const set = stacks(theme, tokens);
+  const family = (stack) => JSON.stringify(stack.split(", ").map((part) => part.replace(/^"|"$/g, "")));
+  const colors = tokenNames.filter((name) => tokens.light[name]).map((name) => `           "${name}": "var(--${name})",`).join("\n");
+  const sizes = tokens.scale.map((step) => `           ${step.name}: ["${step.size}px", { lineHeight: "${step.lineHeight}" }],`).join("\n");
+  return `/* ------------------------------------------------------------------
+   tailwind.config.js \u2014 NativeWind reads the variables above through it.
+   Merge this into the existing config and leave its content globs alone.
+
+   module.exports = {
+     presets: [require("nativewind/preset")],
+     darkMode: "class",
+     theme: {
+       extend: {
+         colors: {
+${colors}
+         },
+         borderRadius: {
+           sm: "${Math.max(0, tokens.shape.control - 2)}px",
+           md: "${tokens.shape.pill ? 9999 : tokens.shape.control}px",
+           lg: "${tokens.shape.overlay}px",
+           xl: "${tokens.shape.card}px",
+         },
+         fontFamily: {
+           sans: ${family(set.body)},
+           display: ${family(set.display)},
+           mono: ${family(set.mono)},
+         },
+         fontSize: {
+${sizes}
+         },
+       },
+     },
+   }
+   ------------------------------------------------------------------ */`;
+}
+function cssModules(theme, tokens) {
+  const fontImport = googleFontImport(tokens.fonts);
+  const chunks = [];
+  if (fontImport) chunks.push(fontImport);
+  chunks.push(
+    rule(":root", [
+      "/* Imported once at the application root, before any module. Modules",
+      "   reference var(--x) and never a literal. */",
+      "",
+      ...radiusLines(tokens.shape),
+      "",
+      ...fontLines(theme, tokens),
+      "",
+      ...typeLines(tokens),
+      "",
+      ...spacingLines(tokens),
+      "",
+      ...motionLines(tokens),
+      "",
+      ...elevationLines(tokens),
+      "",
+      ...mappedLines(MODULE_NAMES, tokens.light)
+    ])
+  );
+  chunks.push(rule('[data-theme="dark"]', mappedLines(MODULE_NAMES, tokens.dark)));
+  return `${chunks.join("\n\n")}
+`;
+}
+function plainTokens(theme, tokens) {
+  const fontImport = googleFontImport(tokens.fonts);
+  const chunks = [];
+  if (fontImport) chunks.push(fontImport);
+  chunks.push(
+    rule(":root", [
+      "/* The design, as values. Where the platform does not read CSS, this",
+      "   is still the list the platform's own theme is transcribed from \u2014",
+      "   one file to change when a colour is wrong. */",
+      "",
+      ...radiusLines(tokens.shape),
+      "",
+      ...fontLines(theme, tokens),
+      "",
+      ...typeLines(tokens),
+      "",
+      ...spacingLines(tokens),
+      "",
+      ...motionLines(tokens),
+      "",
+      ...elevationLines(tokens),
+      "",
+      ...mappedLines(ROLE_NAMES, tokens.light)
+    ])
+  );
+  chunks.push(rule(".dark", mappedLines(ROLE_NAMES, tokens.dark)));
+  return `${chunks.join("\n\n")}
+`;
+}
+var OBJECT_COLORS = [
+  ["background", "background"],
+  ["foreground", "foreground"],
+  ["surface", "card"],
+  ["surfaceRaised", "popover"],
+  ["muted", "muted"],
+  ["mutedForeground", "muted-foreground"],
+  ["primary", "primary"],
+  ["primaryForeground", "primary-foreground"],
+  ["secondary", "secondary"],
+  ["secondaryForeground", "secondary-foreground"],
+  ["accent", "accent"],
+  ["accentForeground", "accent-foreground"],
+  ["destructive", "destructive"],
+  ["border", "border"],
+  ["input", "input"],
+  ["ring", "ring"],
+  ["chart1", "chart-1"],
+  ["chart2", "chart-2"],
+  ["chart3", "chart-3"],
+  ["chart4", "chart-4"],
+  ["chart5", "chart-5"]
+];
+function objectColors(values, format, indent) {
+  return OBJECT_COLORS.filter(([, token]) => values[token]).map(([key, token]) => `${indent}${key}: "${format(values[token])}",`).join("\n");
+}
+function typeObject(tokens, indent, unit = "em") {
+  return tokens.scale.map((step) => {
+    const tracking = unit === "em" ? `"${step.tracking}"` : `${round2(step.size * Number.parseFloat(step.tracking), 2)}`;
+    return `${indent}${step.name}: { size: ${step.size}, lineHeight: ${step.lineHeight}, tracking: ${tracking}, weight: ${step.weight} },`;
+  }).join("\n");
+}
+function radiiObject(shape) {
+  return `{ control: ${shape.control}, card: ${shape.card}, overlay: ${shape.overlay}, action: ${shape.pill ? 9999 : shape.control} }`;
+}
+function styledTheme(theme, tokens) {
+  const set = stacks(theme, tokens);
+  const motion = tokens.motion.curve ? `
+  motion: {
+    state: "${tokens.motion.stateMs}ms",
+    enter: "${tokens.motion.enterMs}ms",
+    curve: "${tokens.motion.curve}",${tokens.motion.overshoot ? `
+    overshoot: "${tokens.motion.overshoot}",` : ""}
+  },` : "";
+  return `/**
+ * The ${theme.preset} theme, shaped for ThemeProvider.
+ *
+ * Both themes are passed to the provider already mounted at the root; every
+ * component reads these values and never a literal. ${tokens.elevation.rule}
+ */
+
+export const lightTheme = {
+  colors: {
+${objectColors(tokens.light, (value) => value, "    ")}
+  },
+  radii: ${radiiObject(tokens.shape)},
+  space: [${tokens.spacing.join(", ")}],
+  fonts: {
+    display: '${set.display}',
+    body: '${set.body}',
+    mono: '${set.mono}',
+  },
+  type: {
+${typeObject(tokens, "    ")}
+  },${motion}
+  shadow: "${literalShadow(tokens.elevation.shadow, tokens.light, (value) => value)}",
+}
+
+export type AppTheme = typeof lightTheme
+
+export const darkTheme: AppTheme = {
+  ...lightTheme,
+  colors: {
+${objectColors(tokens.dark, (value) => value, "    ")}
+  },
+  shadow: "${literalShadow(tokens.elevation.shadow, tokens.dark, (value) => value)}",
+}
+`;
+}
+function muiTheme(theme, tokens) {
+  const set = stacks(theme, tokens);
+  const shape = tokens.shape;
+  const action = shape.pill ? 9999 : shape.control;
+  const hex = (values, name, fallback) => values[name] ? toHex(values[name]) : fallback;
+  const palette = (values, mode) => `    mode: "${mode}",
+    primary: { main: "${hex(values, "primary", "#000000")}", contrastText: "${hex(values, "primary-foreground", "#ffffff")}" },
+    secondary: { main: "${hex(values, "secondary", "#000000")}", contrastText: "${hex(values, "secondary-foreground", "#ffffff")}" },
+    error: { main: "${hex(values, "destructive", "#b3261e")}" },
+    background: { default: "${hex(values, "background", "#ffffff")}", paper: "${hex(values, "card", "#ffffff")}" },
+    text: { primary: "${hex(values, "foreground", "#000000")}", secondary: "${hex(values, "muted-foreground", "#666666")}" },
+    divider: "${hex(values, "border", "#e5e5e5")}",`;
+  const step = (name) => tokens.scale.find((entry) => entry.name === name) ?? tokens.scale[0];
+  const heading2 = (key, name) => {
+    const entry = step(name);
+    return `    ${key}: { fontFamily: '${set.display}', fontSize: "${entry.size}px", lineHeight: ${entry.lineHeight}, letterSpacing: "${entry.tracking}", fontWeight: ${entry.weight} },`;
+  };
+  const text2 = (key, name) => {
+    const entry = step(name);
+    return `    ${key}: { fontSize: "${entry.size}px", lineHeight: ${entry.lineHeight}, letterSpacing: "${entry.tracking}" },`;
+  };
+  const transitions = tokens.motion.curve ? `  transitions: {
+    duration: { shortest: ${tokens.motion.stateMs}, shorter: ${tokens.motion.stateMs}, short: ${tokens.motion.stateMs}, standard: ${tokens.motion.enterMs}, complex: ${tokens.motion.enterMs}, enteringScreen: ${tokens.motion.enterMs}, leavingScreen: ${tokens.motion.enterMs} },
+    easing: { easeInOut: "${tokens.motion.curve}", easeOut: "${tokens.motion.curve}", easeIn: "${tokens.motion.curve}", sharp: "${tokens.motion.curve}" },
+  },` : `  // Nothing moves in this design, and MUI moves by default unless told.
+  transitions: { create: () => "none" },`;
+  const shadows = (values) => {
+    const shadow = literalShadow(tokens.elevation.shadow, values, toHex);
+    return shadow ? `  shadows: Array.from({ length: 25 }, (_, level) => (level === 0 ? "none" : "${hexify(shadow)}")) as ThemeOptions["shadows"],` : `  // ${tokens.elevation.rule}
+  shadows: Array.from({ length: 25 }, () => "none") as ThemeOptions["shadows"],`;
+  };
+  const common = `  shape: { borderRadius: ${shape.control} },
+  typography: {
+    fontFamily: '${set.body}',
+${heading2("h1", "display")}
+${heading2("h2", "h1")}
+${heading2("h3", "h2")}
+${heading2("h4", "h3")}
+${text2("body1", "body")}
+${text2("body2", "small")}
+${text2("caption", "micro")}
+    button: { textTransform: "none", fontWeight: 600 },
+  },
+  components: {
+    MuiButton: { styleOverrides: { root: { borderRadius: ${action} } } },
+    MuiPaper: { styleOverrides: { rounded: { borderRadius: ${shape.card} } } },
+    MuiDialog: { styleOverrides: { paper: { borderRadius: ${shape.overlay} } } },
+    MuiOutlinedInput: { styleOverrides: { root: { borderRadius: ${action} } } },
+  },
+${transitions}`;
+  return `/**
+ * The ${theme.preset} theme, for the ThemeProvider already at the root.
+ *
+ * CssBaseline stays where it is. ${tokens.elevation.rule}
+ */
+
+import { createTheme, type ThemeOptions } from "@mui/material/styles"
+
+export const lightTheme = createTheme({
+  palette: {
+${palette(tokens.light, "light")}
+  },
+${common}
+${shadows(tokens.light)}
+})
+
+export const darkTheme = createTheme({
+  palette: {
+${palette(tokens.dark, "dark")}
+  },
+${common}
+${shadows(tokens.dark)}
+})
+`;
+}
+function nativeTheme(theme, tokens) {
+  const set = stacks(theme, tokens);
+  const shadow = nativeShadow(tokens);
+  const points = tokens.motion.curve.match(/-?[\d.]+/g)?.join(", ") ?? "0.2, 0, 0, 1";
+  const motion = tokens.motion.curve ? `
+  motion: {
+    state: ${tokens.motion.stateMs},
+    enter: ${tokens.motion.enterMs},
+    curve: [${points}] as const,${tokens.motion.spring ? `
+    spring: { stiffness: ${tokens.motion.spring.stiffness}, damping: ${tokens.motion.spring.damping}, mass: ${tokens.motion.spring.mass} },` : ""}
+  },` : "";
+  return `/**
+ * The ${theme.preset} theme.
+ *
+ * One object, imported by every StyleSheet.create in the app. No inline style
+ * objects in render \u2014 they defeat the style registry and re-allocate every
+ * frame. ${tokens.elevation.rule}
+ */
+
+export const lightColors = {
+${objectColors(tokens.light, toHex, "  ")}
+}
+
+export const darkColors: typeof lightColors = {
+${objectColors(tokens.dark, toHex, "  ")}
+}
+
+export const theme = {
+  radii: ${radiiObject(tokens.shape)},
+  space: [${tokens.spacing.join(", ")}],
+  fonts: {
+    display: '${set.display.split(",")[0].replace(/"/g, "")}',
+    body: '${set.body.split(",")[0].replace(/"/g, "")}',
+    mono: '${set.mono.split(",")[0].replace(/"/g, "")}',
+  },
+  type: {
+${typeObject(tokens, "    ", "points")}
+  },${motion}
+  elevation: ${shadow},
+}
+`;
+}
+function nativeShadow(tokens) {
+  const { elevation } = tokens;
+  if (!elevation.shadow) return "null";
+  const color = toHex(
+    elevation.strategy === "offset" ? tokens.light.foreground ?? "#000000" : elevation.strategy === "tinted" ? tokens.light.primary ?? "#000000" : "#000000"
+  );
+  if (elevation.strategy === "offset") {
+    return `{ shadowColor: "${color}", shadowOffset: { width: 4, height: 4 }, shadowOpacity: 1, shadowRadius: 0, elevation: 0 }`;
+  }
+  return `{ shadowColor: "${color}", shadowOffset: { width: 0, height: 8 }, shadowOpacity: ${elevation.strategy === "tinted" ? 0.28 : 0.18}, shadowRadius: 24, elevation: 6 }`;
 }
 
 // src/studio/features/prompt/engine/boilerplate.ts
@@ -30214,7 +34110,7 @@ function dataModelBlock(doc) {
       "Any table above with no primary key marked gets a `uuid` primary key called `id`."
     );
   }
-  for (const rule of rules) lines.push(`- ${rule}`);
+  for (const rule2 of rules) lines.push(`- ${rule2}`);
   const shapes = typeShapes(doc);
   if (shapes) {
     lines.push("");
@@ -30393,14 +34289,144 @@ ${VERIFICATION_NOTICE_BODY}
 ${VERIFICATION_NOTICE_BODY}`;
 }
 
-// src/studio/features/prompt/engine/build-prompt.ts
-var radiusWords = {
-  none: "square corners (0px)",
-  small: "small radius (4px)",
-  medium: "medium radius (8px)",
-  large: "large radius (12px)",
-  full: "fully rounded (pill) corners"
+// src/studio/features/prompt/engine/tokens-block.ts
+var ACCENT_BUDGET = 10;
+function tokensBlock(doc, surface = "web") {
+  if (surface === "backend") return "";
+  if (doc.theme.designLanguage === "basic") return "";
+  const sheet2 = generateStylesheet(doc.theme, stackFor(doc, surface).styling);
+  if (!sheet2.source.trim()) return "";
+  return [
+    `Write this file first, before any component. It is the decision, not a suggestion: every colour, radius, shadow and duration on the page resolves to one of these names.`,
+    "",
+    // The design section describes the same design in prose, and prose and
+    // values will eventually disagree — a hex quoted in a sentence, a corner
+    // called "medium". Saying which one wins costs one line and removes every
+    // argument the two could have.
+    "Where this file and the design description differ, this file wins. The description explains the intent; these are the values.",
+    "",
+    `\`${sheet2.path}\``,
+    "",
+    "```" + sheet2.language,
+    sheet2.source.trim(),
+    "```",
+    "",
+    "**No raw values in components.** No hex in a class attribute, no `p-[13px]`, no one-off `text-[15px]`. If you need a value that is not here, add it to this file first and say why in your summary.",
+    "",
+    `**Accent budget: the signature colour covers no more than ${ACCENT_BUDGET}% of any viewport.** It belongs on the primary action, the focused state, and the one live indicator that genuinely matters. It does not go on card borders, icon tiles, section headings, or a bar down the side of a panel.`,
+    "",
+    "**The neutrals are already biased toward the accent's hue.** Keep that bias if you extend them \u2014 a pure grey dropped in beside these reads as an accident rather than a decision.",
+    "",
+    "**Dark mode is a second set of values, not an inversion.** They are both in the file. Do not compute one from the other, and do not add `dark:` variants to components \u2014 every colour flows through the token blocks above."
+  ].join("\n");
+}
+
+// src/studio/features/prompt/engine/ui-conventions.ts
+var BANNED = [
+  "Any gradient used as decoration \u2014 purple-to-blue, blue-to-violet, cyan-to-purple, pink-to-orange, mesh, aurora or blob. Solid colours from the token set. A gradient is allowed only where it encodes data, such as a chart fill.",
+  "Emoji standing in for an icon, a bullet, a section marker or a heading decoration.",
+  "Placeholder copy of any kind: lorem ipsum, 'Your text here', 'Feature One', 'Card Title', fake avatars, fake logos, or an unearned 'Trusted by' row.",
+  "A centred hero: headline, subheading, two buttons, device mockup, all stacked on the centre line.",
+  "A row of three or six identical feature cards, each an icon in a tinted rounded square above a heading and two lines of text.",
+  "Everything centred. Body copy is left-aligned; centring is for an empty state and nothing else.",
+  "Identical vertical padding on every section, so the page has no rhythm.",
+  "A raw colour in a class attribute \u2014 `text-white`, `bg-black`, `#0f172a`, `bg-[#eee]`. Every colour is a token.",
+  "An arbitrary spacing or size value \u2014 `p-[13px]`, `text-[15px]`, `gap-[7px]`. Every value comes from the scale.",
+  "A radius that is not one of the three in the token set, or a fourth radius invented for one component.",
+  "More than one elevation level, or a shadow on anything that is not genuinely floating above the page.",
+  "Uppercase, letter-spaced eyebrow labels above headings, used as a texture rather than because the label carries information.",
+  "A single word in a headline given a different colour, weight, or typeface for emphasis.",
+  "Decorative status dots beside every list item, nav entry or badge.",
+  "A '\u2192' appended to link or button text.",
+  "Metadata strings strung together with middle dots \u2014 'Brand \xB7 No. 01 \xB7 2026'.",
+  "Section-number eyebrows \u2014 '01 / INDEX', '002 \xB7 Capabilities' \u2014 on content that is not an ordered sequence.",
+  "A fake product UI built from styled divs \u2014 a mock terminal, a mock dashboard, a mock task list \u2014 used as hero decoration.",
+  "Abstract filler shapes: gradient circles, blurred squares, floating blobs.",
+  "A frosted glass panel where nothing is actually overlapping.",
+  "Fade-and-slide-up entrances on every section, or a hover transition on every card.",
+  "Marketing filler words: empower, unlock, seamless, elevate, supercharge, revolutionise, game-changing, next level.",
+  "A light/dark toggle, unless the brief asks for one. The stylesheet already ships both; the operating system chooses.",
+  "Four identical stat tiles across the top of a dashboard when the product does not have four things worth counting."
+];
+var DENSITY = {
+  compact: "Density is compact: 28\u201332px rows and controls, 16px panel padding, 12px between fields, 14px body. This is a surface someone keeps open all day, so vertical space is the scarce resource.",
+  comfortable: "Density is comfortable: 36\u201340px rows and controls, 24px card padding, 20px between fields, 16px body. The default, and the one to keep unless a screen argues otherwise.",
+  spacious: "Density is spacious: 44\u201352px rows and controls, 32px card padding, 28px between fields, 16px body at 1.65. Page sections vary between 48px and 96px of vertical padding so the page has rhythm."
 };
+var STATES = [
+  "**Empty.** Every list, table and search result has a designed empty state: what this is, why it is empty, and the one action that fills it. Not the word 'None'.",
+  "**Loading.** Skeletons that match the shape of the content they replace, with varied widths so no two rows align. Not a centred spinner over an empty page.",
+  "**Error.** What failed, and what to do about it. No apology, no 'Something went wrong'.",
+  "**Focus.** Every interactive element has a visible `:focus-visible` ring using the ring token. Never remove an outline without replacing it.",
+  "**Disabled.** Reduced contrast, cursor not-allowed, and a reason available on hover or nearby \u2014 a control that refuses without saying why is a bug."
+];
+function uiConventionsBlock(doc, surface = "web") {
+  if (surface === "backend") return "";
+  if (doc.theme.designLanguage === "basic") return "";
+  const tokens = resolveTokens(doc.theme);
+  const { scale: scale2, spacing, motion } = tokens;
+  const scaleRows = scale2.map(
+    (step) => `    ${step.name.padEnd(8)} ${String(step.size).padStart(3)} / ${String(
+      step.lineHeight
+    ).padEnd(4)} ${step.tracking.padStart(8)}  ${step.weight}`
+  ).join("\n");
+  const motionLines2 = motion.model === "none" ? [
+    "Nothing moves. No transitions, no animations, no hover lifts. State changes are instant."
+  ] : [
+    motion.model === "spring" ? `Springs for anything a person set in motion; ${motion.stateMs}ms and ${motion.enterMs}ms as the equivalent durations elsewhere.` : `Two durations only: **${motion.stateMs}ms** for a state change on a control (hover, focus, press, check) and **${motion.enterMs}ms** for something entering or leaving (menu, dialog, toast).`,
+    `One easing curve: \`${motion.curve}\`.`,
+    motion.overshoot ? `One overshoot curve, \`${motion.overshoot}\`, reserved for the two or three moments that should feel playful. Using it everywhere is how it stops meaning anything.` : "",
+    "Transform and opacity only. Nothing animates on page load. Nothing loops. Respect `prefers-reduced-motion` by disabling all of it."
+  ].filter(Boolean);
+  return [
+    "### Type",
+    "",
+    "Set this scale and stay on it. Nothing on the page is sized outside it.",
+    "",
+    "```",
+    "    step      px / lh   tracking  weight",
+    scaleRows,
+    "```",
+    "",
+    "Running text sits near 65 characters. Digits that line up in a column get `font-variant-numeric: tabular-nums`. Headings get `text-wrap: balance`, paragraphs `text-wrap: pretty`.",
+    "",
+    tokens.fonts.display ? `The faces are **${tokens.fonts.display}** for display and **${tokens.fonts.body}** for body${tokens.fonts.mono ? `, **${tokens.fonts.mono}** for figures and code` : ""}. Load them properly and give each a real fallback stack. Do not substitute Inter, Roboto, Open Sans, Lato, Space Grotesk or a bare system stack \u2014 every generated interface reaches for those, which is exactly why this one names something else.` : "Two families and a monospace, no more. Give every face a real fallback stack, and do not name a face you cannot actually load.",
+    "",
+    "### Space",
+    "",
+    DENSITY[doc.theme.density],
+    "",
+    `Spacing steps: ${spacing.join(", ")}. Nothing between them. Gaps come from the flex or grid container, never a margin on each child \u2014 margins collapse and double, and that is where uneven spacing comes from.`,
+    "",
+    tokens.elevation.rule,
+    "",
+    "### Motion",
+    "",
+    ...motionLines2,
+    "",
+    "### Forms",
+    "",
+    tokens.inputRule,
+    "",
+    "Every field in the product uses that treatment \u2014 the same one on a dialog, a settings page and a sign-up form. A form where the label sits above on one screen and inside on the next is the clearest sign nobody decided.",
+    "",
+    "Labels are sentence case and never uppercase. A required field is marked on the label, not by colour alone. Helper text sits under the field in `--muted-foreground` at the `small` size and stays in the layout when it turns into an error, so nothing below it moves.",
+    "",
+    "### States",
+    "",
+    ...STATES,
+    "",
+    "### Do not ship any of these",
+    "",
+    "Each line is answerable yes or no about the finished page. Check them before you report back.",
+    "",
+    ...BANNED.map((line) => `- ${line}`),
+    "",
+    "If a screen genuinely needs one of the above, say so in your summary and give the reason. Doing it silently is the failure."
+  ].join("\n");
+}
+
+// src/studio/features/prompt/engine/build-prompt.ts
 var buttonWords = {
   filled: "solid filled buttons",
   outlined: "outlined buttons with transparent fills",
@@ -30421,7 +34447,7 @@ function uiLevelBlock(doc) {
   ].join("\n");
 }
 function list(lines) {
-  return lines.map((line) => {
+  return lines.filter((line) => line.trim().length > 0).map((line) => {
     if (line.trimStart().startsWith("```")) return `
 ${line}
 `;
@@ -30562,15 +34588,15 @@ function modulesOfScreen(doc, screenId) {
     if (module.note.trim()) parts.push(sentence(module.note.trim()));
     lines.push(parts.join(" "));
   }
-  const byId = new Map(modules.map((m) => [m.id, m]));
+  const byId2 = new Map(modules.map((m) => [m.id, m]));
   const inner = doc.moduleEdges.filter(
-    (e) => byId.has(e.from) && byId.has(e.to)
+    (e) => byId2.has(e.from) && byId2.has(e.to)
   );
   if (inner.length) {
     lines.push("   Inside this screen:");
     for (const edge of inner) {
-      const from = byId.get(edge.from);
-      const to = byId.get(edge.to);
+      const from = byId2.get(edge.from);
+      const to = byId2.get(edge.to);
       const trigger = edge.trigger.trim();
       lines.push(
         `   - **${from.name}** \u2192 **${to.name}**${trigger ? ` \u2014 ${trigger}` : ""}.`
@@ -30582,7 +34608,7 @@ function modulesOfScreen(doc, screenId) {
 function navigationBlock(doc) {
   if (!doc.screens.length) return "";
   const { ordered, entries, branching } = analyseGraph(doc.screens, doc.edges);
-  const byId = new Map(doc.screens.map((s) => [s.id, s]));
+  const byId2 = new Map(doc.screens.map((s) => [s.id, s]));
   const lines = [];
   if (entries.length) {
     lines.push(
@@ -30599,8 +34625,8 @@ function navigationBlock(doc) {
     lines.push(
       list(
         doc.edges.map((edge) => {
-          const from = byId.get(edge.from);
-          const to = byId.get(edge.to);
+          const from = byId2.get(edge.from);
+          const to = byId2.get(edge.to);
           if (!from || !to) return "";
           const trigger = edge.trigger.trim();
           return `From **${from.title}** to **${to.title}**${trigger ? ` \u2014 ${trigger}` : ""}.`;
@@ -30672,6 +34698,7 @@ function sectionsBlock(doc) {
 
 Render the sections in exactly this order, each as its own full-width band with consistent vertical rhythm.`;
 }
+var THEME_FIELD_DEFAULTS = themeSchema.parse({});
 function designBlock(doc) {
   const t = doc.theme;
   const language = describeDesignLanguage(t.designLanguage);
@@ -30688,26 +34715,38 @@ function designBlock(doc) {
       "The creative level does not apply here \u2014 the instruction above wins."
     ].join("\n");
   }
-  const heading2 = describeOption(fontCharacters, t.headingFont);
-  const bodyFont = t.bodyFont === "pair" ? `a face that pairs with the heading \u2014 either the same family at text weights, or a neutral grotesque beneath it` : fontCharacterMap[t.bodyFont]?.promptDetails ?? heading2.promptDetails;
+  const preset = presetById(t.preset);
+  const tokens = resolveTokens(t);
+  const shape = tokens.shape;
+  const corners = shape.pill ? `${shape.control}px on controls, ${shape.card}px on cards, ${shape.overlay}px on overlays \u2014 and actions are full pills` : `${shape.control}px on controls, ${shape.card}px on cards, ${shape.overlay}px on overlays`;
   return [
     `Design language \u2014 **${language.name}**: ${language.promptDetails}`,
     "",
+    `Preset \u2014 **${preset.name}**: ${preset.character}`,
+    "",
     list([
-      `Primary colour: ${t.primaryColor} \u2014 used for primary actions, active states and focus rings.`,
-      `Secondary / accent colour: ${t.secondaryColor} \u2014 supporting highlights and charts.`,
-      `Corners: ${radiusWords[t.borderRadius] ?? t.borderRadius}.`,
-      `Buttons: ${buttonWords[t.buttonStyle] ?? t.buttonStyle}.`,
-      `Density: ${densityWords[t.density] ?? t.density}.`,
-      `Headings: ${heading2.promptDetails}.`,
-      `Body text: ${bodyFont}.`,
-      `Type scale: ${describeOption(typeScales, t.typeScale).promptDetails}.`,
-      `Icons: ${describeOption(iconStyles, t.iconStyle).promptDetails}.`,
-      `Elevation: ${describeOption(elevations, t.elevation).promptDetails}.`,
-      `Motion: ${describeOption(motions, t.motion).promptDetails}. Respect \`prefers-reduced-motion\` regardless.`,
-      `Themes: ${describeOption(colorSchemes, t.colorScheme).promptDetails}.`,
-      "Define every colour, radius, shadow and font size once as CSS custom properties; components reference the tokens, never raw values."
+      ...preset.axes
     ]),
+    "",
+    list([
+      // The hex only appears when somebody actually chose it. Printing the
+      // untouched default beside a preset's own primary is how the block ends
+      // up naming two different colours for the same job.
+      `Primary: ${t.primaryColor === THEME_FIELD_DEFAULTS.primaryColor ? "" : `${t.primaryColor}, resolved to `}\`${tokens.light.primary}\` in light and \`${tokens.dark.primary}\` in dark \u2014 primary actions, active states and focus rings, and nothing else.`,
+      `Supporting colour: \`${tokens.light["chart-2"]}\` \u2014 charts and highlights. The accent token is a tint for hover and active rows, not a second brand colour.`,
+      `Corners: ${corners}.`,
+      `Density: ${densityWords[t.density] ?? t.density}.`,
+      tokens.fonts.display ? `Typefaces: **${tokens.fonts.display}** for display, **${tokens.fonts.body}** for body, **${tokens.fonts.mono}** for figures and code. Load them from Google Fonts with a real fallback stack.` : "Typefaces: two families and a monospace, no more.",
+      // Two legacy fields with no token to land on. They still reach the agent
+      // when an old file set them, and stay silent otherwise rather than
+      // asserting a default nobody chose.
+      t.buttonStyle === THEME_FIELD_DEFAULTS.buttonStyle ? "" : `Buttons: ${buttonWords[t.buttonStyle] ?? t.buttonStyle}.`,
+      t.iconStyle === THEME_FIELD_DEFAULTS.iconStyle ? "" : `Icons: ${describeOption(iconStyles, t.iconStyle).promptDetails}.`,
+      `Themes: ${describeOption(colorSchemes, t.colorScheme).promptDetails}.`,
+      "Define every colour, radius, shadow and font size once as CSS custom properties; components reference the tokens, never raw values. The stylesheet below is that file \u2014 use it rather than deriving your own."
+    ]),
+    "",
+    preset.promptDetails,
     "",
     "",
     "**Design it before you style it.** Write the token system down first \u2014 4\u20136 named colours, the two typefaces and their roles, and the layout idea in a sentence \u2014 and derive every value below from that. Ground it in what this product actually is: the vocabulary, materials and instruments of its subject are where a specific design comes from. A page that could belong to any product in this category has not been designed.",
@@ -30860,6 +34899,10 @@ function deliveryBlock(doc) {
     ].filter(Boolean)
   );
 }
+function droppedByPriority(doc) {
+  if (doc.priority !== "ui-first") return /* @__PURE__ */ new Set();
+  return /* @__PURE__ */ new Set(["data_model", "deployment"]);
+}
 var titles = {
   overview: "Overview",
   boilerplate: "Start From The Boilerplate",
@@ -30870,6 +34913,8 @@ var titles = {
   views: "Roles & Access",
   sections: "Page Sections",
   design: "Design System",
+  tokens: "Design Tokens \u2014 Write These First",
+  ui_conventions: "Interface Craft",
   stack: "Tech Stack",
   structure: "Project Structure",
   conventions: "Conventions",
@@ -30922,6 +34967,11 @@ function buildForScope(doc, surface) {
     views: viewsBlock(doc),
     sections: sectionsBlock(doc),
     design: designBlock(doc),
+    // The design block says what the design is; these two say it in values a
+    // build agent can only satisfy one way. Both stand down for the "basic"
+    // language and for a backend build, by returning an empty body.
+    tokens: tokensBlock(doc, surface),
+    ui_conventions: uiConventionsBlock(doc, surface),
     stack: stackBlock(doc, target.stackDetail),
     structure: structureBlock(doc),
     conventions: conventionsBlock(doc),
@@ -30936,7 +34986,7 @@ function buildForScope(doc, surface) {
     // product live", and three builds each given their own is three answers.
     deployment: deploymentBlock(doc)
   };
-  const blocks = target.order.filter((id) => bodies[id].trim().length > 0).map((id) => ({ id, title: titles[id], body: bodies[id].trim() }));
+  const blocks = target.order.filter((id) => !droppedByPriority(doc).has(id)).filter((id) => bodies[id].trim().length > 0).map((id) => ({ id, title: titles[id], body: bodies[id].trim() }));
   const rendered = blocks.map(
     (block2) => target.format === "xml" ? `<${xmlTag(block2.id)}>
 ${block2.body}
@@ -31397,11 +35447,18 @@ app "Product name" {
   ui_level 3                # 1 = build exactly what is described, 5 = a showpiece
   builds web, mobile, backend # which builds this product ships \u2014 see rule 10
   theme {
+    preset atrium               # the design this is a variation of
     design modern-soft; primary #2563eb; secondary #10b981
     radius md; buttons filled; density comfortable
     # Optional, and all defaulted \u2014 set the ones the product has an opinion about.
     headings grotesque; body pair; scale balanced
     icons line; elevation subtle; motion restrained; scheme both
+    shape control 8 card 12 overlay 16    # corner radii in px, plus \`pill\`
+    fonts display "Bricolage Grotesque" body "Public Sans" mono "JetBrains Mono"
+    scale_ratio 1.25; vividness 60; neutral_hue 160
+    elevation_strategy shadow; motion_model duration; inputs floating
+    palette light { primary oklch(0.55 0.12 250) }   # overrides only
+    palette dark  { primary oklch(0.72 0.10 250) }
   }
 }
 
@@ -31599,6 +35656,16 @@ default every product gets.
 - \`elevation\` \u2014 ${elevationValues.join(", ")}: how much the surfaces lift off the page
 - \`motion\` \u2014 ${motionValues.join(", ")}
 - \`scheme\` \u2014 ${colorSchemeValues.join(", ")}: \`both\` ships light and dark, \`dark-first\` designs dark and derives light
+- \`preset\` \u2014 the named design everything else is a variation of; leave it out to keep the standard one
+- \`shape\` \u2014 corner radii in px, each surface on its own: \`shape control 8 card 12 overlay 16\`. Add the word \`pill\` for fully round actions whatever \`control\` says. This is what expresses "square everywhere, with one pill in it" \u2014 a single radius cannot
+- \`fonts\` \u2014 real family names, quoted: \`fonts display "Bricolage Grotesque" body "Public Sans" mono "JetBrains Mono"\`. Leave a slot out and it follows the character chosen above. Name a family only when the product genuinely has one; \`headings\`/\`body\` are the safer way to ask
+- \`scale_ratio\` \u2014 1.05\u20131.7, the step between one type size and the next (1.2 minor third, 1.25 major third, 1.5 for a display-led page)
+- \`vividness\` \u2014 0\u2013100, how much of the chroma the hue can actually reach is used. Low is muted and institutional; high is loud
+- \`neutral_hue\` \u2014 0\u2013360, the hue every grey is biased toward, so the neutrals read as chosen rather than as grey
+- \`elevation_strategy\` \u2014 ${elevationStrategyValues.join(", ")}: by what means depth is carried, where \`elevation\` says how much of it there is. A surface \`ladder\`, a \`hairline\` rule or a \`tinted\` panel is usually what separates a design from a shadow ramp
+- \`motion_model\` \u2014 ${motionModelValues.join(", ")}: what the transitions are built out of
+- \`inputs\` \u2014 ${inputStyleValues.join(", ")}: how a text field is drawn and where its label sits
+- \`palette\` \u2014 per-mode overrides of single colour tokens, named as shadcn names them without the \`--\`: \`palette light { primary oklch(0.55 0.12 250) }\`, \`palette dark { \u2026 }\`. Overrides **only** \u2014 every token you leave out comes from the preset, which is what lets the preset improve later
 
 ## screen templates
 ${screenTemplates.map((t) => `- ${t.id} \u2014 ${t.description}`).join("\n")}
@@ -32204,6 +36271,11 @@ server.registerTool(
     const root = existing?.root ?? process.cwd();
     const source = toFlow(project.doc);
     const target = resolve2(root, flow_file);
+    const inside = target === root || target.startsWith(`${root}${sep}`);
+    if (!inside) {
+      return `The flow file has to live inside this repository. "${flow_file}" resolves to ${target}.`;
+    }
+    mkdirSync2(dirname3(target), { recursive: true });
     writeFileSync3(target, `${source}
 `);
     const path = upsertLink(root, {
@@ -32254,7 +36326,11 @@ server.registerTool(
     description: "Send the linked .flow file to Prompt Studio. Snapshots first, and refuses if the project moved on since the file was pulled.",
     inputSchema: {
       project_id: external_exports.string().default("").describe("Omit when the repository links one project"),
-      mode: external_exports.enum(["merge", "replace"]).default("replace"),
+      // `merge` for the same reason `write_flow` uses it: `replace` rebuilds the
+      // document from the file, which mints new ids for every screen, module
+      // and edge. Comments are anchored to those ids, so one push that changed
+      // nothing orphaned every pinned comment on the project.
+      mode: external_exports.enum(["merge", "replace"]).default("merge"),
       label: external_exports.string().default("")
     }
   },

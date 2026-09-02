@@ -28,6 +28,7 @@ import {
 } from "../../stack/data/stack-catalogue"
 import { structureMap } from "../../stack/data/structures"
 import { describeDesignLanguage } from "../../theme/data/design-languages"
+import { presetById } from "../../theme/data/presets"
 import {
   colorSchemes,
   describeOption,
@@ -43,13 +44,16 @@ import {
   UI_LEVEL_PREAMBLE,
   uiLevelOf,
 } from "../../theme/data/ui-levels"
-import type { ProjectDoc, Surface, UserStory } from "../../../types/project"
+import { resolveTokens } from "../../theme/tokens/index"
+import { type ProjectDoc, type Surface, themeSchema, type UserStory } from "../../../types/project"
 
 import { BOILERPLATE, cloneLines, usesBoilerplate } from "./boilerplate"
 import { dataModelBlock } from "./data-model"
 import { deploymentBlock } from "./deployment"
 import { securityConstraint, verificationNotice } from "./security"
 import { type BlockId, getTarget, type ProjectBlockId } from "./targets"
+import { tokensBlock } from "./tokens-block"
+import { uiConventionsBlock } from "./ui-conventions"
 
 export type PromptBlock = { id: ProjectBlockId; title: string; body: string }
 
@@ -99,6 +103,9 @@ function uiLevelBlock(doc: ProjectDoc): string {
 
 export function list(lines: string[]) {
   return lines
+    // An empty entry means "this one does not apply here" — rendering it as a
+    // bare "- " is a bullet with nothing after it.
+    .filter((line) => line.trim().length > 0)
     .map((line) => {
       // A snippet may be a fenced code block rather than a sentence. Prefixing
       // one with "- " produces `- ```ts`, which is not a list item containing
@@ -431,6 +438,9 @@ function sectionsBlock(doc: ProjectDoc): string {
   return `${body}\n\nRender the sections in exactly this order, each as its own full-width band with consistent vertical rhythm.`
 }
 
+/** Read once: a legacy colour field still on its default was never chosen. */
+const THEME_FIELD_DEFAULTS = themeSchema.parse({})
+
 function designBlock(doc: ProjectDoc): string {
   const t = doc.theme
   const language = describeDesignLanguage(t.designLanguage)
@@ -452,30 +462,59 @@ function designBlock(doc: ProjectDoc): string {
     ].join("\n")
   }
 
-  const heading = describeOption(fontCharacters, t.headingFont)
-  const bodyFont =
-    t.bodyFont === "pair"
-      ? `a face that pairs with the heading — either the same family at text weights, or a neutral grotesque beneath it`
-      : (fontCharacterMap[t.bodyFont]?.promptDetails ?? heading.promptDetails)
+  // Everything below is derived from the resolved theme rather than from the
+  // legacy option fields it used to read.
+  //
+  // Those fields are still in the schema and Flow still writes them, but the
+  // design editor writes a preset — so a project on Telegraph was shipping
+  // "Corners: fully rounded, Headings: geometric sans" from untouched defaults
+  // directly above a stylesheet with 2px radii and a slab serif. Two design
+  // systems in one prompt, and the agent follows whichever it reads last.
+  const preset = presetById(t.preset)
+  const tokens = resolveTokens(t)
+  const shape = tokens.shape
+  const corners = shape.pill
+    ? `${shape.control}px on controls, ${shape.card}px on cards, ${shape.overlay}px on overlays — and actions are full pills`
+    : `${shape.control}px on controls, ${shape.card}px on cards, ${shape.overlay}px on overlays`
 
   return [
     `Design language — **${language.name}**: ${language.promptDetails}`,
     "",
+    `Preset — **${preset.name}**: ${preset.character}`,
+    "",
     list([
-      `Primary colour: ${t.primaryColor} — used for primary actions, active states and focus rings.`,
-      `Secondary / accent colour: ${t.secondaryColor} — supporting highlights and charts.`,
-      `Corners: ${radiusWords[t.borderRadius] ?? t.borderRadius}.`,
-      `Buttons: ${buttonWords[t.buttonStyle] ?? t.buttonStyle}.`,
-      `Density: ${densityWords[t.density] ?? t.density}.`,
-      `Headings: ${heading.promptDetails}.`,
-      `Body text: ${bodyFont}.`,
-      `Type scale: ${describeOption(typeScales, t.typeScale).promptDetails}.`,
-      `Icons: ${describeOption(iconStyles, t.iconStyle).promptDetails}.`,
-      `Elevation: ${describeOption(elevations, t.elevation).promptDetails}.`,
-      `Motion: ${describeOption(motions, t.motion).promptDetails}. Respect \`prefers-reduced-motion\` regardless.`,
-      `Themes: ${describeOption(colorSchemes, t.colorScheme).promptDetails}.`,
-      "Define every colour, radius, shadow and font size once as CSS custom properties; components reference the tokens, never raw values.",
+      ...preset.axes,
     ]),
+    "",
+    list([
+      // The hex only appears when somebody actually chose it. Printing the
+      // untouched default beside a preset's own primary is how the block ends
+      // up naming two different colours for the same job.
+      `Primary: ${
+        t.primaryColor === THEME_FIELD_DEFAULTS.primaryColor
+          ? ""
+          : `${t.primaryColor}, resolved to `
+      }\`${tokens.light.primary}\` in light and \`${tokens.dark.primary}\` in dark — primary actions, active states and focus rings, and nothing else.`,
+      `Supporting colour: \`${tokens.light["chart-2"]}\` — charts and highlights. The accent token is a tint for hover and active rows, not a second brand colour.`,
+      `Corners: ${corners}.`,
+      `Density: ${densityWords[t.density] ?? t.density}.`,
+      tokens.fonts.display
+        ? `Typefaces: **${tokens.fonts.display}** for display, **${tokens.fonts.body}** for body, **${tokens.fonts.mono}** for figures and code. Load them from Google Fonts with a real fallback stack.`
+        : "Typefaces: two families and a monospace, no more.",
+      // Two legacy fields with no token to land on. They still reach the agent
+      // when an old file set them, and stay silent otherwise rather than
+      // asserting a default nobody chose.
+      t.buttonStyle === THEME_FIELD_DEFAULTS.buttonStyle
+        ? ""
+        : `Buttons: ${buttonWords[t.buttonStyle] ?? t.buttonStyle}.`,
+      t.iconStyle === THEME_FIELD_DEFAULTS.iconStyle
+        ? ""
+        : `Icons: ${describeOption(iconStyles, t.iconStyle).promptDetails}.`,
+      `Themes: ${describeOption(colorSchemes, t.colorScheme).promptDetails}.`,
+      "Define every colour, radius, shadow and font size once as CSS custom properties; components reference the tokens, never raw values. The stylesheet below is that file — use it rather than deriving your own.",
+    ]),
+    "",
+    preset.promptDetails,
     "",
     "",
     "**Design it before you style it.** Write the token system down first — 4–6 named colours, the two typefaces and their roles, and the layout idea in a sentence — and derive every value below from that. Ground it in what this product actually is: the vocabulary, materials and instruments of its subject are where a specific design comes from. A page that could belong to any product in this category has not been designed.",
@@ -677,6 +716,19 @@ function deliveryBlock(doc: ProjectDoc): string {
   )
 }
 
+/**
+ * Blocks a UI-first build does not want.
+ *
+ * A prototype brief that still carries a database schema and a deployment
+ * section is the thing people stop reading, so this drops content rather than
+ * merely reordering it. It is a set rather than a filter on each block so the
+ * decision is in one place and can be read at a glance.
+ */
+function droppedByPriority(doc: ProjectDoc): Set<BlockId> {
+  if (doc.priority !== "ui-first") return new Set()
+  return new Set<BlockId>(["data_model", "deployment"])
+}
+
 const titles: Record<BlockId, string> = {
   overview: "Overview",
   boilerplate: "Start From The Boilerplate",
@@ -687,6 +739,8 @@ const titles: Record<BlockId, string> = {
   views: "Roles & Access",
   sections: "Page Sections",
   design: "Design System",
+  tokens: "Design Tokens — Write These First",
+  ui_conventions: "Interface Craft",
   stack: "Tech Stack",
   structure: "Project Structure",
   conventions: "Conventions",
@@ -757,6 +811,11 @@ function buildForScope(doc: ProjectDoc, surface: Surface): BuiltPrompt {
     views: viewsBlock(doc),
     sections: sectionsBlock(doc),
     design: designBlock(doc),
+    // The design block says what the design is; these two say it in values a
+    // build agent can only satisfy one way. Both stand down for the "basic"
+    // language and for a backend build, by returning an empty body.
+    tokens: tokensBlock(doc, surface),
+    ui_conventions: uiConventionsBlock(doc, surface),
     stack: stackBlock(doc, target.stackDetail),
     structure: structureBlock(doc),
     conventions: conventionsBlock(doc),
@@ -773,6 +832,7 @@ function buildForScope(doc: ProjectDoc, surface: Surface): BuiltPrompt {
   }
 
   const blocks: PromptBlock[] = target.order
+    .filter((id) => !droppedByPriority(doc).has(id))
     .filter((id) => bodies[id].trim().length > 0)
     .map((id) => ({ id, title: titles[id], body: bodies[id].trim() }))
 

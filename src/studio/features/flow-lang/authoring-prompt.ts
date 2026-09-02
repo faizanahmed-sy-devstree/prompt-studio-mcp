@@ -15,9 +15,12 @@ import type { ProjectDoc } from "../../types/project"
 import {
   bodyFontValues,
   colorSchemeValues,
+  elevationStrategyValues,
   elevationValues,
   fontCharacterValues,
   iconStyleValues,
+  inputStyleValues,
+  motionModelValues,
   motionValues,
   typeScaleValues,
 } from "../../types/project"
@@ -282,11 +285,18 @@ app "Product name" {
   ui_level 3                # 1 = build exactly what is described, 5 = a showpiece
   builds web, mobile, backend # which builds this product ships — see rule 10
   theme {
+    preset atrium               # the design this is a variation of
     design modern-soft; primary #2563eb; secondary #10b981
     radius md; buttons filled; density comfortable
     # Optional, and all defaulted — set the ones the product has an opinion about.
     headings grotesque; body pair; scale balanced
     icons line; elevation subtle; motion restrained; scheme both
+    shape control 8 card 12 overlay 16    # corner radii in px, plus \`pill\`
+    fonts display "Bricolage Grotesque" body "Public Sans" mono "JetBrains Mono"
+    scale_ratio 1.25; vividness 60; neutral_hue 160
+    elevation_strategy shadow; motion_model duration; inputs floating
+    palette light { primary oklch(0.55 0.12 250) }   # overrides only
+    palette dark  { primary oklch(0.72 0.10 250) }
   }
 }
 
@@ -484,6 +494,16 @@ default every product gets.
 - \`elevation\` — ${elevationValues.join(", ")}: how much the surfaces lift off the page
 - \`motion\` — ${motionValues.join(", ")}
 - \`scheme\` — ${colorSchemeValues.join(", ")}: \`both\` ships light and dark, \`dark-first\` designs dark and derives light
+- \`preset\` — the named design everything else is a variation of; leave it out to keep the standard one
+- \`shape\` — corner radii in px, each surface on its own: \`shape control 8 card 12 overlay 16\`. Add the word \`pill\` for fully round actions whatever \`control\` says. This is what expresses "square everywhere, with one pill in it" — a single radius cannot
+- \`fonts\` — real family names, quoted: \`fonts display "Bricolage Grotesque" body "Public Sans" mono "JetBrains Mono"\`. Leave a slot out and it follows the character chosen above. Name a family only when the product genuinely has one; \`headings\`/\`body\` are the safer way to ask
+- \`scale_ratio\` — 1.05–1.7, the step between one type size and the next (1.2 minor third, 1.25 major third, 1.5 for a display-led page)
+- \`vividness\` — 0–100, how much of the chroma the hue can actually reach is used. Low is muted and institutional; high is loud
+- \`neutral_hue\` — 0–360, the hue every grey is biased toward, so the neutrals read as chosen rather than as grey
+- \`elevation_strategy\` — ${elevationStrategyValues.join(", ")}: by what means depth is carried, where \`elevation\` says how much of it there is. A surface \`ladder\`, a \`hairline\` rule or a \`tinted\` panel is usually what separates a design from a shadow ramp
+- \`motion_model\` — ${motionModelValues.join(", ")}: what the transitions are built out of
+- \`inputs\` — ${inputStyleValues.join(", ")}: how a text field is drawn and where its label sits
+- \`palette\` — per-mode overrides of single colour tokens, named as shadcn names them without the \`--\`: \`palette light { primary oklch(0.55 0.12 250) }\`, \`palette dark { … }\`. Overrides **only** — every token you leave out comes from the preset, which is what lets the preset improve later
 
 ## screen templates
 ${screenTemplates.map((t) => `- ${t.id} — ${t.description}`).join("\n")}

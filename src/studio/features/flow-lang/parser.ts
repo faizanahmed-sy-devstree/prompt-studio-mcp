@@ -22,6 +22,7 @@ import {
   colorSchemeValues,
   type Entity,
   type EntityField,
+  elevationStrategyValues,
   elevationValues,
   type FlowEdge,
   type FlowGroup,
@@ -29,9 +30,12 @@ import {
   fieldKindValues,
   fontCharacterValues,
   iconStyleValues,
+  inputStyleValues,
   type ModuleEdge,
+  motionModelValues,
   motionValues,
   type ProjectDoc,
+  priorityValues,
   projectDocSchema,
   type Relation,
   type RelationKind,
@@ -109,10 +113,72 @@ const densityAliases: Record<string, string> = {
   roomy: "spacious",
 }
 
+/** Which radius a word in a `shape` line is setting. */
+const shapeAliases: Record<string, "control" | "card" | "overlay"> = {
+  control: "control",
+  controls: "control",
+  button: "control",
+  buttons: "control",
+  input: "control",
+  inputs: "control",
+  card: "card",
+  cards: "card",
+  panel: "card",
+  panels: "card",
+  surface: "card",
+  overlay: "overlay",
+  overlays: "overlay",
+  dialog: "overlay",
+  modal: "overlay",
+  sheet: "overlay",
+}
+
+/** Which family a word in a `fonts` line is naming. */
+const fontSlotAliases: Record<string, "display" | "body" | "mono"> = {
+  display: "display",
+  heading: "display",
+  headings: "display",
+  title: "display",
+  body: "body",
+  text: "body",
+  paragraph: "body",
+  mono: "mono",
+  code: "mono",
+  monospace: "mono",
+}
+
+/**
+ * `pill` on a shape line is a flag, not a value — the word alone means true.
+ * The negatives are here so a hand-edited file can turn it back off with a
+ * word rather than by deleting the line and hoping the default is right.
+ */
+const PILL_WORDS = /\b(pill|no_pill|nopill|not_pill|square|squared)\b/gi
+
+const priorityAliases: Record<string, (typeof priorityValues)[number]> = {
+  "logic-first": "logic-first",
+  logic_first: "logic-first",
+  logicfirst: "logic-first",
+  logic: "logic-first",
+  system: "logic-first",
+  full: "logic-first",
+  "ui-first": "ui-first",
+  ui_first: "ui-first",
+  uifirst: "ui-first",
+  ui: "ui-first",
+  design: "ui-first",
+  prototype: "ui-first",
+}
+
 type Ctx =
   | { kind: "root" }
   | { kind: "app" }
   | { kind: "theme" }
+  /**
+   * A `palette light { … }` body — the colour overrides for one mode. It holds
+   * the mode rather than an id because there are only ever two of them, and
+   * both hang off the one theme.
+   */
+  | { kind: "palette"; mode: "light" | "dark" }
   | { kind: "screen"; id: string }
   | { kind: "module"; id: string; screenId: string }
   | { kind: "inner"; screenId: string }
@@ -588,6 +654,32 @@ export function parseFlow(source: string): ParseResult {
       continue
     }
 
+    // --------------------------------------------------- palette (in a theme)
+    // Up here rather than beside the theme block below, and deliberately: a
+    // colour override is arbitrary CSS. `oklch(0.7 0.1 250)` has spaces in it
+    // and a gradient can contain an arrow, and the transition test further down
+    // would read either as a connection and invent screens named after them.
+    if (current.kind === "palette") {
+      const token = words[0] ?? ""
+      if (!token) continue
+      // The value is taken off the raw line rather than out of `words`, which
+      // has already split `oklch(0.55 0.12 250)` into three of them.
+      const bare = raw.slice(raw.indexOf(token) + token.length).trim()
+      const value = quoted.length ? quoted[0] : bare
+      if (!quoted.length && !bare) {
+        warnings.push({
+          line,
+          message: `\`${token}\` has no colour after it — ignored.`,
+        })
+        continue
+      }
+      // Written as the shadcn token name, with or without the `--` a
+      // stylesheet would put in front of it.
+      const name = token.replace(/^--/, "").replace(/:$/, "").toLowerCase()
+      doc.theme.palette[current.mode][name] = value
+      continue
+    }
+
     // ----------------------------------------------------------- flows block
     if (current.kind === "flows") {
       const declares =
@@ -706,7 +798,12 @@ export function parseFlow(source: string): ParseResult {
     // ----------------------------------------------------------- theme block
     if (current.kind === "theme") {
       const value = words.slice(1).join(" ").trim() || quoted[0] || ""
-      applyThemeProp(doc, keyword, value, line, warnings)
+      // `shape`, `fonts` and `palette` carry several values on one line, and
+      // `value` has lost the quoting that says where one family name ends, so
+      // the statement itself is passed alongside it.
+      const args = raw.replace(/^\S+\s*/, "")
+      const opens = applyThemeProp(doc, keyword, value, line, warnings, args)
+      if (opens) pending = { kind: "palette", mode: opens }
       continue
     }
 
@@ -952,6 +1049,23 @@ export function parseFlow(source: string): ParseResult {
         for (const word of named) {
           const surface = surfaceWord(word, line, warnings)
           doc.builds[surface] = true
+        }
+        continue
+      }
+      // What the build is for. A sibling of `builds` and `target` because it is
+      // the same kind of fact — one of the few decisions that changes what the
+      // generated prompt contains rather than what it says.
+      case "priority":
+      case "focus": {
+        const word = (words[1] ?? quoted[0] ?? "").toLowerCase().trim()
+        const match = priorityAliases[word]
+        if (match) {
+          doc.priority = match
+        } else {
+          warnings.push({
+            line,
+            message: `"${word}" is not a priority — keeping ${doc.priority}. One of: ${priorityValues.join(", ")}.`,
+          })
         }
         continue
       }
@@ -1255,13 +1369,21 @@ function bracketList(text: string) {
     .filter((v) => v && v !== "[" && v !== "]")
 }
 
+/**
+ * One `theme { … }` statement.
+ *
+ * Returns the mode of a `palette light { … }` header, so the caller can open
+ * the block — every other key applies here and returns nothing.
+ */
 function applyThemeProp(
   doc: ProjectDoc,
   key: string,
   value: string,
   line: number,
-  warnings: ParseIssue[]
-) {
+  warnings: ParseIssue[],
+  /** the statement with its keyword removed and its quotes still in place */
+  args = ""
+): "light" | "dark" | undefined {
   const normalised = value.trim().toLowerCase()
   switch (key) {
     case "design":
@@ -1396,18 +1518,245 @@ function applyThemeProp(
         warnings
       )
       return
+
+    // The nine settings the presets brought with them. Same rule as the block
+    // above — an unrecognised value keeps the current one and says which word
+    // was not understood, so a typo costs a line rather than the file — and the
+    // same reason for being here at all: what the serializer writes, the parser
+    // has to read, or a round trip resets the design to the defaults.
+    case "preset":
+    case "theme_preset": {
+      if (!normalised) {
+        warnings.push({
+          line,
+          message: `\`preset\` needs a name — keeping ${doc.theme.preset}.`,
+        })
+        return
+      }
+      // Not checked against the catalogue, unlike `design`: presets are data
+      // that grows between releases, and a file naming one this build has not
+      // shipped yet has to round trip rather than be corrected into something
+      // its author did not choose.
+      doc.theme.preset = normalised
+      return
+    }
+    case "shape":
+    case "radii":
+    case "corners": {
+      const text = args || value
+      if (/\bpill\b/i.test(text)) doc.theme.shape.pill = true
+      if (/\b(no_pill|nopill|not_pill|square|squared)\b/i.test(text)) {
+        doc.theme.shape.pill = false
+      }
+      for (const [name, radius] of readPairs(text.replace(PILL_WORDS, " "))) {
+        const slot = shapeAliases[name]
+        if (!slot) {
+          warnings.push({
+            line,
+            message: `"${name}" is not a shape — keeping the current radii. One of: control, card, overlay, pill.`,
+          })
+          continue
+        }
+        doc.theme.shape[slot] = clampNumber(
+          radius,
+          0,
+          64,
+          doc.theme.shape[slot],
+          `shape ${slot}`,
+          line,
+          warnings
+        )
+      }
+      return
+    }
+    case "pill":
+      // The flag on its own line. No word after it means the flag is being set,
+      // which is the only reason anyone writes it alone.
+      doc.theme.shape.pill = !/^(false|no|off|0)$/i.test(normalised)
+      return
+    case "fonts":
+    case "font":
+    case "typefaces": {
+      for (const [name, family] of readPairs(args)) {
+        const slot = fontSlotAliases[name]
+        if (!slot) {
+          warnings.push({
+            line,
+            message: `"${name}" is not a font slot — ignored. One of: display, body, mono.`,
+          })
+          continue
+        }
+        // Kept exactly as written, licence and all: this is the family the
+        // editor renders and the generated stylesheet loads, and correcting it
+        // to something the app has heard of would be inventing a typeface.
+        doc.theme.fonts[slot] = family
+      }
+      return
+    }
+    case "scale_ratio":
+    case "scaleratio":
+    case "ratio":
+      doc.theme.scaleRatio = clampNumber(
+        value,
+        1.05,
+        1.7,
+        doc.theme.scaleRatio,
+        key,
+        line,
+        warnings
+      )
+      return
+    case "vividness":
+    case "chroma":
+    case "saturation":
+      doc.theme.vividness = clampNumber(
+        value,
+        0,
+        100,
+        doc.theme.vividness,
+        key,
+        line,
+        warnings
+      )
+      return
+    case "neutral_hue":
+    case "neutralhue":
+    case "neutral":
+    case "grey_hue":
+    case "gray_hue":
+      doc.theme.neutralHue = clampNumber(
+        value,
+        0,
+        360,
+        doc.theme.neutralHue,
+        key,
+        line,
+        warnings
+      )
+      return
+    case "elevation_strategy":
+    case "elevationstrategy":
+    case "depth":
+      doc.theme.elevationStrategy = pickThemeValue(
+        normalised,
+        elevationStrategyValues,
+        doc.theme.elevationStrategy,
+        key,
+        line,
+        warnings
+      )
+      return
+    case "motion_model":
+    case "motionmodel":
+    case "motion_style":
+      doc.theme.motionModel = pickThemeValue(
+        normalised,
+        motionModelValues,
+        doc.theme.motionModel,
+        key,
+        line,
+        warnings
+      )
+      return
+    case "inputs":
+    case "inputstyle":
+    case "input_style":
+    case "fields":
+      doc.theme.inputStyle = pickThemeValue(
+        normalised,
+        inputStyleValues,
+        doc.theme.inputStyle,
+        key,
+        line,
+        warnings
+      )
+      return
+    case "palette":
+    case "colors":
+    case "colours": {
+      const head = args.trim().split(/\s+/)[0] ?? ""
+      const mode = paletteMode(head)
+      if (!mode) {
+        warnings.push({
+          line,
+          message: `"${head}" is not a palette mode — expected \`palette light\` or \`palette dark\`.`,
+        })
+        return
+      }
+      // `palette light primary #2563eb` — the one-line form, where no block
+      // opens. A `palette light {` header has nothing after the mode, and is
+      // what the caller turns into a block.
+      const pairs = readPairs(args.trim().slice(head.length))
+      for (const [token, color] of pairs) {
+        doc.theme.palette[mode][token.replace(/^--/, "")] = color
+      }
+      return pairs.length ? undefined : mode
+    }
     default:
       warnings.push({ line, message: `Unknown theme property "${key}" — ignored.` })
   }
 }
 
+/** `light` / `dark`, however it was spelled. */
+function paletteMode(word: string): "light" | "dark" | null {
+  const normalised = word.toLowerCase().replace(/[^a-z]/g, "")
+  if (normalised === "light" || normalised === "day") return "light"
+  if (normalised === "dark" || normalised === "night") return "dark"
+  return null
+}
+
 /**
- * One theme word, checked against the values that word is allowed to take.
+ * `display "Bricolage Grotesque" body "Public Sans"` → the pairs.
  *
- * A warning rather than an error, like every other unrecognised value in this
- * parser: an unknown font keeps the current font and produces a diagram, which
- * is far more useful than refusing the whole file over one line.
+ * Read off the statement rather than out of the parser's `words`, which has
+ * already split a family name in two and thrown away the quotes that said where
+ * it ended. A bare value is taken up to the next space, which is what makes
+ * `control 8 card 12` work in the same function.
  */
+function readPairs(text: string): [string, string][] {
+  const pairs: [string, string][] = []
+  for (const match of text.matchAll(/([a-z_][a-z0-9_-]*)\s+(?:"([^"]*)"|([^\s"]+))/gi)) {
+    pairs.push([match[1].toLowerCase(), (match[2] ?? match[3] ?? "").trim()])
+  }
+  return pairs
+}
+
+/**
+ * A numeric theme setting, clamped rather than rejected.
+ *
+ * `ui_level` already works this way and for the same reason: a file that says
+ * `vividness 140` meant "as vivid as it goes", and refusing it would lose every
+ * other thing the file said. A value that is not a number at all is a different
+ * matter — that is a typo, and the current setting is kept.
+ */
+function clampNumber(
+  value: string,
+  min: number,
+  max: number,
+  fallback: number,
+  key: string,
+  line: number,
+  warnings: ParseIssue[]
+): number {
+  const written = value.trim()
+  const parsed = Number.parseFloat(written)
+  if (!Number.isFinite(parsed)) {
+    warnings.push({
+      line,
+      message: `\`${key}\` must be a number between ${min} and ${max} — "${written}" is not one, keeping ${fallback}.`,
+    })
+    return fallback
+  }
+  const clamped = Math.min(max, Math.max(min, parsed))
+  if (clamped !== parsed) {
+    warnings.push({
+      line,
+      message: `\`${key}\` must be between ${min} and ${max} — "${written}" clamped to ${clamped}.`,
+    })
+  }
+  return clamped
+}
+
 /**
  * Which build a `stack` or `structure` line is talking about.
  *
@@ -1432,6 +1781,13 @@ function surfaceWord(word: string | undefined, line: number, warnings: ParseIssu
   return "web"
 }
 
+/**
+ * One theme word, checked against the values that word is allowed to take.
+ *
+ * A warning rather than an error, like every other unrecognised value in this
+ * parser: an unknown font keeps the current font and produces a diagram, which
+ * is far more useful than refusing the whole file over one line.
+ */
 function pickThemeValue<T extends string>(
   value: string,
   allowed: readonly T[],

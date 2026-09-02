@@ -182,6 +182,15 @@ export const themeSchema = z.object({
   vividness: z.number().min(0).max(100).default(60),
   /** the hue every neutral is biased toward, so greys read as chosen */
   neutralHue: z.number().min(0).max(360).default(160),
+  /**
+   * One line on why this design, in the words of whoever chose it.
+   *
+   * A design that arrives in a pasted `.flow` is a suggestion, and a suggestion
+   * you cannot see the reasoning for is only a set of values to accept or
+   * distrust. It is written by the model that produced the file and shown at
+   * the top of the design editor; nothing derives from it.
+   */
+  designNote: z.string().default(""),
   elevationStrategy: z.enum(elevationStrategyValues).default("shadow"),
   motionModel: z.enum(motionModelValues).default("duration"),
   inputStyle: z.enum(inputStyleValues).default("outlined"),

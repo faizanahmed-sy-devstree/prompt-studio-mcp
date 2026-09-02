@@ -21683,7 +21683,7 @@ function uniqueKey(base, taken) {
 }
 
 // src/studio/features/flow-lang/merge.ts
-function mergeDoc(doc, incoming) {
+function mergeDoc(doc, incoming, themeStated = []) {
   const report = {
     newFlows: 0,
     newTables: 0,
@@ -21695,8 +21695,17 @@ function mergeDoc(doc, incoming) {
     newModules: 0,
     newEdges: 0,
     newInnerEdges: 0,
-    newSections: 0
+    newSections: 0,
+    themeFields: 0,
+    preset: ""
   };
+  for (const field2 of themeStated) {
+    const value = incoming.theme[field2];
+    if (JSON.stringify(doc.theme[field2]) === JSON.stringify(value)) continue;
+    Object.assign(doc.theme, { [field2]: structuredClone(value) });
+    report.themeFields += 1;
+    if (field2 === "preset") report.preset = String(value);
+  }
   const flowByKey = new Map(doc.flows.map((f) => [f.key, f]));
   const flowIds = /* @__PURE__ */ new Map();
   for (const incomingFlow of [...incoming.flows].sort((a, b) => a.order - b.order)) {
@@ -21874,7 +21883,10 @@ function describeMerge(report) {
     report.newTables && `${report.newTables} table${plural(report.newTables)}`,
     report.updatedTables && `${report.updatedTables} table${plural(report.updatedTables)} updated`,
     report.newColumns && `${report.newColumns} column${plural(report.newColumns)}`,
-    report.newRelations && `${report.newRelations} relation${plural(report.newRelations)}`
+    report.newRelations && `${report.newRelations} relation${plural(report.newRelations)}`,
+    // Last, and phrased as the design rather than as a field count, because
+    // that is the part somebody wants to look at before anything else.
+    report.themeFields && (report.preset ? `design: ${report.preset}${report.themeFields > 1 ? ` +${report.themeFields - 1} override${plural(report.themeFields - 1)}` : ""}` : `${report.themeFields} design setting${plural(report.themeFields)}`)
   ].filter(Boolean);
   return parts.length ? parts.join(" \xB7 ") : "Nothing new \u2014 the project already had all of it";
 }
@@ -26293,3879 +26305,6 @@ function describeDesignLanguage(id) {
   return designLanguageMap[id] ?? designLanguageMap["modern-soft"];
 }
 
-// src/studio/features/theme/data/ui-levels.ts
-var UI_LEVEL_PREAMBLE = [
-  "**Decide how much interface this product actually needs before you build any of it.** Read the journeys and the user stories above and ask, for each screen: who is on it, what are they trying to finish, how often are they here, and what is the cost of getting in their way?",
-  "A screen someone uses forty times a day wants speed, density and keyboard reach \u2014 animation there is a tax. A screen someone sees once, or that has to persuade them, can afford atmosphere. A tool used one-handed in the field needs targets and contrast before it needs polish. Say in your final report where you spent the effort and where you deliberately did not."
-].join("\n\n");
-var uiLevels = [
-  {
-    level: 1,
-    name: "Literal",
-    hint: "Build exactly what is described. No additions.",
-    promptDetails: "Build exactly the layouts described and nothing beyond them. No sections, decoration, illustration or animation that is not specified. Transitions are instant. This is the right level when the diagram is the specification and someone else owns the visual design \u2014 your job is structural fidelity, not taste."
-  },
-  {
-    level: 2,
-    name: "Clean",
-    hint: "Functional and tidy. Correct states, no flourish.",
-    promptDetails: "Stay close to the specification and make it tidy rather than expressive. Consistent spacing and type, real hover/focus/disabled/loading/empty/error states, and nothing decorative on top. Motion is limited to what communicates a state change \u2014 a spinner, a disclosure opening. This is the right level for internal tools and admin surfaces, where being predictable beats being memorable."
-  },
-  {
-    level: 3,
-    name: "Considered",
-    hint: "Product-grade polish. The sensible default.",
-    promptDetails: "Build it to the standard of a product someone pays for. The described structure stays intact; within it, make real design decisions \u2014 a deliberate type scale, chosen neutrals, considered empty states, transitions in the 120\u2013200ms range on things that actually move. Interactive elements look interactive. Nothing is added for its own sake, and nothing looks unfinished."
-  },
-  {
-    level: 4,
-    name: "Expressive",
-    hint: "Interactive and animated where it earns its place.",
-    promptDetails: "Interpret the specification confidently and make the interface a reason to use the product. Motion, depth and micro-interactions are welcome where they aid comprehension or reward attention: staged reveals on first paint, meaningful transitions between states, hover states that respond, charts that animate in once. Every described screen and transition still exists. Each effect must survive one question \u2014 what does the person understand better because of it? If the answer is nothing, cut it, and honour `prefers-reduced-motion` throughout."
-  },
-  {
-    level: 5,
-    name: "Signature",
-    hint: "A showpiece. Take a real aesthetic risk.",
-    promptDetails: "Treat the specification as direction rather than constraint and build something with a point of view. Take one real aesthetic risk and commit to it \u2014 a distinctive type pairing, an orchestrated load sequence, an ambient or generative background, a signature interaction the product becomes known for. Push the visual design hard, but keep every described screen and transition, keep the flows working, and keep the boldness concentrated in one place with everything around it quiet. Ambition is not the same as noise: the result still has to be legible, accessible, fast on a mid-range phone, and usable with reduced motion."
-  }
-];
-var DEFAULT_UI_LEVEL = 3;
-var uiLevelMap = Object.fromEntries(
-  uiLevels.map((entry) => [entry.level, entry])
-);
-function describeUiLevel(level) {
-  return uiLevelMap[level] ?? uiLevelMap[DEFAULT_UI_LEVEL];
-}
-function uiLevelFromLegacyCreativity(creativity) {
-  if (!Number.isFinite(creativity)) return DEFAULT_UI_LEVEL;
-  const value = Math.round(creativity);
-  if (value <= 2) return 1;
-  if (value <= 4) return 2;
-  if (value <= 6) return 3;
-  if (value <= 8) return 4;
-  return 5;
-}
-function uiLevelOf(doc) {
-  if (typeof doc.uiLevel === "number") return doc.uiLevel;
-  if (typeof doc.creativity === "number") return uiLevelFromLegacyCreativity(doc.creativity);
-  return DEFAULT_UI_LEVEL;
-}
-
-// src/studio/types/project.ts
-var SCHEMA_VERSION = 11;
-var borderRadiusValues = [
-  "none",
-  "small",
-  "medium",
-  "large",
-  "full"
-];
-var buttonStyleValues = [
-  "filled",
-  "outlined",
-  "rounded",
-  "sharp"
-];
-var fontCharacterValues = [
-  "geometric",
-  "grotesque",
-  "humanist",
-  "serif",
-  "slab",
-  "mono"
-];
-var bodyFontValues = ["pair", ...fontCharacterValues];
-var typeScaleValues = ["compact", "balanced", "expressive"];
-var iconStyleValues = ["line", "solid", "duotone"];
-var elevationValues = ["flat", "subtle", "layered"];
-var motionValues = ["none", "restrained", "expressive"];
-var colorSchemeValues = ["light", "both", "dark-first"];
-var elevationStrategyValues = [
-  "shadow",
-  "ladder",
-  "hairline",
-  "grid",
-  "tinted",
-  "glass",
-  "offset"
-];
-var motionModelValues = ["none", "duration", "spring"];
-var inputStyleValues = [
-  /** a 1px box, the label above it — the safe default */
-  "outlined",
-  /** a tinted fill with no border, the label above */
-  "filled",
-  /** a rule under the field only, the label above */
-  "underline",
-  /** the label starts inside the field and rises on focus */
-  "floating",
-  /** the label sits permanently inside the field, above the value */
-  "inset",
-  /** no chrome at all until hover or focus */
-  "borderless"
-];
-var priorityValues = ["logic-first", "ui-first"];
-var shapeSchema = external_exports.object({
-  /** buttons, inputs, chips */
-  control: external_exports.number().min(0).max(64).default(8),
-  /** cards, panels, table shells */
-  card: external_exports.number().min(0).max(64).default(12),
-  /** dialogs, popovers, sheets */
-  overlay: external_exports.number().min(0).max(64).default(16),
-  /** actions are fully round, whatever `control` says */
-  pill: external_exports.boolean().default(false)
-});
-var paletteSchema = external_exports.object({
-  light: external_exports.record(external_exports.string()).default({}),
-  dark: external_exports.record(external_exports.string()).default({})
-});
-var fontsSchema = external_exports.object({
-  display: external_exports.string().default(""),
-  body: external_exports.string().default(""),
-  mono: external_exports.string().default("")
-});
-var themeSchema = external_exports.object({
-  /** id from features/theme/data/design-languages.ts */
-  designLanguage: external_exports.string().default("modern-soft"),
-  primaryColor: external_exports.string().default("#4f46e5"),
-  secondaryColor: external_exports.string().default("#0ea5e9"),
-  borderRadius: external_exports.enum(borderRadiusValues).default("medium"),
-  buttonStyle: external_exports.enum(buttonStyleValues).default("filled"),
-  density: external_exports.enum(["compact", "comfortable", "spacious"]).default("comfortable"),
-  headingFont: external_exports.enum(fontCharacterValues).default("grotesque"),
-  bodyFont: external_exports.enum(bodyFontValues).default("pair"),
-  /** how far apart the heading sizes sit */
-  typeScale: external_exports.enum(typeScaleValues).default("balanced"),
-  iconStyle: external_exports.enum(iconStyleValues).default("line"),
-  elevation: external_exports.enum(elevationValues).default("subtle"),
-  motion: external_exports.enum(motionValues).default("restrained"),
-  colorScheme: external_exports.enum(colorSchemeValues).default("both"),
-  /** id from features/theme/data/presets.ts — the source of every value below */
-  preset: external_exports.string().default("atrium"),
-  shape: shapeSchema.default({}),
-  palette: paletteSchema.default({}),
-  fonts: fontsSchema.default({}),
-  /** step ratio between type sizes; 1.2 minor third, 1.25 major third */
-  scaleRatio: external_exports.number().min(1.05).max(1.7).default(1.25),
-  /** chroma as a percentage of what the hue can actually reach in sRGB */
-  vividness: external_exports.number().min(0).max(100).default(60),
-  /** the hue every neutral is biased toward, so greys read as chosen */
-  neutralHue: external_exports.number().min(0).max(360).default(160),
-  elevationStrategy: external_exports.enum(elevationStrategyValues).default("shadow"),
-  motionModel: external_exports.enum(motionModelValues).default("duration"),
-  inputStyle: external_exports.enum(inputStyleValues).default("outlined")
-});
-var userStorySchema = external_exports.object({
-  /** "an operations admin" */
-  role: external_exports.string().default(""),
-  /** "see every client in one filterable table" */
-  want: external_exports.string().default(""),
-  /** "I can reach the right record without hunting through pages" */
-  soThat: external_exports.string().default(""),
-  /** checkable acceptance criteria, in the client's language */
-  criteria: external_exports.array(external_exports.string()).default([])
-});
-var flowSchema = external_exports.object({
-  id: external_exports.string(),
-  /** stable slug used by the `.flow` language — unique per project */
-  key: external_exports.string(),
-  name: external_exports.string(),
-  story: userStorySchema.default({}),
-  note: external_exports.string().default(""),
-  order: external_exports.number().default(0)
-});
-var viewSchema = external_exports.object({
-  id: external_exports.string(),
-  /** stable slug used by the `.flow` language — unique per project */
-  key: external_exports.string(),
-  name: external_exports.string(),
-  note: external_exports.string().default("")
-});
-var surfaceValues = ["web", "mobile", "backend"];
-var screenSchema = external_exports.object({
-  id: external_exports.string(),
-  /** stable slug used by the `.flow` language — unique per project */
-  key: external_exports.string(),
-  title: external_exports.string(),
-  template: external_exports.string().default(""),
-  layout: external_exports.string().default(""),
-  note: external_exports.string().default(""),
-  /** which build this screen is part of */
-  surface: external_exports.enum(surfaceValues).default("web"),
-  /**
-   * View ids this screen belongs to. **Empty means every view** — shared
-   * surfaces are the common case, and it keeps projects written before views
-   * existed behaving exactly as they did.
-   */
-  views: external_exports.array(external_exports.string()).default([]),
-  /**
-   * Flow ids this screen is part of. Normally written by the model as it
-   * generates the file and corrected from the inspector — never derived from
-   * the graph, so a tag never re-computes itself behind you. Empty means
-   * ungrouped, which is a state the flow picker shows rather than hides.
-   */
-  flows: external_exports.array(external_exports.string()).default([]),
-  /** why this screen exists, and when it is done */
-  story: userStorySchema.default({}),
-  x: external_exports.number().default(0),
-  y: external_exports.number().default(0)
-});
-var moduleSchema = external_exports.object({
-  id: external_exports.string(),
-  /** owning screen id */
-  screenId: external_exports.string(),
-  /** unique within the owning screen — how `.flow` refers to it */
-  key: external_exports.string(),
-  name: external_exports.string(),
-  /** id from features/library/data/module-kinds.ts */
-  kind: external_exports.string().default("panel"),
-  /** what opens or fires it — "click Add Client", "on page load" */
-  trigger: external_exports.string().default(""),
-  note: external_exports.string().default(""),
-  order: external_exports.number().default(0)
-});
-var moduleEdgeSchema = external_exports.object({
-  id: external_exports.string(),
-  from: external_exports.string(),
-  to: external_exports.string(),
-  trigger: external_exports.string().default("")
-});
-var edgeSchema = external_exports.object({
-  id: external_exports.string(),
-  from: external_exports.string(),
-  to: external_exports.string(),
-  /** what causes the transition — "on submit", "click Add Client" */
-  trigger: external_exports.string().default(""),
-  /** view ids this transition exists in; empty means every view */
-  views: external_exports.array(external_exports.string()).default([])
-});
-var sectionSchema = external_exports.object({
-  id: external_exports.string(),
-  type: external_exports.string(),
-  name: external_exports.string(),
-  layout: external_exports.string().default(""),
-  note: external_exports.string().default(""),
-  order: external_exports.number()
-});
-var fieldKindValues = [
-  "uuid",
-  "text",
-  "string",
-  "integer",
-  "bigint",
-  "decimal",
-  "boolean",
-  "timestamp",
-  "date",
-  "time",
-  "json",
-  "enum",
-  "array",
-  "binary"
-];
-var entityFieldSchema = external_exports.object({
-  id: external_exports.string(),
-  /** column name, as it will exist in the database */
-  name: external_exports.string(),
-  /** free text rather than an enum: every database spells its types its own way */
-  type: external_exports.string().default("text"),
-  primary: external_exports.boolean().default(false),
-  required: external_exports.boolean().default(false),
-  unique: external_exports.boolean().default(false),
-  indexed: external_exports.boolean().default(false),
-  /** literal default, written into the migration — "now()", "0", "'draft'" */
-  defaultValue: external_exports.string().default(""),
-  /** allowed values for an enum column */
-  options: external_exports.array(external_exports.string()).default([]),
-  note: external_exports.string().default("")
-});
-var entitySchema = external_exports.object({
-  id: external_exports.string(),
-  /** table name — snake_case, unique in the project */
-  key: external_exports.string(),
-  /** what a person calls it — "Orders" */
-  name: external_exports.string(),
-  note: external_exports.string().default(""),
-  fields: external_exports.array(entityFieldSchema).default([]),
-  x: external_exports.number().default(0),
-  y: external_exports.number().default(0)
-});
-var relationKindValues = [
-  "one-to-many",
-  "many-to-one",
-  "one-to-one",
-  "many-to-many"
-];
-var relationSchema = external_exports.object({
-  id: external_exports.string(),
-  /** entity id holding the foreign key (for many-to-many, either side) */
-  from: external_exports.string(),
-  /** the column that holds it — "user_id" */
-  fromField: external_exports.string().default(""),
-  /** entity id being pointed at */
-  to: external_exports.string(),
-  /** the column being pointed at — normally the primary key */
-  toField: external_exports.string().default("id"),
-  kind: external_exports.enum(relationKindValues).default("many-to-one"),
-  /** "an order belongs to a customer" */
-  label: external_exports.string().default(""),
-  onDelete: external_exports.enum(["cascade", "restrict", "set-null"]).default("restrict"),
-  /** join table name, many-to-many only */
-  through: external_exports.string().default("")
-});
-var stackSchema = external_exports.object({
-  framework: external_exports.string().default("next-16"),
-  language: external_exports.string().default("ts-strict"),
-  styling: external_exports.string().default("tailwind4-shadcn"),
-  state: external_exports.string().default("tanstack-zustand"),
-  forms: external_exports.string().default("rhf-zod"),
-  http: external_exports.string().default("axios-instance"),
-  icons: external_exports.string().default("lucide"),
-  tables: external_exports.string().default("tanstack-table"),
-  charts: external_exports.string().default("recharts"),
-  testing: external_exports.string().default("vitest"),
-  tooling: external_exports.string().default("biome-prettier"),
-  packageManager: external_exports.string().default("pnpm"),
-  /**
-   * The service half of the stack.
-   *
-   * Blank on a UI surface rather than absent: a screen has no database, and
-   * defaulting these to Postgres would put a database into every web-only
-   * brief that never asked for one. They are filled in only on the backend
-   * surface, where the picker shows them.
-   */
-  database: external_exports.string().default(""),
-  orm: external_exports.string().default(""),
-  apiStyle: external_exports.string().default(""),
-  apiAuth: external_exports.string().default(""),
-  /** free-text additions the catalogue does not know about */
-  extras: external_exports.array(external_exports.string()).default([])
-});
-var structureSchema = external_exports.object({
-  preset: external_exports.string().default("feature-based"),
-  customTree: external_exports.string().default("")
-});
-var conventionsSchema = external_exports.object({
-  ids: external_exports.array(external_exports.string()).default([]),
-  custom: external_exports.string().default("")
-});
-var surfaceConfigSchema = external_exports.object({
-  stack: stackSchema.default({}),
-  structure: structureSchema.default({})
-});
-var mobileSurfaceDefaults = {
-  stack: {
-    framework: "expo-router",
-    styling: "nativewind",
-    state: "rn-query-zustand",
-    icons: "rn-vector-icons",
-    tables: "rn-flashlist",
-    charts: "victory-native",
-    testing: "rn-testing-library"
-  },
-  structure: { preset: "expo-feature-based" }
-};
-var backendSurfaceDefaults = {
-  stack: {
-    // A service has no UI, so the presentation choices are deliberately blank
-    // rather than a web default nobody meant to pick.
-    framework: "fastapi",
-    language: "python",
-    styling: "",
-    forms: "",
-    icons: "",
-    tables: "",
-    charts: "",
-    state: "none-state-server",
-    http: "none-http-server",
-    testing: "pytest",
-    tooling: "ruff-mypy",
-    packageManager: "uv",
-    // The service half, which the Backend tab had no way to express at all
-    // until now: it blanked the presentation fields and offered nothing in
-    // their place, so a backend brief named no server technology.
-    database: "postgres",
-    orm: "sqlalchemy",
-    apiStyle: "rest-openapi",
-    apiAuth: "jwt-refresh"
-  },
-  structure: { preset: "src-layered" }
-};
-var deploymentSchema = external_exports.object({
-  /** ids from features/deploy/data/targets.ts */
-  mcps: external_exports.array(external_exports.string()).default([]),
-  iac: external_exports.string().default("none"),
-  /** free text appended to the deployment block — domains, regions, accounts */
-  notes: external_exports.string().default("")
-});
-var projectDocSchema = external_exports.object({
-  name: external_exports.string().default("Untitled project"),
-  /**
-   * Which builds this project ships.
-   *
-   * Named `builds` rather than `surfaces` because `surfaces` already means
-   * something here — the per-surface stack and folder configuration below.
-   * This is the shorter question: which of them are we shipping at all.
-   *
-   * Until now this was inferred from which screens happened to exist, which
-   * cannot express "there is a backend" before anybody has drawn a service, and
-   * cannot express intent at all: a project meant to ship a phone app looked
-   * identical to one where somebody had tagged a screen `surface mobile` by
-   * accident. Stated up front, it drives what the generated prompt asks for and
-   * what the requirements prompt tells a model to write.
-   *
-   * Web defaults on because every existing project is a web project.
-   */
-  builds: external_exports.object({
-    web: external_exports.boolean().default(true),
-    mobile: external_exports.boolean().default(false),
-    backend: external_exports.boolean().default(false)
-  }).default({}),
-  /**
-   * Whether the build starts from the shared boilerplate repository or from an
-   * empty folder.
-   *
-   * Defaults to "scratch" so no existing project changes shape underneath
-   * anyone: a brief that has been handed to a developer must keep generating
-   * what it generated yesterday.
-   */
-  startFrom: external_exports.enum(["scratch", "boilerplate"]).default("boilerplate"),
-  /**
-   * What this build is for, and therefore what the prompt should contain.
-   *
-   * "ui-first" is a prototype: the design is chosen before the flow is drawn,
-   * and the generated prompt drops the data model, the backend and deployment
-   * — a frontend brief carrying a Prisma schema is the thing that makes people
-   * stop reading. "logic-first" is the whole system, and is what every project
-   * written before this field existed keeps doing.
-   */
-  priority: external_exports.enum(priorityValues).default("logic-first"),
-  target: external_exports.string().default("claude-code"),
-  deployment: deploymentSchema.default({}),
-  /**
-   * Legacy 0–10 creative latitude. No longer written by the UI; kept so an
-   * existing project can be migrated to `uiLevel` rather than silently reset
-   * to the default. See `uiLevelOf`.
-   */
-  creativity: external_exports.number().min(0).max(10).default(5),
-  /**
-   * How much visual and interaction ambition to build — 1 (literal) to 5
-   * (signature). `null` means "never set on this document", which is how a
-   * project written before this field existed is recognised and migrated from
-   * `creativity`. Read it through `uiLevelOf`, never directly.
-   */
-  uiLevel: external_exports.number().int().min(1).max(5).nullable().default(null),
-  views: external_exports.array(viewSchema).default([]),
-  flows: external_exports.array(flowSchema).default([]),
-  screens: external_exports.array(screenSchema).default([]),
-  edges: external_exports.array(edgeSchema).default([]),
-  modules: external_exports.array(moduleSchema).default([]),
-  moduleEdges: external_exports.array(moduleEdgeSchema).default([]),
-  sections: external_exports.array(sectionSchema).default([]),
-  /** the tables behind every build, and how they relate */
-  entities: external_exports.array(entitySchema).default([]),
-  relations: external_exports.array(relationSchema).default([]),
-  theme: themeSchema.default({}),
-  /**
-   * `stack` and `structure` are the **web** surface's, kept at the top level so
-   * every project written before surfaces existed still means what it said.
-   * Mobile and backend carry their own under `surfaces`.
-   */
-  stack: stackSchema.default({}),
-  structure: structureSchema.default({}),
-  surfaces: external_exports.object({
-    mobile: surfaceConfigSchema.default(
-      () => surfaceConfigSchema.parse(mobileSurfaceDefaults)
-    ),
-    backend: surfaceConfigSchema.default(
-      () => surfaceConfigSchema.parse(backendSurfaceDefaults)
-    )
-  }).default({}),
-  conventions: conventionsSchema.default({}),
-  requirements: external_exports.string().default(""),
-  snippetIds: external_exports.array(external_exports.string()).default([])
-});
-var snapshotSchema = external_exports.object({
-  id: external_exports.string(),
-  label: external_exports.string(),
-  createdAt: external_exports.number(),
-  doc: projectDocSchema,
-  /**
-   * Who saved it, by display name.
-   *
-   * Stored rather than looked up: a version outlives the session that made it,
-   * and on a shared project the useful question months later is "who took this
-   * snapshot", which no amount of current state can answer. Blank for versions
-   * saved before this existed, and for anyone working signed out.
-   */
-  by: external_exports.string().default(""),
-  /**
-   * What caused it. Every version used to be labelled "Generated for Claude
-   * Code", so a list of them was twenty identical rows and choosing between
-   * them meant opening each one.
-   */
-  kind: external_exports.enum(["generated", "manual", "auto"]).default("manual")
-});
-var projectSchema = projectDocSchema.extend({
-  id: external_exports.string(),
-  createdAt: external_exports.number(),
-  updatedAt: external_exports.number(),
-  schemaVersion: external_exports.number().default(SCHEMA_VERSION),
-  versions: external_exports.array(snapshotSchema).default([])
-});
-var projectFileSchema = external_exports.object({
-  kind: external_exports.literal("prompt-studio/project"),
-  schemaVersion: external_exports.number(),
-  exportedAt: external_exports.number().optional(),
-  project: projectSchema
-});
-
-// src/studio/features/flow-lang/tokenize.ts
-var HEREDOC_OPEN = "\xABH";
-var HEREDOC_CLOSE = "\xBB";
-function tokenize(source) {
-  const heredocs = [];
-  const withPlaceholders = source.replace(
-    /"""([\s\S]*?)"""/g,
-    (_, body) => {
-      heredocs.push(dedent(String(body)));
-      return ` ${HEREDOC_OPEN}${heredocs.length - 1}${HEREDOC_CLOSE} `;
-    }
-  );
-  const lines = [];
-  const rawLines = withPlaceholders.split(/\r?\n/);
-  rawLines.forEach((raw, index) => {
-    const cleaned = stripComments(raw);
-    for (const piece of splitStatements(cleaned)) {
-      const text2 = piece.trim();
-      if (text2) lines.push({ line: index + 1, text: text2 });
-    }
-  });
-  return { lines, heredocs };
-}
-function resolveHeredoc(value, heredocs) {
-  const match = value.trim().match(/^«H(\d+)»$/);
-  if (!match) return value;
-  return heredocs[Number(match[1])] ?? "";
-}
-function stripComments(input) {
-  let out = "";
-  let inString = false;
-  for (let i = 0; i < input.length; i += 1) {
-    const char = input[i];
-    const next = input[i + 1];
-    if (char === '"') {
-      inString = !inString;
-      out += char;
-      continue;
-    }
-    if (!inString) {
-      if (char === "/" && next === "/") break;
-      if (char === "#" && (next === " " || next === "	" || next === void 0)) {
-        break;
-      }
-    }
-    out += char;
-  }
-  return out;
-}
-function splitStatements(input) {
-  const pieces = [];
-  let current = "";
-  let inString = false;
-  for (const char of input) {
-    if (char === '"') inString = !inString;
-    if (!inString && (char === ";" || char === "{" || char === "}")) {
-      if (current.trim()) pieces.push(current);
-      if (char !== ";") pieces.push(char);
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-  if (current.trim()) pieces.push(current);
-  return pieces;
-}
-function dedent(block2) {
-  const lines = block2.replace(/^\n/, "").replace(/\s+$/, "").split("\n");
-  const indents = lines.filter((l) => l.trim()).map((l) => l.match(/^\s*/)?.[0].length ?? 0);
-  const min = indents.length ? Math.min(...indents) : 0;
-  return lines.map((l) => l.slice(min)).join("\n");
-}
-function readQuoted(text2) {
-  const quoted = [];
-  const rest = text2.replace(/"([^"]*)"/g, (_, value) => {
-    quoted.push(value);
-    return " ";
-  });
-  return { rest, quoted };
-}
-function editDistance(a, b) {
-  if (a === b) return 0;
-  const cols = b.length + 1;
-  let prev = new Array(cols);
-  let curr = new Array(cols);
-  for (let j = 0; j < cols; j += 1) prev[j] = j;
-  for (let i = 1; i <= a.length; i += 1) {
-    curr[0] = i;
-    for (let j = 1; j < cols; j += 1) {
-      curr[j] = Math.min(
-        prev[j] + 1,
-        curr[j - 1] + 1,
-        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-      );
-    }
-    const swap = prev;
-    prev = curr;
-    curr = swap;
-  }
-  return prev[cols - 1];
-}
-function closestMatch(value, candidates) {
-  let best = null;
-  for (const candidate of candidates) {
-    const distance = editDistance(value.toLowerCase(), candidate.toLowerCase());
-    if (!best || distance < best.distance) best = { id: candidate, distance };
-  }
-  if (!best) return null;
-  const tolerance = Math.max(2, Math.floor(value.length / 3));
-  return best.distance <= tolerance ? best.id : null;
-}
-
-// src/studio/features/flow-lang/parser.ts
-var layoutIds = allLayouts.map((l) => l.id);
-var templateIds = screenTemplates.map((t) => t.id);
-var sectionTypeIds = sectionTypes.map((s) => s.id);
-var conventionIds = conventions.map((c) => c.id);
-var snippetIds = snippets.map((s) => s.id);
-var structureIds = structurePresets.map((s) => s.id);
-var targetIds = promptTargets.map((t) => t.id);
-var moduleKindIds = moduleKinds.map((k) => k.id);
-var radiusAliases = {
-  none: "none",
-  "0": "none",
-  square: "none",
-  sm: "small",
-  small: "small",
-  md: "medium",
-  medium: "medium",
-  lg: "large",
-  large: "large",
-  xl: "large",
-  full: "full",
-  pill: "full",
-  rounded: "full"
-};
-var buttonAliases = {
-  filled: "filled",
-  solid: "filled",
-  outlined: "outlined",
-  outline: "outlined",
-  ghost: "outlined",
-  rounded: "rounded",
-  pill: "rounded",
-  sharp: "sharp",
-  square: "sharp"
-};
-var densityAliases = {
-  compact: "compact",
-  dense: "compact",
-  comfortable: "comfortable",
-  normal: "comfortable",
-  default: "comfortable",
-  spacious: "spacious",
-  roomy: "spacious"
-};
-var shapeAliases = {
-  control: "control",
-  controls: "control",
-  button: "control",
-  buttons: "control",
-  input: "control",
-  inputs: "control",
-  card: "card",
-  cards: "card",
-  panel: "card",
-  panels: "card",
-  surface: "card",
-  overlay: "overlay",
-  overlays: "overlay",
-  dialog: "overlay",
-  modal: "overlay",
-  sheet: "overlay"
-};
-var fontSlotAliases = {
-  display: "display",
-  heading: "display",
-  headings: "display",
-  title: "display",
-  body: "body",
-  text: "body",
-  paragraph: "body",
-  mono: "mono",
-  code: "mono",
-  monospace: "mono"
-};
-var PILL_WORDS = /\b(pill|no_pill|nopill|not_pill|square|squared)\b/gi;
-var priorityAliases = {
-  "logic-first": "logic-first",
-  logic_first: "logic-first",
-  logicfirst: "logic-first",
-  logic: "logic-first",
-  system: "logic-first",
-  full: "logic-first",
-  "ui-first": "ui-first",
-  ui_first: "ui-first",
-  uifirst: "ui-first",
-  ui: "ui-first",
-  design: "ui-first",
-  prototype: "ui-first"
-};
-function parseFlow(source) {
-  const { lines, heredocs } = tokenize(source);
-  const warnings = [];
-  const errors = [];
-  const doc = projectDocSchema.parse({});
-  const screens = [];
-  const edges = [];
-  const modules = [];
-  const moduleEdges = [];
-  const sections = [];
-  const views = [];
-  const flows = [];
-  const entities = [];
-  const relationDrafts = [];
-  const byKey = /* @__PURE__ */ new Map();
-  let profile;
-  const stack = [{ kind: "root" }];
-  let pending = null;
-  const ctx = () => stack[stack.length - 1];
-  const ensureScreen = (rawKey, _line, title) => {
-    const key = slugify(rawKey);
-    const existing = byKey.get(key);
-    if (existing) {
-      if (title) existing.title = title;
-      return existing;
-    }
-    const screen = {
-      id: uid("scr"),
-      key: uniqueKey(key, byKey.keys()),
-      title: title || titleFromKey(key),
-      template: "",
-      layout: "",
-      note: "",
-      surface: "web",
-      views: [],
-      flows: [],
-      story: emptyStory(),
-      x: 0,
-      y: 0
-    };
-    screens.push(screen);
-    byKey.set(screen.key, screen);
-    return screen;
-  };
-  const ensureModule = (screenId, rawKey, name) => {
-    const key = slugify(rawKey);
-    const siblings = modules.filter((m) => m.screenId === screenId);
-    const existing = siblings.find((m) => m.key === key);
-    if (existing) {
-      if (name) existing.name = name;
-      return existing;
-    }
-    const module = {
-      id: uid("mod"),
-      screenId,
-      key: uniqueKey(
-        key,
-        siblings.map((m) => m.key)
-      ),
-      name: name || titleFromKey(key),
-      kind: "panel",
-      trigger: "",
-      note: "",
-      order: siblings.length
-    };
-    modules.push(module);
-    return module;
-  };
-  const ensureView = (rawKey, name) => {
-    const key = slugify(rawKey);
-    if (!key) return null;
-    const existing = views.find((v) => v.key === key);
-    if (existing) {
-      if (name) existing.name = name;
-      return existing;
-    }
-    const view = {
-      id: uid("vw"),
-      key,
-      name: name || titleFromKey(key),
-      note: ""
-    };
-    views.push(view);
-    return view;
-  };
-  const ensureFlow = (rawKey, name) => {
-    const key = slugify(rawKey);
-    if (!key) return null;
-    const existing = flows.find((f) => f.key === key);
-    if (existing) {
-      if (name) existing.name = name;
-      return existing;
-    }
-    const flow = {
-      id: uid("flw"),
-      key,
-      name: name || titleFromKey(key),
-      story: emptyStory(),
-      note: "",
-      order: flows.length
-    };
-    flows.push(flow);
-    return flow;
-  };
-  const ensureEntity = (rawKey, name) => {
-    const key = slugify(rawKey).replace(/-/g, "_");
-    if (!key) return null;
-    const existing = entities.find((entity2) => entity2.key === key);
-    if (existing) {
-      if (name) existing.name = name;
-      return existing;
-    }
-    const entity = {
-      id: uid("ent"),
-      key,
-      name: name || titleFromKey(key),
-      note: "",
-      fields: [],
-      x: 0,
-      y: 0
-    };
-    entities.push(entity);
-    return entity;
-  };
-  const readViewTags = (text2) => {
-    const ids = [];
-    for (const match of text2.matchAll(/@([a-z0-9_-]+)/gi)) {
-      const view = ensureView(match[1]);
-      if (view && !ids.includes(view.id)) ids.push(view.id);
-    }
-    return ids;
-  };
-  const matchId = (value, candidates, label, line) => {
-    const normalised = value.trim();
-    if (!normalised) return "";
-    if (candidates.includes(normalised)) return normalised;
-    const suggestion = closestMatch(normalised, candidates);
-    if (suggestion) {
-      warnings.push({
-        line,
-        message: `Unknown ${label} "${normalised}" \u2014 using "${suggestion}".`
-      });
-      return suggestion;
-    }
-    warnings.push({
-      line,
-      message: `Unknown ${label} "${normalised}" \u2014 kept as-is; the prompt will describe it literally.`
-    });
-    return normalised;
-  };
-  for (const entry of lines) {
-    const { line } = entry;
-    const raw = entry.text.trim();
-    if (!raw) continue;
-    if (raw === "{") {
-      stack.push(pending ?? { kind: "unknown" });
-      pending = null;
-      continue;
-    }
-    if (raw === "}") {
-      if (stack.length > 1) stack.pop();
-      else errors.push({ line, message: "Unmatched `}`." });
-      pending = null;
-      continue;
-    }
-    pending = null;
-    const { rest, quoted } = readQuoted(raw);
-    const words = rest.split(/[\s,]+/).filter(Boolean);
-    const keyword = (words[0] ?? "").toLowerCase();
-    const current = ctx();
-    if (current.kind === "inner") {
-      const trigger = quoted[0] ?? "";
-      const chain = rest.split(/->|=>|→/).map((part) => part.replace(/:.*$/, "").trim()).filter(Boolean);
-      if (chain.length === 1) {
-        ensureModule(current.screenId, chain[0]);
-        continue;
-      }
-      if (chain.length < 2) {
-        errors.push({ line, message: `Could not read inner connection: "${raw}".` });
-        continue;
-      }
-      for (let i = 0; i < chain.length - 1; i += 1) {
-        const from = ensureModule(current.screenId, chain[i]);
-        const to = ensureModule(current.screenId, chain[i + 1]);
-        if (from.id === to.id) {
-          warnings.push({ line, message: `"${from.name}" cannot connect to itself.` });
-          continue;
-        }
-        if (moduleEdges.some((e) => e.from === from.id && e.to === to.id)) {
-          warnings.push({
-            line,
-            message: `Duplicate inner connection ${from.key} \u2192 ${to.key} ignored.`
-          });
-          continue;
-        }
-        moduleEdges.push({
-          id: uid("med"),
-          from: from.id,
-          to: to.id,
-          trigger: i === 0 ? trigger : ""
-        });
-      }
-      continue;
-    }
-    if (current.kind === "data" || current.kind === "table") {
-      if (keyword === "rel" || keyword === "relation" || keyword === "ref" || keyword === "references" || current.kind === "data" && /(->|<->|=>|→|↔)/.test(rest)) {
-        const draft = readRelation(rest, quoted, line, warnings);
-        if (draft) relationDrafts.push(draft);
-        else errors.push({ line, message: `Could not read relation: "${raw}".` });
-        continue;
-      }
-      if (current.kind === "data") {
-        const declares = keyword === "table" || keyword === "entity" || keyword === "model";
-        const key = declares ? words[1] ?? "" : words[0] ?? "";
-        const entity2 = ensureEntity(key, quoted[0]);
-        if (!entity2) {
-          errors.push({ line, message: `Could not read table: "${raw}".` });
-          continue;
-        }
-        if (quoted[1]) entity2.note = quoted[1];
-        pending = { kind: "table", id: entity2.id };
-        continue;
-      }
-      const entity = entities.find((e) => e.id === current.id);
-      if (!entity) continue;
-      const isProperty = words.length === 1 && quoted.length > 0;
-      if (isProperty && (keyword === "note" || keyword === "description")) {
-        entity.note = resolveHeredoc(quoted[0] ?? "", heredocs).trim();
-        continue;
-      }
-      if (isProperty && (keyword === "name" || keyword === "title")) {
-        const value = (quoted[0] ?? "").trim();
-        if (value) entity.name = value;
-        continue;
-      }
-      const column = readColumn(rest, quoted, line, warnings);
-      if (!column) {
-        errors.push({ line, message: `Could not read column: "${raw}".` });
-        continue;
-      }
-      const duplicate = entity.fields.find((f) => f.name === column.field.name);
-      if (duplicate) {
-        warnings.push({
-          line,
-          message: `\`${entity.key}.${column.field.name}\` is declared twice \u2014 the second one wins.`
-        });
-        Object.assign(duplicate, column.field, { id: duplicate.id });
-      } else {
-        entity.fields.push(column.field);
-      }
-      if (column.ref) {
-        relationDrafts.push({
-          from: entity.key,
-          fromField: column.field.name,
-          to: column.ref.table,
-          toField: column.ref.field,
-          kind: column.field.unique ? "one-to-one" : "many-to-one",
-          label: "",
-          onDelete: column.ref.onDelete ?? "restrict",
-          through: "",
-          line
-        });
-      }
-      continue;
-    }
-    if (current.kind === "module") {
-      const module = modules.find((m) => m.id === current.id);
-      if (!module) continue;
-      const value = words.slice(1).join(" ").trim();
-      switch (keyword) {
-        case "kind":
-        case "type":
-          module.kind = matchId(
-            value || quoted[0] || "",
-            moduleKindIds,
-            "module kind",
-            line
-          );
-          break;
-        case "on":
-        case "trigger":
-        case "when":
-          module.trigger = quoted[0] ?? value;
-          break;
-        case "name":
-        case "title":
-          module.name = quoted[0] || value;
-          break;
-        case "note":
-        case "notes":
-        case "description":
-          module.note = resolveHeredoc(quoted[0] ?? value, heredocs);
-          break;
-        default:
-          warnings.push({
-            line,
-            message: `Unknown module property "${keyword}" \u2014 ignored.`
-          });
-      }
-      continue;
-    }
-    if (current.kind === "story") {
-      const story = current.story;
-      if (current.collecting) {
-        pushCriteria(story, raw, heredocs);
-        if (raw.includes("]")) current.collecting = false;
-        continue;
-      }
-      const inline = (quoted[0] ?? words.slice(1).join(" ")).trim();
-      const value = resolveHeredoc(inline, heredocs).trim();
-      switch (keyword) {
-        case "as":
-        case "as_a":
-        case "role":
-        case "persona":
-        case "who":
-          story.role = stripLead(value, /^as\s+(a|an|the)\s+/i);
-          break;
-        case "want":
-        case "wants":
-        case "i_want":
-        case "iwant":
-        case "goal":
-        case "need":
-          story.want = stripLead(value, /^i\s+want\s+(to\s+)?/i);
-          break;
-        case "so":
-        case "so_that":
-        case "sothat":
-        case "benefit":
-        case "value":
-        case "why":
-          story.soThat = stripLead(value, /^so\s+that\s+/i);
-          break;
-        case "accept":
-        case "acceptance":
-        case "acceptance_criteria":
-        case "criteria":
-        case "ac":
-        case "given": {
-          const items = quoted.length ? quoted : bracketList(rest);
-          const heredoc = rest.match(/«H\d+»/);
-          if (heredoc) {
-            for (const line2 of resolveHeredoc(heredoc[0], heredocs).split("\n")) {
-              const text2 = line2.replace(/^\s*[-*•]\s*/, "").trim();
-              if (text2) story.criteria.push(text2);
-            }
-          } else {
-            for (const item of items) {
-              const text2 = item.trim();
-              if (text2) story.criteria.push(text2);
-            }
-          }
-          if (raw.includes("[") && !raw.includes("]")) current.collecting = true;
-          break;
-        }
-        default:
-          warnings.push({
-            line,
-            message: `Unknown story property "${keyword}" \u2014 ignored.`
-          });
-      }
-      continue;
-    }
-    if (current.kind === "palette") {
-      const token = words[0] ?? "";
-      if (!token) continue;
-      const bare = raw.slice(raw.indexOf(token) + token.length).trim();
-      const value = quoted.length ? quoted[0] : bare;
-      if (!quoted.length && !bare) {
-        warnings.push({
-          line,
-          message: `\`${token}\` has no colour after it \u2014 ignored.`
-        });
-        continue;
-      }
-      const name = token.replace(/^--/, "").replace(/:$/, "").toLowerCase();
-      doc.theme.palette[current.mode][name] = value;
-      continue;
-    }
-    if (current.kind === "flows") {
-      const declares = keyword === "flow" || keyword === "journey" || keyword === "group";
-      const key = declares ? words[1] ?? slugify(quoted[0] ?? "") : words[0] ?? slugify(quoted[0] ?? "");
-      const flow = ensureFlow(key, quoted[0]);
-      if (!flow) {
-        errors.push({ line, message: `Could not read flow: "${raw}".` });
-        continue;
-      }
-      if (quoted[1]) flow.note = quoted[1];
-      pending = { kind: "flowGroup", id: flow.id };
-      continue;
-    }
-    if (current.kind === "flowGroup") {
-      const flow = flows.find((f) => f.id === current.id);
-      if (!flow) continue;
-      const inline = (quoted[0] ?? words.slice(1).join(" ")).trim();
-      switch (keyword) {
-        case "name":
-        case "title":
-          if (inline) flow.name = inline;
-          continue;
-        case "note":
-        case "notes":
-        case "description":
-          flow.note = resolveHeredoc(inline, heredocs).trim();
-          continue;
-        case "story":
-        case "user_story":
-        case "userstory": {
-          if (quoted[0]) applyStorySentence(flow.story, quoted[0]);
-          pending = { kind: "story", story: flow.story, collecting: false };
-          continue;
-        }
-        case "screens":
-        case "screen": {
-          for (const item of bracketList(rest).concat(quoted)) {
-            const screen = ensureScreen(item, line);
-            if (!screen.flows.includes(flow.id)) screen.flows.push(flow.id);
-          }
-          continue;
-        }
-        default:
-          warnings.push({
-            line,
-            message: `Unknown flow property "${keyword}" \u2014 ignored.`
-          });
-          continue;
-      }
-    }
-    if (current.kind === "flow" || /(->|=>|→)/.test(raw)) {
-      const trigger = quoted[0] ?? "";
-      const edgeViews = readViewTags(rest);
-      const chain = rest.replace(/@[a-z0-9_-]+/gi, " ").split(/->|=>|→/).map((part) => part.replace(/:.*$/, "").trim()).filter(Boolean);
-      if (chain.length >= 2) {
-        for (let i = 0; i < chain.length - 1; i += 1) {
-          const from = ensureScreen(chain[i], line);
-          const to = ensureScreen(chain[i + 1], line);
-          if (from.id === to.id) {
-            warnings.push({ line, message: `"${from.title}" cannot connect to itself.` });
-            continue;
-          }
-          if (edges.some((e) => e.from === from.id && e.to === to.id)) {
-            warnings.push({
-              line,
-              message: `Duplicate connection ${from.key} \u2192 ${to.key} ignored.`
-            });
-            continue;
-          }
-          edges.push({
-            id: uid("edg"),
-            from: from.id,
-            to: to.id,
-            // A chain shares one label only between its first pair.
-            trigger: i === 0 ? trigger : "",
-            views: edgeViews
-          });
-        }
-        continue;
-      }
-      if (current.kind === "flow") {
-        if (chain.length === 1) {
-          ensureScreen(chain[0], line);
-          continue;
-        }
-        errors.push({ line, message: `Could not read connection: "${raw}".` });
-        continue;
-      }
-    }
-    if (current.kind === "views") {
-      const view = ensureView(words[0] ?? slugify(quoted[0] ?? ""), quoted[0]);
-      if (!view) {
-        errors.push({ line, message: `Could not read view: "${raw}".` });
-      } else if (quoted[1]) {
-        view.note = quoted[1];
-      }
-      continue;
-    }
-    if (current.kind === "theme") {
-      const value = words.slice(1).join(" ").trim() || quoted[0] || "";
-      const args = raw.replace(/^\S+\s*/, "");
-      const opens = applyThemeProp(doc, keyword, value, line, warnings, args);
-      if (opens) pending = { kind: "palette", mode: opens };
-      continue;
-    }
-    if (current.kind === "stack") {
-      const target = current.surface === "web" ? doc.stack : doc.surfaces[current.surface].stack;
-      if (keyword === "extras" || keyword === "extra") {
-        const extras = [
-          ...words.slice(1),
-          ...quoted
-        ].map((v) => v.trim()).filter(Boolean);
-        target.extras = [...target.extras, ...extras];
-        continue;
-      }
-      const group = stackGroups.find(
-        (g) => g.key.toLowerCase() === keyword || g.label.toLowerCase() === keyword
-      );
-      const value = words[1] ?? quoted[0] ?? "";
-      if (group) {
-        const ids = group.options.map((o) => o.id);
-        target[group.key] = matchId(value, ids, `${group.label} option`, line);
-      } else if (value) {
-        target.extras.push(`${keyword}: ${value}`);
-        warnings.push({
-          line,
-          message: `Unknown stack key "${keyword}" \u2014 added to extras.`
-        });
-      }
-      continue;
-    }
-    if (current.kind === "landing" || keyword === "section") {
-      if (keyword !== "section") {
-        errors.push({ line, message: `Expected a \`section\` statement, got "${raw}".` });
-        continue;
-      }
-      const type = matchId(words[1] ?? "", sectionTypeIds, "section type", line);
-      const layoutWord = words.indexOf("layout");
-      const layoutValue = layoutWord !== -1 ? words[layoutWord + 1] ?? "" : "";
-      const sectionLayouts2 = allLayouts.filter((l) => l.scope === "section").map((l) => l.id);
-      const meta = sectionTypes.find((s) => s.id === type);
-      sections.push({
-        id: uid("sec"),
-        type,
-        name: quoted[0] || meta?.name || type,
-        layout: layoutValue ? matchId(layoutValue, sectionLayouts2, "layout", line) : meta?.defaultLayout ?? "",
-        note: quoted[1] ?? "",
-        order: sections.length
-      });
-      continue;
-    }
-    if (current.kind === "screen") {
-      const screen = screens.find((s) => s.id === current.id);
-      if (!screen) continue;
-      const value = words.slice(1).join(" ").trim();
-      switch (keyword) {
-        case "module":
-        case "part":
-        case "component": {
-          const module = ensureModule(
-            screen.id,
-            words[1] ?? slugify(quoted[0] ?? "module"),
-            quoted[0]
-          );
-          const kindWord = words.indexOf("kind");
-          if (kindWord !== -1 && words[kindWord + 1]) {
-            module.kind = matchId(
-              words[kindWord + 1],
-              moduleKindIds,
-              "module kind",
-              line
-            );
-          }
-          if (quoted[1]) module.trigger = quoted[1];
-          pending = { kind: "module", id: module.id, screenId: screen.id };
-          continue;
-        }
-        case "surface":
-        case "build":
-        case "platform": {
-          const value2 = (words[1] ?? quoted[0] ?? "").toLowerCase();
-          const match = surfaceValues.find((v) => v === value2);
-          if (match) {
-            screen.surface = match;
-          } else {
-            warnings.push({
-              line,
-              message: `Unknown surface "${value2}" \u2014 kept on web. Use one of ${surfaceValues.join(", ")}.`
-            });
-          }
-          continue;
-        }
-        case "in":
-        case "views":
-        case "roles": {
-          const items = bracketList(rest).concat(quoted);
-          screen.views = items.map((item) => ensureView(item)?.id).filter((id) => Boolean(id));
-          continue;
-        }
-        case "inner":
-        case "internal":
-        case "module_flow": {
-          pending = { kind: "inner", screenId: screen.id };
-          continue;
-        }
-        case "template":
-        case "type":
-          screen.template = matchId(value || quoted[0] || "", templateIds, "screen type", line);
-          if (!screen.layout) {
-            const template = screenTemplates.find((t) => t.id === screen.template);
-            if (template) screen.layout = template.defaultLayout;
-          }
-          break;
-        case "layout":
-          screen.layout = matchId(value || quoted[0] || "", layoutIds, "layout", line);
-          break;
-        case "title":
-          screen.title = quoted[0] || value;
-          break;
-        case "note":
-        case "notes":
-        case "description":
-          screen.note = resolveHeredoc(quoted[0] ?? value, heredocs);
-          break;
-        case "story":
-        case "user_story":
-        case "userstory": {
-          if (quoted[0]) {
-            applyStorySentence(screen.story, resolveHeredoc(quoted[0], heredocs));
-          }
-          pending = { kind: "story", story: screen.story, collecting: false };
-          break;
-        }
-        case "flows":
-        case "flow":
-        case "journeys":
-        case "journey": {
-          for (const item of bracketList(rest).concat(quoted)) {
-            const flow = ensureFlow(item);
-            if (flow && !screen.flows.includes(flow.id)) screen.flows.push(flow.id);
-          }
-          break;
-        }
-        default:
-          warnings.push({
-            line,
-            message: `Unknown screen property "${keyword}" \u2014 ignored.`
-          });
-      }
-      continue;
-    }
-    switch (keyword) {
-      case "app":
-      case "project": {
-        doc.name = quoted[0] || words.slice(1).join(" ") || doc.name;
-        pending = { kind: "app" };
-        continue;
-      }
-      case "screen":
-      case "page": {
-        const key = words[1] ?? slugify(quoted[0] ?? "screen");
-        const screen = ensureScreen(key, line, quoted[0]);
-        pending = { kind: "screen", id: screen.id };
-        continue;
-      }
-      case "flow":
-      case "navigation": {
-        pending = { kind: "flow" };
-        continue;
-      }
-      case "views":
-      case "roles":
-      case "personas": {
-        pending = { kind: "views" };
-        continue;
-      }
-      case "flows":
-      case "journeys": {
-        pending = { kind: "flows" };
-        continue;
-      }
-      case "landing":
-      case "page_sections":
-      case "sections": {
-        pending = { kind: "landing" };
-        continue;
-      }
-      case "data":
-      case "schema":
-      case "tables":
-      case "database":
-      case "model": {
-        pending = { kind: "data" };
-        continue;
-      }
-      case "stack": {
-        pending = { kind: "stack", surface: surfaceWord(words[1], line, warnings) };
-        continue;
-      }
-      case "theme": {
-        pending = { kind: "theme" };
-        continue;
-      }
-      case "builds":
-      case "build": {
-        const named = [...words.slice(1), ...quoted].flatMap((word) => word.split(/[,;]/)).map((word) => word.trim().toLowerCase()).filter(Boolean);
-        if (!named.length) continue;
-        doc.builds = { web: false, mobile: false, backend: false };
-        for (const word of named) {
-          const surface = surfaceWord(word, line, warnings);
-          doc.builds[surface] = true;
-        }
-        continue;
-      }
-      // What the build is for. A sibling of `builds` and `target` because it is
-      // the same kind of fact — one of the few decisions that changes what the
-      // generated prompt contains rather than what it says.
-      case "priority":
-      case "focus": {
-        const word = (words[1] ?? quoted[0] ?? "").toLowerCase().trim();
-        const match = priorityAliases[word];
-        if (match) {
-          doc.priority = match;
-        } else {
-          warnings.push({
-            line,
-            message: `"${word}" is not a priority \u2014 keeping ${doc.priority}. One of: ${priorityValues.join(", ")}.`
-          });
-        }
-        continue;
-      }
-      case "target": {
-        doc.target = matchId(words[1] ?? quoted[0] ?? "", targetIds, "target", line);
-        continue;
-      }
-      case "ui_level": {
-        const level = Number(words[1]);
-        if (Number.isFinite(level)) {
-          doc.uiLevel = Math.max(1, Math.min(5, Math.round(level)));
-        } else {
-          warnings.push({ line, message: `ui_level must be 1\u20135, got "${words[1]}".` });
-        }
-        continue;
-      }
-      // The old 0–10 dial. Still read so a `.flow` file written before the
-      // five-level scale keeps the setting its author chose, and mapped
-      // immediately rather than kept as a second source of truth.
-      case "creativity": {
-        const level = Number(words[1]);
-        if (Number.isFinite(level)) {
-          const clamped = Math.max(0, Math.min(10, Math.round(level)));
-          doc.creativity = clamped;
-          if (doc.uiLevel === null) doc.uiLevel = uiLevelFromLegacyCreativity(clamped);
-        } else {
-          warnings.push({ line, message: `Creativity must be 0\u201310, got "${words[1]}".` });
-        }
-        continue;
-      }
-      case "name": {
-        doc.name = quoted[0] || words.slice(1).join(" ") || doc.name;
-        continue;
-      }
-      case "structure": {
-        const first = (words[1] ?? "").toLowerCase();
-        const named = surfaceValues.some((value2) => value2 === first);
-        const surface = named ? first : "web";
-        const rest_ = named ? words.slice(2) : words.slice(1);
-        const target = surface === "web" ? doc.structure : doc.surfaces[surface].structure;
-        const value = rest_[0] ?? "";
-        if (value.toLowerCase() === "custom") {
-          target.preset = "custom";
-          target.customTree = resolveHeredoc(
-            rest_.slice(1).join(" ") || quoted[0] || "",
-            heredocs
-          );
-        } else {
-          target.preset = matchId(value, structureIds, "folder structure", line);
-        }
-        continue;
-      }
-      case "conventions": {
-        const items = bracketList(rest).concat(quoted);
-        doc.conventions.ids = items.map((item) => matchId(item, conventionIds, "convention", line)).filter(Boolean);
-        continue;
-      }
-      case "snippets": {
-        const items = bracketList(rest).concat(quoted);
-        doc.snippetIds = items.map((item) => matchId(item, snippetIds, "snippet", line)).filter(Boolean);
-        continue;
-      }
-      case "conventions_note":
-      case "house_rules": {
-        doc.conventions.custom = resolveHeredoc(
-          words.slice(1).join(" ") || quoted[0] || "",
-          heredocs
-        ).trim();
-        continue;
-      }
-      case "profile": {
-        profile = quoted[0] ?? words.slice(1).join(" ");
-        continue;
-      }
-      case "requirements":
-      case "notes": {
-        doc.requirements = resolveHeredoc(
-          words.slice(1).join(" ") || quoted[0] || "",
-          heredocs
-        ).trim();
-        continue;
-      }
-      default: {
-        if (current.kind === "app") {
-          warnings.push({ line, message: `Unknown app property "${keyword}" \u2014 ignored.` });
-        } else {
-          warnings.push({ line, message: `Could not understand "${raw}" \u2014 ignored.` });
-        }
-      }
-    }
-  }
-  if (stack.length > 1) {
-    warnings.push({
-      line: lines.at(-1)?.line ?? 1,
-      message: `${stack.length - 1} block(s) left unclosed \u2014 assumed closed at the end.`
-    });
-  }
-  for (const screen of screens) {
-    if (!screen.layout && screen.template) {
-      const template = screenTemplates.find((t) => t.id === screen.template);
-      if (template) screen.layout = template.defaultLayout;
-    }
-  }
-  doc.views = views;
-  const viewIds = new Set(views.map((v) => v.id));
-  for (const screen of screens) {
-    screen.views = screen.views.filter((id) => viewIds.has(id));
-  }
-  flows.forEach((flow, index) => {
-    flow.order = index;
-  });
-  doc.flows = flows;
-  const flowIds = new Set(flows.map((f) => f.id));
-  for (const screen of screens) {
-    screen.flows = [...new Set(screen.flows.filter((id) => flowIds.has(id)))];
-  }
-  for (const edge of edges) {
-    edge.views = edge.views.filter((id) => viewIds.has(id));
-  }
-  const entityByKey = new Map(entities.map((entity) => [entity.key, entity]));
-  const relations = [];
-  for (const draft of relationDrafts) {
-    const from = entityByKey.get(slugify(draft.from).replace(/-/g, "_"));
-    const to = entityByKey.get(slugify(draft.to).replace(/-/g, "_"));
-    if (!from || !to) {
-      const madeFrom = from ?? ensureEntity(draft.from);
-      const madeTo = to ?? ensureEntity(draft.to);
-      if (!madeFrom || !madeTo) {
-        warnings.push({
-          line: draft.line,
-          message: `Relation skipped \u2014 could not read the tables it joins.`
-        });
-        continue;
-      }
-      entityByKey.set(madeFrom.key, madeFrom);
-      entityByKey.set(madeTo.key, madeTo);
-      warnings.push({
-        line: draft.line,
-        message: `Relation joins ${madeFrom.key} \u2192 ${madeTo.key}, which were not declared as tables \u2014 created empty.`
-      });
-      relations.push(buildRelation(madeFrom, madeTo, draft));
-      continue;
-    }
-    relations.push(buildRelation(from, to, draft));
-  }
-  for (const relation of relations) {
-    if (relation.kind === "many-to-many") continue;
-    const from = entities.find((e) => e.id === relation.from);
-    const to = entities.find((e) => e.id === relation.to);
-    if (from && relation.fromField && !from.fields.some((f) => f.name === relation.fromField)) {
-      const target = to?.fields.find((f) => f.name === relation.toField);
-      from.fields.push({
-        id: uid("fld"),
-        name: relation.fromField,
-        type: target?.type ?? "uuid",
-        primary: false,
-        required: relation.kind !== "one-to-one",
-        unique: relation.kind === "one-to-one",
-        indexed: true,
-        defaultValue: "",
-        options: [],
-        note: ""
-      });
-    }
-  }
-  doc.entities = autoLayout(
-    entities,
-    relations.map((relation) => ({
-      id: relation.id,
-      from: relation.from,
-      to: relation.to
-    })),
-    {
-      heights: Object.fromEntries(
-        entities.map((entity) => [entity.id, entityHeight(entity.fields.length)])
-      ),
-      nodeWidth: ENTITY_WIDTH,
-      colGap: 110,
-      rowGap: 44
-    }
-  );
-  doc.relations = relations;
-  doc.screens = autoLayout(screens, edges, {
-    heights: Object.fromEntries(
-      screens.map((screen) => [screen.id, CARD_HEIGHT_FALLBACK])
-    ),
-    widths: Object.fromEntries(
-      screens.map((screen) => [screen.id, nodeWidthFor(screen.surface)])
-    )
-  });
-  doc.edges = edges;
-  doc.sections = sections;
-  const screenIds = new Set(screens.map((s) => s.id));
-  doc.modules = modules.filter((m) => screenIds.has(m.screenId));
-  const moduleIds = new Set(doc.modules.map((m) => m.id));
-  doc.moduleEdges = moduleEdges.filter(
-    (e) => moduleIds.has(e.from) && moduleIds.has(e.to)
-  );
-  if (!screens.length && !sections.length && !entities.length) {
-    errors.push({
-      line: 1,
-      message: "No screens, sections or tables found \u2014 is this Flow source?"
-    });
-  }
-  return { doc, profile, warnings, errors };
-}
-function emptyStory() {
-  return { role: "", want: "", soThat: "", criteria: [] };
-}
-function stripLead(value, lead) {
-  return value.replace(lead, "").replace(/^[,\s]+/, "").replace(/[,.\s]+$/, "").trim();
-}
-function applyStorySentence(story, sentence2) {
-  const text2 = sentence2.trim();
-  if (!text2) return;
-  const match = text2.match(
-    /^as\s+(?:an?|the)?\s*(.+?)[,\s]+i\s+want\s+(?:to\s+)?(.+?)(?:[,\s]+so\s+that\s+(.+))?$/i
-  );
-  if (!match) {
-    if (!story.want) story.want = text2;
-    return;
-  }
-  if (!story.role) story.role = match[1].trim();
-  if (!story.want) story.want = match[2].trim().replace(/[.,]$/, "");
-  if (!story.soThat && match[3]) story.soThat = match[3].trim().replace(/[.]$/, "");
-}
-function pushCriteria(story, raw, heredocs) {
-  const body = raw.replace(/[[\]]/g, " ");
-  const { rest, quoted } = readQuoted(body);
-  if (quoted.length) {
-    for (const item of quoted) {
-      const text3 = item.trim();
-      if (text3) story.criteria.push(text3);
-    }
-    return;
-  }
-  const text2 = resolveHeredoc(rest, heredocs).replace(/^\s*[-*•]\s*/, "").replace(/,\s*$/, "").trim();
-  if (text2) story.criteria.push(text2);
-}
-function titleFromKey(key) {
-  return key.split("_").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
-}
-function bracketList(text2) {
-  const match = text2.match(/\[([^\]]*)\]/);
-  const body = match ? match[1] : text2.replace(/^\s*\w+/, "");
-  return body.split(/[\s,]+/).map((v) => v.trim()).filter((v) => v && v !== "[" && v !== "]");
-}
-function applyThemeProp(doc, key, value, line, warnings, args = "") {
-  const normalised = value.trim().toLowerCase();
-  switch (key) {
-    case "design":
-    case "designlanguage":
-    case "style": {
-      const ids = designLanguages.map((d) => d.id);
-      if (ids.includes(normalised)) {
-        doc.theme.designLanguage = normalised;
-        return;
-      }
-      const suggestion = closestMatch(normalised, ids);
-      if (suggestion) {
-        doc.theme.designLanguage = suggestion;
-        warnings.push({
-          line,
-          message: `Unknown design language "${value.trim()}" \u2014 using "${suggestion}".`
-        });
-      } else {
-        warnings.push({
-          line,
-          message: `Unknown design language "${value.trim()}" \u2014 keeping ${doc.theme.designLanguage}.`
-        });
-      }
-      return;
-    }
-    case "primary":
-    case "primarycolor":
-      doc.theme.primaryColor = normaliseColor(value, doc.theme.primaryColor, line, warnings);
-      return;
-    case "secondary":
-    case "secondarycolor":
-    case "accent":
-      doc.theme.secondaryColor = normaliseColor(value, doc.theme.secondaryColor, line, warnings);
-      return;
-    case "radius":
-    case "borderradius":
-      doc.theme.borderRadius = radiusAliases[normalised] ?? doc.theme.borderRadius;
-      return;
-    case "buttons":
-    case "buttonstyle":
-      doc.theme.buttonStyle = buttonAliases[normalised] ?? doc.theme.buttonStyle;
-      return;
-    case "density":
-    case "spacing":
-      doc.theme.density = densityAliases[normalised] ?? doc.theme.density;
-      return;
-    // The seven settings added with stories and journeys. Without these the
-    // parser dropped them on the floor with an "unknown theme property"
-    // warning, so anything the serializer wrote came back as defaults.
-    //
-    // Each one is checked against its own list of allowed values rather than
-    // assigned blind: a typo should keep the current setting and say so, not
-    // put a word the renderer has never heard of into the document.
-    case "headings":
-    case "headingfont":
-      doc.theme.headingFont = pickThemeValue(
-        normalised,
-        fontCharacterValues,
-        doc.theme.headingFont,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "body":
-    case "bodyfont":
-      doc.theme.bodyFont = pickThemeValue(
-        normalised,
-        bodyFontValues,
-        doc.theme.bodyFont,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "scale":
-    case "typescale":
-      doc.theme.typeScale = pickThemeValue(
-        normalised,
-        typeScaleValues,
-        doc.theme.typeScale,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "icons":
-    case "iconstyle":
-      doc.theme.iconStyle = pickThemeValue(
-        normalised,
-        iconStyleValues,
-        doc.theme.iconStyle,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "elevation":
-    case "shadow":
-      doc.theme.elevation = pickThemeValue(
-        normalised,
-        elevationValues,
-        doc.theme.elevation,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "motion":
-    case "animation":
-      doc.theme.motion = pickThemeValue(
-        normalised,
-        motionValues,
-        doc.theme.motion,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "scheme":
-    case "colorscheme":
-    case "colourscheme":
-      doc.theme.colorScheme = pickThemeValue(
-        normalised,
-        colorSchemeValues,
-        doc.theme.colorScheme,
-        key,
-        line,
-        warnings
-      );
-      return;
-    // The nine settings the presets brought with them. Same rule as the block
-    // above — an unrecognised value keeps the current one and says which word
-    // was not understood, so a typo costs a line rather than the file — and the
-    // same reason for being here at all: what the serializer writes, the parser
-    // has to read, or a round trip resets the design to the defaults.
-    case "preset":
-    case "theme_preset": {
-      if (!normalised) {
-        warnings.push({
-          line,
-          message: `\`preset\` needs a name \u2014 keeping ${doc.theme.preset}.`
-        });
-        return;
-      }
-      doc.theme.preset = normalised;
-      return;
-    }
-    case "shape":
-    case "radii":
-    case "corners": {
-      const text2 = args || value;
-      if (/\bpill\b/i.test(text2)) doc.theme.shape.pill = true;
-      if (/\b(no_pill|nopill|not_pill|square|squared)\b/i.test(text2)) {
-        doc.theme.shape.pill = false;
-      }
-      for (const [name, radius] of readPairs(text2.replace(PILL_WORDS, " "))) {
-        const slot = shapeAliases[name];
-        if (!slot) {
-          warnings.push({
-            line,
-            message: `"${name}" is not a shape \u2014 keeping the current radii. One of: control, card, overlay, pill.`
-          });
-          continue;
-        }
-        doc.theme.shape[slot] = clampNumber(
-          radius,
-          0,
-          64,
-          doc.theme.shape[slot],
-          `shape ${slot}`,
-          line,
-          warnings
-        );
-      }
-      return;
-    }
-    case "pill":
-      doc.theme.shape.pill = !/^(false|no|off|0)$/i.test(normalised);
-      return;
-    case "fonts":
-    case "font":
-    case "typefaces": {
-      for (const [name, family] of readPairs(args)) {
-        const slot = fontSlotAliases[name];
-        if (!slot) {
-          warnings.push({
-            line,
-            message: `"${name}" is not a font slot \u2014 ignored. One of: display, body, mono.`
-          });
-          continue;
-        }
-        doc.theme.fonts[slot] = family;
-      }
-      return;
-    }
-    case "scale_ratio":
-    case "scaleratio":
-    case "ratio":
-      doc.theme.scaleRatio = clampNumber(
-        value,
-        1.05,
-        1.7,
-        doc.theme.scaleRatio,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "vividness":
-    case "chroma":
-    case "saturation":
-      doc.theme.vividness = clampNumber(
-        value,
-        0,
-        100,
-        doc.theme.vividness,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "neutral_hue":
-    case "neutralhue":
-    case "neutral":
-    case "grey_hue":
-    case "gray_hue":
-      doc.theme.neutralHue = clampNumber(
-        value,
-        0,
-        360,
-        doc.theme.neutralHue,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "elevation_strategy":
-    case "elevationstrategy":
-    case "depth":
-      doc.theme.elevationStrategy = pickThemeValue(
-        normalised,
-        elevationStrategyValues,
-        doc.theme.elevationStrategy,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "motion_model":
-    case "motionmodel":
-    case "motion_style":
-      doc.theme.motionModel = pickThemeValue(
-        normalised,
-        motionModelValues,
-        doc.theme.motionModel,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "inputs":
-    case "inputstyle":
-    case "input_style":
-    case "fields":
-      doc.theme.inputStyle = pickThemeValue(
-        normalised,
-        inputStyleValues,
-        doc.theme.inputStyle,
-        key,
-        line,
-        warnings
-      );
-      return;
-    case "palette":
-    case "colors":
-    case "colours": {
-      const head = args.trim().split(/\s+/)[0] ?? "";
-      const mode = paletteMode(head);
-      if (!mode) {
-        warnings.push({
-          line,
-          message: `"${head}" is not a palette mode \u2014 expected \`palette light\` or \`palette dark\`.`
-        });
-        return;
-      }
-      const pairs = readPairs(args.trim().slice(head.length));
-      for (const [token, color] of pairs) {
-        doc.theme.palette[mode][token.replace(/^--/, "")] = color;
-      }
-      return pairs.length ? void 0 : mode;
-    }
-    default:
-      warnings.push({ line, message: `Unknown theme property "${key}" \u2014 ignored.` });
-  }
-}
-function paletteMode(word) {
-  const normalised = word.toLowerCase().replace(/[^a-z]/g, "");
-  if (normalised === "light" || normalised === "day") return "light";
-  if (normalised === "dark" || normalised === "night") return "dark";
-  return null;
-}
-function readPairs(text2) {
-  const pairs = [];
-  for (const match of text2.matchAll(/([a-z_][a-z0-9_-]*)\s+(?:"([^"]*)"|([^\s"]+))/gi)) {
-    pairs.push([match[1].toLowerCase(), (match[2] ?? match[3] ?? "").trim()]);
-  }
-  return pairs;
-}
-function clampNumber(value, min, max, fallback, key, line, warnings) {
-  const written = value.trim();
-  const parsed = Number.parseFloat(written);
-  if (!Number.isFinite(parsed)) {
-    warnings.push({
-      line,
-      message: `\`${key}\` must be a number between ${min} and ${max} \u2014 "${written}" is not one, keeping ${fallback}.`
-    });
-    return fallback;
-  }
-  const clamped = Math.min(max, Math.max(min, parsed));
-  if (clamped !== parsed) {
-    warnings.push({
-      line,
-      message: `\`${key}\` must be between ${min} and ${max} \u2014 "${written}" clamped to ${clamped}.`
-    });
-  }
-  return clamped;
-}
-function surfaceWord(word, line, warnings) {
-  if (!word) return "web";
-  const normalised = word.toLowerCase().replace(/[^a-z]/g, "");
-  const known = surfaceValues.find((value) => value === normalised);
-  if (known) return known;
-  if (normalised === "api" || normalised === "server" || normalised === "service") {
-    return "backend";
-  }
-  if (normalised === "app" || normalised === "phone" || normalised === "native") {
-    return "mobile";
-  }
-  warnings.push({
-    line,
-    message: `"${word}" is not a build \u2014 expected one of ${surfaceValues.join(", ")}. Read as web.`
-  });
-  return "web";
-}
-function pickThemeValue(value, allowed, fallback, key, line, warnings) {
-  const match = allowed.find((option) => option === value);
-  if (match) return match;
-  warnings.push({
-    line,
-    message: `"${value}" is not a valid ${key} \u2014 keeping ${fallback}. One of: ${allowed.join(", ")}.`
-  });
-  return fallback;
-}
-function normaliseColor(value, fallback, line, warnings) {
-  const trimmed = value.trim();
-  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) return trimmed;
-  if (/^([0-9a-f]{6})$/i.test(trimmed)) return `#${trimmed}`;
-  warnings.push({
-    line,
-    message: `"${trimmed}" is not a hex colour \u2014 keeping ${fallback}.`
-  });
-  return fallback;
-}
-function buildRelation(from, to, draft) {
-  const key = to.fields.find((f) => f.primary)?.name ?? "id";
-  return {
-    id: uid("rel"),
-    from: from.id,
-    fromField: draft.fromField || (draft.kind === "many-to-many" ? "" : `${singularKey(to.key)}_id`),
-    to: to.id,
-    toField: draft.toField || key,
-    kind: draft.kind,
-    label: draft.label,
-    onDelete: draft.onDelete,
-    through: draft.through
-  };
-}
-function singularKey(key) {
-  if (/(ss|us|is)$/i.test(key)) return key;
-  if (/ies$/i.test(key)) return `${key.slice(0, -3)}y`;
-  if (/(ches|shes|xes|ses)$/i.test(key)) return key.slice(0, -2);
-  if (/s$/i.test(key)) return key.slice(0, -1);
-  return key;
-}
-var relationAliases = {
-  "many-to-one": "many-to-one",
-  manytoone: "many-to-one",
-  "n:1": "many-to-one",
-  "n-1": "many-to-one",
-  belongs_to: "many-to-one",
-  "one-to-many": "one-to-many",
-  onetomany: "one-to-many",
-  "1:n": "one-to-many",
-  "1-n": "one-to-many",
-  has_many: "one-to-many",
-  "one-to-one": "one-to-one",
-  onetoone: "one-to-one",
-  "1:1": "one-to-one",
-  "1-1": "one-to-one",
-  has_one: "one-to-one",
-  "many-to-many": "many-to-many",
-  manytomany: "many-to-many",
-  "n:n": "many-to-many",
-  "n-n": "many-to-many",
-  "m:n": "many-to-many",
-  m2m: "many-to-many"
-};
-var deleteAliases = {
-  cascade: "cascade",
-  delete: "cascade",
-  restrict: "restrict",
-  block: "restrict",
-  noaction: "restrict",
-  "no-action": "restrict",
-  "set-null": "set-null",
-  setnull: "set-null",
-  set_null: "set-null",
-  null: "set-null"
-};
-function readRelation(rest, quoted, line, warnings) {
-  const body = rest.replace(/^\s*(rel|relation|ref|references)\b/i, "").trim();
-  const symmetric = /<->|↔/.test(body);
-  const [leftRaw, rightRaw] = body.split(/<->|↔|->|=>|→/).map((part) => part.trim());
-  if (!leftRaw || !rightRaw) return null;
-  const left = readSide(leftRaw);
-  const trimmedRight = rightRaw.trim();
-  const firstToken = trimmedRight.split(/[\s,:]/)[0] ?? "";
-  const right = readSide(firstToken);
-  if (!left.table || !right.table) return null;
-  const words = trimmedRight.slice(firstToken.length).replace(/^\s*:\s*/, "").split(/[\s,]+/).map((word) => word.trim().toLowerCase()).filter(Boolean);
-  let kind = symmetric ? "many-to-many" : "many-to-one";
-  let onDelete = "restrict";
-  let through = "";
-  for (let index = 0; index < words.length; index += 1) {
-    const word = words[index];
-    const known = relationAliases[word];
-    if (known) {
-      kind = known;
-      continue;
-    }
-    if (relationKindValues.includes(word)) {
-      kind = word;
-      continue;
-    }
-    if (word === "through" || word === "via" || word === "join") {
-      through = words[index + 1] ?? "";
-      index += 1;
-      continue;
-    }
-    if (word === "on_delete" || word === "ondelete") {
-      const next = words[index + 1] ?? "";
-      onDelete = deleteAliases[next] ?? "restrict";
-      index += 1;
-      continue;
-    }
-    if (deleteAliases[word] && word !== "null") {
-      onDelete = deleteAliases[word];
-      continue;
-    }
-    warnings.push({
-      line,
-      message: `Unknown relation option "${word}" \u2014 ignored.`
-    });
-  }
-  return {
-    from: left.table,
-    fromField: left.field,
-    to: right.table,
-    toField: right.field,
-    kind,
-    label: quoted[0] ?? "",
-    onDelete,
-    through,
-    line
-  };
-}
-function readSide(value) {
-  const cleaned = value.replace(/[^a-z0-9_.]/gi, "");
-  const [table2, field2 = ""] = cleaned.split(".");
-  return { table: table2 ?? "", field: field2 };
-}
-function readColumn(rest, quoted, line, warnings) {
-  const options = [];
-  const withoutList = rest.replace(/\[([^\]]*)\]/g, (_, body) => {
-    for (const item of String(body).split(/[,;]/)) {
-      const value = item.trim();
-      if (value) options.push(value);
-    }
-    return " ";
-  });
-  const words = withoutList.split(/[\s,]+/).filter(Boolean);
-  const name = slugify(words[0] ?? "").replace(/-/g, "_");
-  if (!name) return null;
-  const field2 = {
-    id: uid("fld"),
-    name,
-    type: "text",
-    primary: false,
-    required: false,
-    unique: false,
-    indexed: false,
-    defaultValue: "",
-    options,
-    note: ""
-  };
-  let ref;
-  let quotedAt = 0;
-  const nextQuoted = () => quoted[quotedAt++] ?? "";
-  for (let index = 1; index < words.length; index += 1) {
-    const word = words[index].toLowerCase();
-    if (index === 1 && !FLAG_WORDS.has(word)) {
-      const known = fieldKindValues.find((value) => value === word);
-      if (!known) {
-        warnings.push({
-          line,
-          message: `"${words[index]}" is not a known column type \u2014 kept as written.`
-        });
-      }
-      field2.type = known ?? words[index];
-      continue;
-    }
-    switch (word) {
-      case "pk":
-      case "primary":
-      case "primary_key":
-      case "id":
-        field2.primary = true;
-        field2.required = true;
-        break;
-      case "required":
-      case "not_null":
-      case "notnull":
-      case "!":
-        field2.required = true;
-        break;
-      case "optional":
-      case "nullable":
-      case "null":
-        field2.required = false;
-        break;
-      case "unique":
-        field2.unique = true;
-        break;
-      case "index":
-      case "indexed":
-        field2.indexed = true;
-        break;
-      case "default": {
-        const value = nextQuoted() || words[index + 1] || "";
-        if (!quoted.length) index += 1;
-        field2.defaultValue = value;
-        break;
-      }
-      case "note":
-      case "comment":
-        field2.note = nextQuoted();
-        break;
-      case "ref":
-      case "references":
-      case "->": {
-        const side = readSide(words[index + 1] ?? "");
-        if (side.table) ref = { table: side.table, field: side.field || "id" };
-        index += 1;
-        break;
-      }
-      case "cascade":
-        if (ref) ref.onDelete = "cascade";
-        break;
-      default:
-        warnings.push({
-          line,
-          message: `Unknown column option "${words[index]}" \u2014 ignored.`
-        });
-    }
-  }
-  if (!field2.note && quoted[quotedAt]) field2.note = quoted[quotedAt];
-  return { field: field2, ref };
-}
-var FLAG_WORDS = /* @__PURE__ */ new Set([
-  "pk",
-  "primary",
-  "primary_key",
-  "required",
-  "not_null",
-  "notnull",
-  "optional",
-  "nullable",
-  "null",
-  "unique",
-  "index",
-  "indexed",
-  "default",
-  "note",
-  "comment",
-  "ref",
-  "references",
-  "cascade"
-]);
-
-// src/studio/features/flow-lang/serializer.ts
-var defaults = projectDocSchema.parse({});
-function serializeFlow(doc) {
-  const out = [];
-  out.push(`app ${quote(doc.name)} {`);
-  out.push(`  target ${doc.target}`);
-  out.push(`  ui_level ${uiLevelOf(doc)}`);
-  out.push(`  builds ${buildWords(doc).join(", ")}`);
-  if (doc.priority !== defaults.priority) out.push(`  priority ${doc.priority}`);
-  out.push(`  theme {`, ...themeLines(doc.theme), `  }`);
-  out.push("}");
-  if (doc.views.length) {
-    out.push("");
-    out.push("views {");
-    for (const view of doc.views) {
-      const note = view.note.trim() ? ` ${quote(view.note.trim())}` : "";
-      out.push(`  ${view.key} ${quote(view.name)}${note}`);
-    }
-    out.push("}");
-  }
-  if (doc.flows.length) {
-    out.push("");
-    out.push("flows {");
-    for (const flow of [...doc.flows].sort((a, b) => a.order - b.order)) {
-      const head = `  flow ${flow.key} ${quote(flow.name)}`;
-      const hasStory = storyLines(flow.story, 4).length > 0;
-      if (!hasStory && !flow.note.trim()) {
-        out.push(`${head} {}`);
-        continue;
-      }
-      out.push(`${head} {`);
-      if (flow.note.trim()) out.push(`    note ${block(flow.note.trim(), 4)}`);
-      out.push(...storyLines(flow.story, 4));
-      out.push("  }");
-    }
-    out.push("}");
-  }
-  const viewKeyOf = new Map(doc.views.map((v) => [v.id, v.key]));
-  const viewKeys = (ids) => ids.map((id) => viewKeyOf.get(id)).filter(Boolean);
-  const flowKeyOf = new Map(doc.flows.map((f) => [f.id, f.key]));
-  const flowKeys = (ids) => ids.map((id) => flowKeyOf.get(id)).filter(Boolean);
-  if (doc.screens.length) {
-    out.push("");
-    for (const screen of doc.screens) {
-      out.push(`screen ${screen.key} ${quote(screen.title)} {`);
-      if (screen.template) out.push(`  template ${screen.template}`);
-      if (screen.layout) out.push(`  layout ${screen.layout}`);
-      if (screen.note.trim()) {
-        out.push(`  note ${block(screen.note.trim(), 2)}`);
-      }
-      if (screen.surface !== "web") out.push(`  surface ${screen.surface}`);
-      const belongsTo = viewKeys(screen.views);
-      if (belongsTo.length) out.push(`  in [${belongsTo.join(", ")}]`);
-      const journeys = flowKeys(screen.flows);
-      if (journeys.length) out.push(`  flows [${journeys.join(", ")}]`);
-      out.push(...storyLines(screen.story, 2));
-      const modules = doc.modules.filter((m) => m.screenId === screen.id).sort((a, b) => a.order - b.order);
-      for (const module of modules) {
-        const head = `  module ${module.key} ${quote(module.name)}`;
-        const props = [`kind ${module.kind}`];
-        if (module.trigger.trim()) props.push(`on ${quote(module.trigger.trim())}`);
-        const note = module.note.trim();
-        if (note.includes("\n")) {
-          out.push(`${head} {`);
-          for (const prop of props) out.push(`    ${prop}`);
-          out.push(`    note ${block(note, 4)}`);
-          out.push("  }");
-        } else {
-          if (note) props.push(`note ${quote(note)}`);
-          out.push(`${head} { ${props.join("; ")} }`);
-        }
-      }
-      const moduleIds = new Set(modules.map((m) => m.id));
-      const byModuleId = new Map(modules.map((m) => [m.id, m]));
-      const inner = doc.moduleEdges.filter(
-        (e) => moduleIds.has(e.from) && moduleIds.has(e.to)
-      );
-      if (inner.length) {
-        out.push("  inner {");
-        const width = Math.max(
-          ...inner.map((e) => byModuleId.get(e.from)?.key.length ?? 0)
-        );
-        for (const edge of inner) {
-          const from = byModuleId.get(edge.from);
-          const to = byModuleId.get(edge.to);
-          const label = edge.trigger.trim() ? ` : ${quote(edge.trigger.trim())}` : "";
-          out.push(`    ${from.key.padEnd(width)} -> ${to.key}${label}`);
-        }
-        out.push("  }");
-      }
-      out.push("}");
-    }
-  }
-  const byId2 = new Map(doc.screens.map((s) => [s.id, s]));
-  const liveEdges = doc.edges.filter((e) => byId2.has(e.from) && byId2.has(e.to));
-  if (liveEdges.length) {
-    out.push("");
-    out.push("flow {");
-    const width = Math.max(
-      ...liveEdges.map((e) => byId2.get(e.from)?.key.length ?? 0)
-    );
-    for (const edge of liveEdges) {
-      const from = byId2.get(edge.from);
-      const to = byId2.get(edge.to);
-      const label = edge.trigger.trim() ? ` : ${quote(edge.trigger.trim())}` : "";
-      const tags = viewKeys(edge.views);
-      const scope = tags.length ? ` ${tags.map((k) => `@${k}`).join(" ")}` : "";
-      out.push(`  ${from.key.padEnd(width)} -> ${to.key}${label}${scope}`);
-    }
-    out.push("}");
-  }
-  if (doc.entities.length) {
-    out.push("");
-    out.push("data {");
-    for (const entity of doc.entities) {
-      out.push(`  table ${entity.key} ${quote(entity.name)} {`);
-      if (entity.note.trim()) out.push(`    note ${quote(entity.note.trim())}`);
-      for (const field2 of entity.fields) {
-        const parts = [`    ${field2.name} ${field2.type}`];
-        if (field2.options.length) parts.push(`[${field2.options.join(", ")}]`);
-        if (field2.primary) parts.push("pk");
-        if (field2.required && !field2.primary) parts.push("required");
-        if (field2.unique && !field2.primary) parts.push("unique");
-        if (field2.indexed && !field2.primary) parts.push("index");
-        if (field2.defaultValue.trim()) {
-          parts.push(`default ${quote(field2.defaultValue.trim())}`);
-        }
-        if (field2.note.trim()) parts.push(`note ${quote(field2.note.trim())}`);
-        out.push(parts.join(" "));
-      }
-      out.push("  }");
-    }
-    const keyOf = new Map(doc.entities.map((entity) => [entity.id, entity.key]));
-    for (const relation of doc.relations) {
-      const from = keyOf.get(relation.from);
-      const to = keyOf.get(relation.to);
-      if (!from || !to) continue;
-      const left = relation.fromField ? `${from}.${relation.fromField}` : from;
-      const right = relation.toField ? `${to}.${relation.toField}` : to;
-      const parts = [`  rel ${left} -> ${right} : ${relation.kind}`];
-      if (relation.label.trim()) parts.push(quote(relation.label.trim()));
-      if (relation.through.trim()) parts.push(`through ${relation.through.trim()}`);
-      if (relation.onDelete !== "restrict") {
-        parts.push(`on_delete ${relation.onDelete}`);
-      }
-      out.push(parts.join(" "));
-    }
-    out.push("}");
-  }
-  if (doc.sections.length) {
-    out.push("");
-    out.push("landing {");
-    for (const section2 of [...doc.sections].sort((a, b) => a.order - b.order)) {
-      const defaultName = sectionTypeMap[section2.type]?.name ?? section2.type;
-      const parts = [`  section ${section2.type}`];
-      parts.push(quote(section2.name || defaultName));
-      if (section2.layout) parts.push(`layout ${section2.layout}`);
-      if (section2.note.trim()) parts.push(`note ${quote(section2.note.trim())}`);
-      out.push(parts.join(" "));
-    }
-    out.push("}");
-  }
-  out.push("");
-  out.push("stack {");
-  out.push(...stackLines(doc.stack));
-  out.push("}");
-  out.push("");
-  if (doc.structure.preset === "custom") {
-    out.push(`structure custom ${block(doc.structure.customTree, 0)}`);
-  } else {
-    out.push(`structure ${doc.structure.preset}`);
-  }
-  for (const surface of ["mobile", "backend"]) {
-    if (!doc.builds[surface]) continue;
-    const config2 = doc.surfaces[surface];
-    out.push("");
-    out.push(`stack ${surface} {`);
-    out.push(...stackLines(config2.stack));
-    out.push("}");
-    if (config2.structure.preset === "custom") {
-      out.push(`structure ${surface} custom ${block(config2.structure.customTree, 0)}`);
-    } else {
-      out.push(`structure ${surface} ${config2.structure.preset}`);
-    }
-  }
-  if (doc.conventions.ids.length) {
-    out.push(`conventions [${doc.conventions.ids.join(", ")}]`);
-  }
-  if (doc.snippetIds.length) {
-    out.push(`snippets [${doc.snippetIds.join(", ")}]`);
-  }
-  if (doc.conventions.custom.trim()) {
-    out.push(`conventions_note ${block(doc.conventions.custom.trim(), 0)}`);
-  }
-  if (doc.requirements.trim()) {
-    out.push("");
-    out.push(`requirements ${block(doc.requirements.trim(), 0)}`);
-  }
-  return `${out.join("\n")}
-`;
-}
-function themeLines(theme) {
-  const base = defaults.theme;
-  const lines = [
-    // The preset every value below came from. Written even when it is the
-    // default one: it is the name of the design, and a file that omits it reads
-    // as though nobody chose.
-    `    preset ${theme.preset}`,
-    `    design ${theme.designLanguage}; primary ${theme.primaryColor}; secondary ${theme.secondaryColor}`,
-    `    radius ${theme.borderRadius}; buttons ${theme.buttonStyle}; density ${theme.density}`,
-    `    headings ${theme.headingFont}; body ${theme.bodyFont}; scale ${theme.typeScale}`,
-    `    icons ${theme.iconStyle}; elevation ${theme.elevation}; motion ${theme.motion}; scheme ${theme.colorScheme}`
-  ];
-  const { shape } = theme;
-  if (shape.control !== base.shape.control || shape.card !== base.shape.card || shape.overlay !== base.shape.overlay || shape.pill !== base.shape.pill) {
-    const pill2 = shape.pill ? " pill" : "";
-    lines.push(
-      `    shape control ${shape.control} card ${shape.card} overlay ${shape.overlay}${pill2}`
-    );
-  }
-  const families = [];
-  if (theme.fonts.display) families.push(`display ${quote(theme.fonts.display)}`);
-  if (theme.fonts.body) families.push(`body ${quote(theme.fonts.body)}`);
-  if (theme.fonts.mono) families.push(`mono ${quote(theme.fonts.mono)}`);
-  if (families.length) lines.push(`    fonts ${families.join(" ")}`);
-  const dials = [];
-  if (theme.scaleRatio !== base.scaleRatio) dials.push(`scale_ratio ${theme.scaleRatio}`);
-  if (theme.vividness !== base.vividness) dials.push(`vividness ${theme.vividness}`);
-  if (theme.neutralHue !== base.neutralHue) dials.push(`neutral_hue ${theme.neutralHue}`);
-  if (dials.length) lines.push(`    ${dials.join("; ")}`);
-  const depth = [];
-  if (theme.elevationStrategy !== base.elevationStrategy) {
-    depth.push(`elevation_strategy ${theme.elevationStrategy}`);
-  }
-  if (theme.motionModel !== base.motionModel) depth.push(`motion_model ${theme.motionModel}`);
-  if (theme.inputStyle !== base.inputStyle) depth.push(`inputs ${theme.inputStyle}`);
-  if (depth.length) lines.push(`    ${depth.join("; ")}`);
-  for (const mode of ["light", "dark"]) {
-    const entries = Object.entries(theme.palette[mode]);
-    if (!entries.length) continue;
-    lines.push(`    palette ${mode} {`);
-    for (const [token, value] of entries) {
-      lines.push(`      ${token} ${colorValue(value)}`);
-    }
-    lines.push(`    }`);
-  }
-  return lines;
-}
-function colorValue(value) {
-  const trimmed = value.trim();
-  return !trimmed || /[";{}]|\/\//.test(trimmed) ? quote(trimmed) : trimmed;
-}
-function stackLines(stack) {
-  const keys = [
-    ["framework", "framework"],
-    ["language", "language"],
-    ["styling", "styling"],
-    ["state", "state"],
-    ["forms", "forms"],
-    ["http", "http"],
-    ["icons", "icons"],
-    ["tables", "tables"],
-    ["charts", "charts"],
-    ["database", "database"],
-    ["orm", "orm"],
-    ["apiStyle", "apiStyle"],
-    ["apiAuth", "apiAuth"],
-    ["testing", "testing"],
-    ["tooling", "tooling"],
-    ["packageManager", "packageManager"]
-  ];
-  const width = Math.max(...keys.map(([, label]) => label.length));
-  const lines = [];
-  for (const [key, label] of keys) {
-    const value = stack[key];
-    if (typeof value !== "string" || !value.trim()) continue;
-    lines.push(`  ${label.padEnd(width)} ${value}`);
-  }
-  if (stack.extras.length) {
-    lines.push(`  extras ${stack.extras.map((extra) => quote(extra)).join(" ")}`);
-  }
-  return lines;
-}
-function buildWords(doc) {
-  const words = ["web", "mobile", "backend"].filter(
-    (surface) => doc.builds[surface]
-  );
-  return words.length ? [...words] : ["web"];
-}
-function storyLines(story, indent) {
-  const flat = (value) => value.replace(/\s*\n\s*/g, " ").trim();
-  const role = flat(story.role);
-  const want = flat(story.want);
-  const soThat = flat(story.soThat);
-  const criteria = story.criteria.map(flat).filter(Boolean);
-  if (!role && !want && !soThat && !criteria.length) return [];
-  const pad = " ".repeat(indent);
-  const inner = " ".repeat(indent + 2);
-  const item = " ".repeat(indent + 4);
-  const lines = [`${pad}story {`];
-  if (role) lines.push(`${inner}as     ${quote(role)}`);
-  if (want) lines.push(`${inner}want   ${quote(want)}`);
-  if (soThat) lines.push(`${inner}so     ${quote(soThat)}`);
-  if (criteria.length) {
-    lines.push(`${inner}accept [`);
-    for (const entry of criteria) lines.push(`${item}${quote(entry)}`);
-    lines.push(`${inner}]`);
-  }
-  lines.push(`${pad}}`);
-  return lines;
-}
-function quote(value) {
-  return `"${value.replace(/"/g, "'")}"`;
-}
-function block(value, indent) {
-  if (!value.includes("\n")) return quote(value);
-  const pad = " ".repeat(indent);
-  const body = value.split("\n").map((line) => `${pad}${line}`).join("\n");
-  return `"""
-${body}
-${pad}"""`;
-}
-
-// src/studio/features/library/data/starters.ts
-var starters = [
-  {
-    id: "blank",
-    name: "Blank project",
-    description: "Empty canvas \u2014 start from nothing.",
-    source: `app "Untitled project" {
-  target claude-code
-  ui_level 3
-}`
-  },
-  {
-    id: "full-system",
-    name: "Web + mobile + API",
-    description: "One product, three builds, wired together and tested end to end.",
-    source: `app "Field Service" {
-  target claude-code
-  ui_level 3
-  builds web, mobile, backend
-  theme { design modern-soft; primary #0891b2; secondary #f97316; radius large }
-}
-
-views { dispatcher "Dispatcher"; engineer "Field Engineer" }
-
-flows {
-  flow access "Signing in" {
-    story {
-      as     "anyone on the team"
-      want   "sign in on whichever device I am holding"
-      so     "I can start work without finding a laptop"
-      accept [
-        "the same account works on the phone and in the console"
-        "a wrong password does not say whether the address is registered"
-        "signing out on one device does not sign me out of the other"
-      ]
-    }
-  }
-  flow dispatching "Assigning work" {
-    story {
-      as     "a dispatcher"
-      want   "see the day's jobs and give each one to an engineer"
-      so     "nobody is idle and nothing is double-booked"
-      accept [
-        "a job assigned to someone already busy is refused, and says who has them"
-        "the board reflects an engineer's update without a refresh"
-      ]
-    }
-  }
-  flow on_site "Working a job" {
-    story {
-      as     "an engineer in the field"
-      want   "open my next job, record what I did, and move on"
-      so     "the office knows where things stand without me phoning in"
-      accept [
-        "an update made with no signal is sent when the network returns"
-        "the same update arriving twice leaves one record, not two"
-        "the job I am on survives closing and reopening the app"
-      ]
-    }
-  }
-}
-
-# ---- web console ----
-screen login "Sign In" {
-  template auth
-  layout   auth-split
-  flows    [access]
-}
-
-screen board "Dispatch Board" {
-  template dashboard
-  layout   dashboard-sidebar
-  in       [dispatcher]
-  flows    [dispatching]
-  story {
-    as     "a dispatcher starting the day"
-    want   "see every job and who is on it"
-    so     "I can fix a gap before a customer notices it"
-    accept [
-      "an unassigned job is visible without filtering for it"
-      "assigning from here reaches the engineer's phone"
-    ]
-  }
-  module queue  "Unassigned"   { kind list }
-  module people "Engineers"    { kind list }
-  module assign "Assign"       { kind modal; on "drag a job onto an engineer" }
-  inner {
-    queue  -> assign : "drag a job onto an engineer"
-    assign -> people : "on assigned, their column updates"
-  }
-}
-
-screen jobs "All Jobs" {
-  template table
-  layout   table-advanced
-  in       [dispatcher]
-  flows    [dispatching]
-}
-
-# ---- phone app ----
-screen app_signin "Sign In" {
-  template auth
-  layout   mobile-auth
-  surface  mobile
-  flows    [access]
-}
-
-screen app_today "Today" {
-  template dashboard
-  layout   mobile-tabs
-  surface  mobile
-  in       [engineer]
-  flows    [on_site]
-  story {
-    as     "an engineer between jobs"
-    want   "see what is next without hunting for it"
-    so     "I can drive straight there"
-    accept [
-      "the list is readable in sunlight and usable with gloves on"
-      "it opens to something useful with no signal"
-    ]
-  }
-}
-
-screen app_job "Job" {
-  template detail
-  layout   mobile-detail
-  surface  mobile
-  in       [engineer]
-  flows    [on_site]
-  module status "Update status" { kind action }
-  module photo  "Add photo"     { kind camera; on "tap Add photo" }
-  module perms  "Camera access" { kind permission; on "camera not granted yet" }
-  inner {
-    photo -> perms : "permission not granted yet"
-  }
-}
-
-# ---- the service both call ----
-screen api_auth "Auth" {
-  template admin
-  surface  backend
-  flows    [access]
-  story {
-    as     "either client app"
-    want   "exchange credentials for a token and refresh it without asking again"
-    so     "an engineer is not signed out halfway through a job"
-    accept [
-      "a wrong password answers 401 without saying which field was wrong"
-      "a refresh token is single-use; reusing an old one revokes the session"
-      "signing out on one device leaves the other signed in"
-    ]
-  }
-  module login   "POST /auth/login"   { kind action }
-  module refresh "POST /auth/refresh" { kind action }
-}
-
-screen api_jobs "Jobs" {
-  template admin
-  surface  backend
-  flows    [dispatching, on_site]
-  story {
-    as     "the console and the phone app"
-    want   "read the jobs a person may see and record what happened on them"
-    so     "the board and the device never disagree"
-    accept [
-      "an engineer only ever receives their own jobs, enforced on the server"
-      "the same status update sent twice leaves one record \u2014 the phone retries after a dropped connection"
-      "a job already assigned cannot be assigned again without releasing it first"
-      "lists are paginated and filtered in the query, never in the client"
-    ]
-  }
-  module list   "GET /jobs"              { kind action }
-  module detail "GET /jobs/{id}"         { kind action }
-  module assign "POST /jobs/{id}/assign" { kind action }
-  module status "POST /jobs/{id}/status" { kind action }
-}
-
-flow {
-  login      -> board     : "on successful sign in" @dispatcher
-  board      -> jobs      : "click All jobs"
-  app_signin -> app_today : "on successful sign in" @engineer
-  app_today  -> app_job   : "tap a job"
-}
-
-data {
-  table users "Users" {
-    note "Anyone who can sign in, on either device."
-    id uuid pk
-    email string unique required
-    password_hash text required
-    full_name string required
-    role enum [dispatcher, engineer] required default "engineer"
-    active boolean required default "true"
-    created_at timestamp required default "now()"
-  }
-
-  table customers "Customers" {
-    note "Whose site the work happens at."
-    id uuid pk
-    name string required
-    phone string
-    address text required
-    created_at timestamp required default "now()"
-  }
-
-  table jobs "Jobs" {
-    note "One visit to one site. The board is a day of these."
-    id uuid pk
-    reference string unique required note "What everyone calls it on the phone"
-    customer_id uuid required index
-    assigned_to uuid index note "Null until a dispatcher assigns it"
-    status enum [unassigned, assigned, in_progress, done, cancelled] required default "unassigned"
-    scheduled_for timestamp required index
-    notes text
-    created_at timestamp required default "now()"
-    updated_at timestamp required default "now()"
-  }
-
-  table job_events "Job events" {
-    note "Every status change, kept rather than overwritten \u2014 this is what the office reads."
-    id uuid pk
-    job_id uuid required index
-    actor_id uuid required
-    status enum [assigned, in_progress, done, cancelled] required
-    note text
-    idempotency_key string unique note "The phone retries after a dropped connection; the second arrival must not add a row"
-    created_at timestamp required default "now()"
-  }
-
-  table sessions "Sessions" {
-    note "One row per signed-in device, so signing out on the phone leaves the console signed in."
-    id uuid pk
-    user_id uuid required index
-    refresh_token_hash text unique required
-    device string
-    expires_at timestamp required
-    revoked_at timestamp
-    created_at timestamp required default "now()"
-  }
-
-  rel jobs.customer_id -> customers.id : many-to-one "a job happens at one customer's site" on_delete restrict
-  rel jobs.assigned_to -> users.id : many-to-one "a job is assigned to one engineer" on_delete set-null
-  rel job_events.job_id -> jobs.id : many-to-one "an event belongs to one job" on_delete cascade
-  rel job_events.actor_id -> users.id : many-to-one "somebody recorded it" on_delete restrict
-  rel sessions.user_id -> users.id : many-to-one "a session belongs to one person" on_delete cascade
-}
-
-
-stack { framework next-16; styling tailwind4-shadcn; state tanstack-zustand; forms rhf-zod }
-structure feature-based
-
-stack mobile {
-  framework expo-router
-  styling   nativewind
-  state     rn-query-zustand
-  testing   rn-testing-library
-}
-structure mobile expo-feature-based
-
-stack backend {
-  framework fastapi
-  language  python
-  database  postgres
-  orm       sqlalchemy
-  apiStyle  rest-openapi
-  apiAuth   jwt-refresh
-  testing   pytest
-  tooling   ruff-mypy
-  packageManager uv
-}
-structure backend src-layered
-
-requirements """
-Three builds, one product. Engineers work offline in poor signal, so every write
-endpoint has to tolerate the same request arriving twice. Neither client talks to
-the database \u2014 both go through the API.
-"""`
-  },
-  {
-    id: "saas-dashboard",
-    name: "SaaS dashboard",
-    description: "Auth, dashboard, records, detail, settings.",
-    source: `app "SaaS Dashboard" {
-  target claude-code
-  ui_level 3
-  theme { primary #4f46e5; secondary #0ea5e9; radius md; buttons filled }
-}
-
-flows {
-  flow access "Getting in" {
-    story {
-      as     "a returning customer"
-      want   "sign in and land where the work is"
-      so     "I am not navigating before I can start"
-      accept [
-        "signing in goes straight to the dashboard, not to a landing page"
-        "a wrong password does not reveal whether the address is registered"
-      ]
-    }
-  }
-  flow record_work "Working with records" {
-    story {
-      as     "somebody who lives in this product"
-      want   "find a record, open it, and change it"
-      so     "the day's work takes a few clicks rather than a search"
-      accept [
-        "the list keeps its filters when you come back from a record"
-        "saving a new record returns to the list with it visible"
-        "an empty list says what to do next, not 'no data'"
-      ]
-    }
-  }
-  flow account "Account and settings" {
-    story {
-      as     "an account owner"
-      want   "change how the product is set up for us"
-      so     "I do not have to ask support for a routine change"
-      accept [ "every change says whether it saved" ]
-    }
-  }
-}
-
-screen login "Sign In" {
-  template auth
-  layout   auth-split
-  flows    [access]
-  story {
-    as     "a signed-out customer"
-    want   "sign in with my email and password"
-    so     "I can reach my work"
-    accept [
-      "the submit button stays disabled until both fields have something in them"
-      "a failed attempt keeps the email filled in"
-    ]
-  }
-}
-
-screen dashboard "Dashboard" {
-  template dashboard
-  layout   dashboard-sidebar
-  flows    [access, record_work]
-  story {
-    as     "somebody starting their day"
-    want   "see what needs attention before I go looking for it"
-    so     "nothing important waits because nobody opened the right screen"
-    accept [ "every figure says the period it covers" ]
-  }
-}
-
-screen records "Records" {
-  template table
-  layout   table-advanced
-  flows    [record_work]
-  story {
-    as     "somebody looking for one record"
-    want   "filter and sort until I can see it"
-    so     "I do not page through hundreds by hand"
-    accept [
-      "clearing a filter returns to page 1 rather than an empty page 7"
-      "the filtered list can be shared as a link"
-    ]
-  }
-}
-
-screen record "Record" {
-  template detail
-  layout   detail-two-column
-  flows    [record_work]
-  story {
-    as     "somebody who opened a record"
-    want   "see everything about it in one place"
-    so     "I can answer a question without opening three more screens"
-  }
-}
-
-screen record_new "New Record" {
-  template form
-  layout   form-two-column
-  flows    [record_work]
-  story {
-    as     "somebody adding a record"
-    want   "fill it in and save without losing what I typed"
-    so     "a mistyped field does not cost me the whole form"
-    accept [
-      "validation errors appear beside the field, not only at the top"
-      "leaving with unsaved changes asks first"
-    ]
-  }
-}
-
-screen settings "Settings" {
-  template settings
-  layout   settings-sections
-  flows    [account]
-}
-
-flow {
-  login      -> dashboard  : "on successful login"
-  dashboard  -> records    : "click Records"
-  records    -> record     : "click a row"
-  records    -> record_new : "click New record"
-  record_new -> records    : "on save"
-  dashboard  -> settings   : "open the account menu"
-}
-
-structure feature-based
-conventions [kebab-files, barrel-exports, alias-@, states-required, a11y-baseline, tokens-only]
-snippets [a11y, states, tables, data-table-shell, api-hooks, pagination]`
-  },
-  {
-    id: "auth-flow",
-    name: "Authentication flow",
-    description: "Sign in, sign up, OTP, reset, first run.",
-    source: `app "Authentication" {
-  target claude-code
-  ui_level 2
-  theme { primary #0f766e; secondary #f59e0b; radius md; buttons filled }
-}
-
-flows {
-  flow sign_up "Creating an account" {
-    story {
-      as     "somebody who has just decided to try this"
-      want   "create an account and get in"
-      so     "I can judge the product rather than the sign-up form"
-      accept [
-        "the email is verified before the account can do anything"
-        "the resend link says how long until it can be used again"
-      ]
-    }
-  }
-  flow sign_in "Signing in" {
-    story {
-      as     "a returning user"
-      want   "get back in"
-      so     "I can carry on"
-      accept [ "a failed attempt says what to try, not just that it failed" ]
-    }
-  }
-  flow recovery "Recovering an account" {
-    story {
-      as     "somebody who has forgotten their password"
-      want   "set a new one without contacting support"
-      so     "I am not blocked for a day waiting on someone"
-      accept [
-        "the screen never reveals whether an address is registered"
-        "a reset link works once, and expires"
-        "changing the password signs out every other session"
-      ]
-    }
-  }
-  flow first_run "First run" {
-    story {
-      as     "somebody who has just signed up"
-      want   "know what to do first"
-      so     "the empty product does not feel like a mistake"
-    }
-  }
-}
-
-screen login "Sign In" {
-  template auth
-  layout   auth-split
-  flows    [sign_in]
-  story {
-    as     "a returning user"
-    want   "sign in with my email and password"
-    so     "I reach my work"
-  }
-}
-
-screen signup "Create Account" {
-  template auth
-  layout   auth-center
-  flows    [sign_up]
-  story {
-    as     "a new user"
-    want   "create an account with as little typing as possible"
-    so     "I can see the product before committing to anything"
-    accept [ "password rules are stated before the first attempt, not after it" ]
-  }
-}
-
-screen otp "Verify Email" {
-  template auth
-  layout   auth-otp
-  flows    [sign_up]
-  story {
-    as     "somebody who has just signed up"
-    want   "enter the code from my email"
-    so     "I can finish setting up"
-    accept [
-      "pasting the whole code fills every box"
-      "a wrong code can be corrected without starting over"
-    ]
-  }
-}
-
-screen forgot "Forgot Password" {
-  template auth
-  layout   auth-minimal
-  flows    [recovery]
-  story {
-    as     "somebody locked out"
-    want   "ask for a reset link"
-    so     "I can get back in myself"
-    accept [ "the confirmation is the same whether or not the address exists" ]
-  }
-}
-
-screen reset "Set New Password" {
-  template auth
-  layout   auth-center
-  flows    [recovery]
-  story {
-    as     "somebody who clicked a reset link"
-    want   "set a new password and be signed in"
-    so     "I am not asked to sign in again immediately"
-    accept [ "an expired or reused link explains itself and offers a new one" ]
-  }
-}
-
-screen welcome "Welcome" {
-  template onboarding
-  layout   onboarding-checklist
-  flows    [first_run]
-  story {
-    as     "somebody on their first visit"
-    want   "be told the two or three things worth doing first"
-    so     "the empty product does not look broken"
-  }
-}
-
-flow {
-  login  -> signup  : "click Create account"
-  signup -> otp     : "on submit"
-  otp    -> welcome : "on code verified"
-  login  -> forgot  : "click Forgot password"
-  forgot -> reset   : "click the emailed link"
-  reset  -> login   : "on password changed"
-}
-
-structure feature-based
-conventions [kebab-files, alias-@, states-required, a11y-baseline]
-snippets [a11y, forms, states]
-
-requirements """
-Rate-limit OTP resend to once every 30 seconds and show the countdown.
-Never reveal whether an email address exists on the forgot-password screen.
-"""`
-  },
-  {
-    id: "admin-crud",
-    name: "Admin CRUD",
-    description: "Master/detail, bulk actions, audit.",
-    source: `app "Admin Console" {
-  target claude-code
-  ui_level 2
-  theme { primary #1d4ed8; secondary #059669; radius sm; buttons filled; density compact }
-}
-
-flows {
-  flow access "Getting in" {
-    story { as "an administrator"; want "sign in"; so "I can do the work" }
-  }
-  flow user_admin "Managing users" {
-    story {
-      as     "an administrator"
-      want   "add people, change what they can do, and remove them"
-      so     "access matches who actually works here"
-      accept [
-        "a destructive action names the record it is about to affect"
-        "deactivating somebody does not delete their history"
-        "bulk actions say how many rows they will touch before they run"
-      ]
-    }
-  }
-  flow governance "Roles and audit" {
-    story {
-      as     "whoever answers for access in an audit"
-      want   "see who can do what, and who changed it"
-      so     "I can answer the question without asking engineering"
-      accept [
-        "every destructive action writes an audit entry"
-        "the audit log records who, what, and when \u2014 and cannot be edited"
-      ]
-    }
-  }
-}
-
-screen login "Sign In" {
-  template auth
-  layout   auth-center
-  flows    [access]
-}
-
-screen users "Users" {
-  template table
-  layout   table-master-detail
-  flows    [user_admin]
-  story {
-    as     "an administrator"
-    want   "find a person and act on them without leaving the list"
-    so     "routine changes take seconds"
-    accept [
-      "the list keeps its filters after an action closes"
-      "an action on a row says what happened when it finishes"
-    ]
-  }
-
-  module filters   "Filter bar"    { kind filters; on "page load" }
-  module table     "User table"    { kind table;   note "server-driven paging, 25 per page" }
-  module row_menu  "Row actions"   { kind action;  on "click the row overflow menu" }
-  module bulk      "Bulk actions"  { kind action;  on "select one or more rows" }
-  module deactivate "Deactivate"   { kind modal;   on "choose Deactivate" }
-
-  inner {
-    filters  -> table      : "on filter change, refetch page 1"
-    table    -> row_menu   : "click the row overflow menu"
-    table    -> bulk       : "select one or more rows"
-    row_menu -> deactivate : "choose Deactivate"
-    deactivate -> table    : "on confirm, close and refetch"
-  }
-}
-
-screen user_new "Invite User" {
-  template form
-  layout   form-single
-  flows    [user_admin]
-  story {
-    as     "an administrator"
-    want   "invite somebody with the right role from the start"
-    so     "they do not need a second change on their first day"
-    accept [ "inviting an address that already has an account says so" ]
-  }
-}
-
-screen roles    "Roles"     { template admin;    layout table-advanced; flows [governance] }
-screen audit    "Audit Log" { template table;    layout table-basic;    flows [governance] }
-screen settings "Settings"  { template settings; layout settings-sections; flows [user_admin] }
-
-flow {
-  login    -> users    : "on successful login"
-  users    -> user_new : "click Invite user"
-  user_new -> users    : "on invite sent"
-  users    -> roles    : "click Roles"
-  roles    -> audit    : "click Audit log"
-  users    -> settings : "open settings"
-}
-
-structure feature-based
-conventions [kebab-files, barrel-exports, no-deep-imports, alias-@, states-required, a11y-baseline]
-snippets [a11y, states, tables, data-table-shell, rbac, api-hooks, pagination]
-
-requirements """
-Every destructive action names the record in its confirmation and writes an audit entry.
-"""`
-  },
-  {
-    id: "marketing-site",
-    name: "Marketing site",
-    description: "Full landing page, section by section.",
-    source: `app "Marketing Site" {
-  target v0
-  ui_level 4
-  theme { primary #7c3aed; secondary #f59e0b; radius lg; buttons rounded; density spacious }
-}
-
-flows {
-  flow convert "Deciding to try it" {
-    story {
-      as     "somebody who arrived from a search result"
-      want   "understand what this is and what it costs"
-      so     "I can decide without booking a call"
-      accept [
-        "what the product does is legible without scrolling"
-        "pricing is reachable from anywhere on the page"
-        "there is one obvious next action, and it is the same one throughout"
-      ]
-    }
-  }
-  flow enquiry "Talking to a person" {
-    story {
-      as     "somebody whose situation does not fit the pricing table"
-      want   "reach a human without a lengthy form"
-      so     "I do not give up and go elsewhere"
-      accept [ "the form says what happens next and when to expect a reply" ]
-    }
-  }
-}
-
-screen home    "Home"    { template landing; layout hero-two-column; flows [convert] }
-screen pricing "Pricing" { template landing; layout hero-center;     flows [convert] }
-screen contact "Contact" { template form;    layout form-single;     flows [enquiry] }
-
-flow {
-  home    -> pricing : "click Pricing"
-  pricing -> contact : "click Talk to sales"
-}
-
-landing {
-  section navigation   "Header"       layout nav-split
-  section hero         "Hero"         layout hero-two-column
-  section logos        "Trusted by"   layout logos-strip
-  section features     "Features"     layout features-bento
-  section stats        "By the numbers" layout stats-row
-  section testimonials "Customers"    layout testimonials-cards
-  section pricing      "Pricing"      layout pricing-three
-  section faq          "FAQ"          layout faq-accordion
-  section cta          "Get started"  layout cta-banner
-  section footer       "Footer"       layout footer-columns
-}
-
-structure route-colocated
-conventions [kebab-files, shared-first, tokens-only, a11y-baseline]
-snippets [responsive, a11y]`
-  },
-  {
-    id: "checkout",
-    name: "Commerce checkout",
-    description: "Product, cart, checkout, confirmation.",
-    source: `app "Storefront Checkout" {
-  target claude-code
-  ui_level 3
-  theme { primary #db2777; secondary #0ea5e9; radius lg; buttons rounded }
-}
-
-flows {
-  flow browse "Finding something to buy" {
-    story {
-      as     "a shopper"
-      want   "narrow a large catalogue to the few things I might buy"
-      so     "I am not scrolling past things that were never relevant"
-      accept [ "a filtered catalogue can be shared as a link" ]
-    }
-  }
-  flow purchase "Buying it" {
-    story {
-      as     "a shopper who has decided"
-      want   "pay without being made to create an account first"
-      so     "I do not abandon a full basket at the last step"
-      accept [
-        "the order summary stays visible at every step, including on mobile"
-        "a payment failure returns to the payment step with the details kept"
-        "the total, including delivery and tax, is shown before payment"
-      ]
-    }
-  }
-}
-
-screen catalogue "Catalogue"  { template search;  layout search-results;  flows [browse] }
-screen product   "Product"    { template product; layout product-gallery; flows [browse, purchase] }
-screen cart      "Cart"       { template table;   layout table-basic;     flows [purchase] }
-
-screen checkout "Checkout" {
-  template checkout
-  layout   checkout-steps
-  flows    [purchase]
-  story {
-    as     "a shopper paying"
-    want   "get through the steps without losing what I have entered"
-    so     "one mistake does not cost me the whole order"
-    accept [
-      "going back a step keeps everything already filled in"
-      "the step I am on, and how many remain, is always visible"
-    ]
-  }
-}
-
-screen confirm "Order Placed" {
-  template empty
-  layout   empty-first-run
-  flows    [purchase]
-  story {
-    as     "somebody who has just paid"
-    want   "proof it worked and a way to check on it"
-    so     "I do not have to email to ask whether the order went through"
-  }
-}
-
-flow {
-  catalogue -> product  : "click a product"
-  product   -> cart     : "click Add to cart"
-  cart      -> checkout : "click Checkout"
-  checkout  -> confirm  : "on payment accepted"
-  confirm   -> catalogue: "click Continue shopping"
-}
-
-structure feature-based
-conventions [kebab-files, alias-@, states-required, a11y-baseline, tokens-only]
-snippets [a11y, states, forms, responsive, api-hooks]
-
-requirements """
-The order summary stays visible at every checkout step, including on mobile.
-Payment failures return to the payment step with the entered details preserved.
-"""`
-  },
-  {
-    id: "mobile-app",
-    name: "React Native app",
-    description: "Expo Router, tabs, offline-aware.",
-    source: `app "Field App" {
-  target claude-code
-  ui_level 3
-  theme { design modern-soft; primary #0891b2; secondary #f97316; radius large; buttons rounded }
-}
-
-flows {
-  flow access "Getting in" {
-    story {
-      as     "a field engineer picking up a phone at 7am"
-      want   "sign in once and stay signed in"
-      so     "I am not typing a password in a van in the rain"
-      accept [ "the session survives the app being closed and reopened" ]
-    }
-  }
-  flow day_of_work "Working through the day" {
-    story {
-      as     "a field engineer"
-      want   "see today's jobs and update each one as I finish it"
-      so     "the office knows where things stand without phoning me"
-      accept [
-        "the app opens with the last known list even before the network answers"
-        "a status update made offline is queued, and the screen says so"
-        "queued work syncs on its own when signal returns"
-      ]
-    }
-  }
-  flow getting_there "Getting to the job" {
-    story {
-      as     "a field engineer between calls"
-      want   "see where my stops are"
-      so     "I am not driving back across the same town twice"
-      accept [ "declining location permission still leaves the addresses readable" ]
-    }
-  }
-}
-
-screen onboarding "Get Started" { template onboarding; layout mobile-onboarding; surface mobile; flows [access] }
-screen signin     "Sign In"     { template auth;       layout mobile-form; surface mobile; flows [access] }
-
-screen home "Today" {
-  template dashboard
-  layout   mobile-tabs
-  surface  mobile
-  flows    [day_of_work]
-  story {
-    as     "a field engineer starting the day"
-    want   "see what I have on, in the order I will do it"
-    so     "I can leave without planning it myself"
-    accept [ "the list is readable one-handed, outdoors, in daylight" ]
-  }
-  module tabs   "Tab bar"      { kind nav }
-  module stats  "Today's jobs" { kind stats }
-  module list   "Job list"     { kind list; on "screen focus" }
-  module offline "Offline banner" { kind panel; on "network drops" }
-  inner {
-    list -> offline : "request fails while offline"
-  }
-}
-
-screen job "Job Detail" {
-  template detail
-  layout   mobile-detail
-  surface  mobile
-  flows    [day_of_work]
-  story {
-    as     "a field engineer standing on site"
-    want   "change the status and attach a photo in a few taps"
-    so     "I never write the same thing again in the van afterwards"
-    accept [
-      "a photo taken with no signal is queued rather than lost"
-      "declining the camera permission leaves a way to finish without a photo"
-      "the sticky actions stay reachable one-handed"
-    ]
-  }
-  module summary "Job summary"   { kind panel }
-  module actions "Sticky actions" { kind action }
-  module sheet   "Update status"  { kind sheet; on "tap Update status" }
-  module camera  "Photo proof"    { kind camera; on "tap Add photo" }
-  module perms   "Camera permission" { kind permission; on "first photo attempt" }
-  inner {
-    actions -> sheet  : "tap Update status"
-    sheet   -> camera : "choose Add photo"
-    camera  -> perms  : "camera permission not granted yet"
-    sheet   -> summary : "on save, close and refresh"
-  }
-}
-
-screen map "Route Map" {
-  template dashboard
-  layout   mobile-map
-  surface  mobile
-  flows    [getting_there]
-  module map_view "Map"          { kind map }
-  module sheet    "Stops sheet"  { kind sheet }
-  module perms    "Location permission" { kind permission; on "screen open" }
-  inner {
-    perms -> map_view : "permission granted"
-    map_view -> sheet : "tap a marker"
-  }
-}
-
-screen profile "Profile" { template profile; layout mobile-profile; surface mobile; flows [access] }
-
-flow {
-  onboarding -> signin  : "tap Get started"
-  signin     -> home    : "on successful sign in"
-  home       -> job     : "tap a job"
-  home       -> map     : "tap the Map tab"
-  home       -> profile : "tap the Profile tab"
-  job        -> home    : "on job completed"
-}
-
-stack {
-  framework expo-router
-  language  ts-strict
-  styling   nativewind
-  state     rn-query-zustand
-  forms     rhf-zod
-  http      axios-instance
-  icons     rn-vector-icons
-  tables    rn-flashlist
-  charts    victory-native
-  testing   rn-testing-library
-}
-
-structure expo-feature-based
-conventions [kebab-files, barrel-exports, alias-@, shared-first, reuse-components, states-required]
-snippets [states, api-hooks, forms]
-
-requirements """
-Field engineers use this on Android in poor signal. Job data is cached and the
-app opens with the last known list; status updates queue and sync when the
-network returns.
-Permissions: location (background while on a job), camera, notifications.
-"""`
-  },
-  {
-    id: "swift-app",
-    name: "SwiftUI app",
-    description: "NavigationStack, sheets, Swift Charts.",
-    source: `app "Swift Client" {
-  target claude-code
-  ui_level 3
-  theme { design minimal-mono; primary #0a84ff; secondary #30d158; radius large; buttons filled }
-}
-
-flows {
-  flow access "Getting in" {
-    story { as "a returning user"; want "sign in on my phone"; so "I can reach my clients" }
-  }
-  flow client_work "Keeping client records" {
-    story {
-      as     "somebody who sees clients all day"
-      want   "find a client, read their history, and add to it"
-      so     "the record is written while I still remember the visit"
-      accept [
-        "reads work offline from the local store"
-        "a write made offline retries when connectivity returns"
-        "the list stays usable at accessibility text sizes"
-      ]
-    }
-  }
-  flow overview "Seeing how things are going" {
-    story {
-      as     "somebody running their own book of work"
-      want   "see the trend without exporting anything"
-      so     "I notice a quiet month while I can still do something about it"
-    }
-  }
-}
-
-screen signin "Sign In" { template auth; layout mobile-form; surface mobile; flows [access] }
-
-screen home "Overview" {
-  template dashboard
-  layout   mobile-tabs
-  surface  mobile
-  flows    [overview]
-  module tabs  "Tab view"    { kind nav }
-  module cards "Summary"     { kind stats }
-  module chart "Trend chart" { kind chart }
-}
-
-screen clients "Clients" {
-  template list
-  layout   mobile-list
-  surface  mobile
-  flows    [client_work]
-  module search "Searchable list" { kind filters }
-  module list   "Client list"     { kind list }
-  module add    "Add client"      { kind sheet; on "tap the plus button" }
-  inner {
-    search -> list : "on search text change"
-    list   -> add  : "tap the plus button"
-    add    -> list : "on save, dismiss and refresh"
-  }
-}
-
-screen client "Client Detail" {
-  template detail
-  layout   mobile-detail
-  surface  mobile
-  flows    [client_work]
-  story {
-    as     "somebody who has just finished a visit"
-    want   "add what happened to the client's history"
-    so     "the next visit starts from what actually happened"
-  }
-  module header  "Header"      { kind panel }
-  module history "Visit history" { kind timeline }
-  module edit    "Edit sheet"  { kind sheet; on "tap Edit" }
-  inner {
-    header -> edit : "tap Edit"
-  }
-}
-
-screen settings "Settings" { template settings; layout mobile-profile; surface mobile; flows [access] }
-
-flow {
-  signin  -> home     : "on successful sign in"
-  home    -> clients  : "tap the Clients tab"
-  clients -> client   : "tap a client row"
-  home    -> settings : "tap the Settings tab"
-}
-
-stack {
-  framework swiftui
-  language  swift
-  styling   swiftui-modifiers
-  state     swift-observable
-  http      swift-urlsession
-  icons     sf-symbols
-  tables    swift-list
-  charts    swift-charts
-  testing   swift-testing
-  tooling   swiftlint
-}
-
-structure swift-features
-conventions [shared-first, reuse-components, typed-payloads, small-files, comments-why]
-
-requirements """
-Supports the two most recent major iOS versions.
-Dynamic Type up to the accessibility sizes; light and dark from the asset catalogue.
-Offline reads come from the local store; writes retry when connectivity returns.
-"""`
-  }
-];
-function starterDoc(id) {
-  const starter = starters.find((s) => s.id === id);
-  if (!starter) return null;
-  const { doc } = parseFlow(starter.source);
-  return { ...doc, name: starter.name };
-}
-
-// src/studio/features/builder/utils/surfaces.ts
-var surfaceMeta = {
-  web: {
-    label: "Web",
-    icon: "globe",
-    hint: "Browser app \u2014 routes, pages, responsive layouts"
-  },
-  mobile: {
-    label: "Mobile",
-    icon: "smartphone",
-    hint: "Phone app \u2014 React Native or native iOS"
-  },
-  backend: {
-    label: "Backend",
-    icon: "layers",
-    hint: "Services, endpoints and jobs"
-  }
-};
-function stackFor(doc, surface) {
-  return surface === "web" ? doc.stack : doc.surfaces[surface].stack;
-}
-function structureFor(doc, surface) {
-  return surface === "web" ? doc.structure : doc.surfaces[surface].structure;
-}
-
-// src/studio/features/builder/utils/views.ts
-function inView(tagged, viewId, strict = false) {
-  if (!viewId) return true;
-  if (strict) return tagged.views.includes(viewId);
-  return tagged.views.length === 0 || tagged.views.includes(viewId);
-}
-function screensInView(doc, viewId, strict = false) {
-  return doc.screens.filter((screen) => inView(screen, viewId, strict));
-}
-function edgesInView(doc, viewId, strict = false) {
-  if (!viewId) return doc.edges;
-  const visible = new Set(screensInView(doc, viewId, strict).map((s) => s.id));
-  return doc.edges.filter(
-    (edge) => inView(edge, viewId, strict) && visible.has(edge.from) && visible.has(edge.to)
-  );
-}
-function viewNames(doc, ids) {
-  return ids.map((id) => doc.views.find((v) => v.id === id)?.name).filter((name) => Boolean(name));
-}
-
-// src/studio/features/data/utils/schema.ts
-function primaryKeyOf(entity) {
-  return entity.fields.find((field2) => field2.primary) ?? null;
-}
-function fieldByName(entity, name) {
-  const wanted = name.trim().toLowerCase();
-  return entity.fields.find((field2) => field2.name.toLowerCase() === wanted) ?? null;
-}
-function relationsOf(doc, entityId) {
-  return doc.relations.filter(
-    (relation) => relation.from === entityId || relation.to === entityId
-  );
-}
-function singular(key) {
-  if (/(ss|us|is)$/i.test(key)) return key;
-  if (/ies$/i.test(key)) return `${key.slice(0, -3)}y`;
-  if (/(ches|shes|xes|ses)$/i.test(key)) return key.slice(0, -2);
-  if (/s$/i.test(key)) return key.slice(0, -1);
-  return key;
-}
-var relationWording = {
-  "many-to-one": "many rows point at one",
-  "one-to-many": "one row owns many",
-  "one-to-one": "exactly one each way",
-  "many-to-many": "many on both sides, through a join table"
-};
-function joinTableName(doc, relation) {
-  if (relation.through) return relation.through;
-  const from = doc.entities.find((e) => e.id === relation.from);
-  const to = doc.entities.find((e) => e.id === relation.to);
-  return [singular(from?.key ?? "a"), singular(to?.key ?? "b")].sort().join("_");
-}
-function checkDataModel(doc) {
-  const issues = [];
-  const byId2 = new Map(doc.entities.map((entity) => [entity.id, entity]));
-  const keys = /* @__PURE__ */ new Map();
-  for (const entity of doc.entities) {
-    keys.set(entity.key, (keys.get(entity.key) ?? 0) + 1);
-  }
-  for (const [key, count] of keys) {
-    if (count > 1) {
-      issues.push({
-        level: "error",
-        message: `Two tables are both called \`${key}\` \u2014 rename one.`
-      });
-    }
-  }
-  for (const entity of doc.entities) {
-    if (!entity.fields.length) {
-      issues.push({
-        level: "error",
-        message: `\`${entity.key}\` has no columns.`,
-        entityId: entity.id
-      });
-      continue;
-    }
-    if (!primaryKeyOf(entity)) {
-      issues.push({
-        level: "error",
-        message: `\`${entity.key}\` has no primary key \u2014 mark one column as the key.`,
-        entityId: entity.id
-      });
-    }
-    if (entity.fields.filter((field2) => field2.primary).length > 1) {
-      issues.push({
-        level: "warning",
-        message: `\`${entity.key}\` marks more than one primary key \u2014 that is a composite key; say so in the note if it is deliberate.`,
-        entityId: entity.id
-      });
-    }
-    const seen = /* @__PURE__ */ new Set();
-    for (const field2 of entity.fields) {
-      const name = field2.name.trim().toLowerCase();
-      if (!name) {
-        issues.push({
-          level: "error",
-          message: `\`${entity.key}\` has a column with no name.`,
-          entityId: entity.id
-        });
-        continue;
-      }
-      if (seen.has(name)) {
-        issues.push({
-          level: "error",
-          message: `\`${entity.key}.${field2.name}\` is declared twice.`,
-          entityId: entity.id
-        });
-      }
-      seen.add(name);
-      if (!/^[a-z_][a-z0-9_]*$/.test(name)) {
-        issues.push({
-          level: "warning",
-          message: `\`${entity.key}.${field2.name}\` is not snake_case \u2014 every other column is, and the generated code will follow the majority.`,
-          entityId: entity.id
-        });
-      }
-      if (field2.type === "enum" && !field2.options.length) {
-        issues.push({
-          level: "warning",
-          message: `\`${entity.key}.${field2.name}\` is an enum with no values listed.`,
-          entityId: entity.id
-        });
-      }
-    }
-    for (const field2 of entity.fields) {
-      if (!/_id$/.test(field2.name) || field2.primary) continue;
-      const joined = doc.relations.some(
-        (relation) => relation.from === entity.id && relation.fromField === field2.name || relation.to === entity.id && relation.toField === field2.name
-      );
-      if (!joined) {
-        issues.push({
-          level: "warning",
-          message: `\`${entity.key}.${field2.name}\` looks like a foreign key but joins nothing \u2014 draw the relation.`,
-          entityId: entity.id
-        });
-      }
-    }
-    if (doc.entities.length > 1 && !relationsOf(doc, entity.id).length) {
-      issues.push({
-        level: "warning",
-        message: `\`${entity.key}\` relates to nothing else.`,
-        entityId: entity.id
-      });
-    }
-  }
-  for (const relation of doc.relations) {
-    const from = byId2.get(relation.from);
-    const to = byId2.get(relation.to);
-    if (!from || !to) {
-      issues.push({
-        level: "error",
-        message: `A relation points at a table that no longer exists \u2014 delete it or repoint it.`
-      });
-      continue;
-    }
-    if (relation.kind === "many-to-many") {
-      if (!relation.through) {
-        issues.push({
-          level: "warning",
-          message: `\`${from.key}\` \u2194 \`${to.key}\` is many-to-many with no join table named \u2014 one will be called \`${joinTableName(doc, relation)}\`.`,
-          entityId: from.id
-        });
-      }
-      continue;
-    }
-    if (relation.fromField && !fieldByName(from, relation.fromField)) {
-      issues.push({
-        level: "error",
-        message: `\`${from.key}.${relation.fromField}\` does not exist, but a relation uses it.`,
-        entityId: from.id
-      });
-    }
-    if (relation.toField && !fieldByName(to, relation.toField)) {
-      issues.push({
-        level: "error",
-        message: `\`${to.key}.${relation.toField}\` does not exist, but a relation points at it.`,
-        entityId: to.id
-      });
-    }
-  }
-  return issues;
-}
-
 // src/studio/features/theme/data/presets.ts
 var presets = [
   {
@@ -32419,6 +28558,3917 @@ var DEFAULT_PRESET = "atrium";
 var byId = new Map(presets.map((preset) => [preset.id, preset]));
 function presetById(id) {
   return byId.get(id) ?? byId.get(DEFAULT_PRESET);
+}
+
+// src/studio/features/theme/data/ui-levels.ts
+var UI_LEVEL_PREAMBLE = [
+  "**Decide how much interface this product actually needs before you build any of it.** Read the journeys and the user stories above and ask, for each screen: who is on it, what are they trying to finish, how often are they here, and what is the cost of getting in their way?",
+  "A screen someone uses forty times a day wants speed, density and keyboard reach \u2014 animation there is a tax. A screen someone sees once, or that has to persuade them, can afford atmosphere. A tool used one-handed in the field needs targets and contrast before it needs polish. Say in your final report where you spent the effort and where you deliberately did not."
+].join("\n\n");
+var uiLevels = [
+  {
+    level: 1,
+    name: "Literal",
+    hint: "Build exactly what is described. No additions.",
+    promptDetails: "Build exactly the layouts described and nothing beyond them. No sections, decoration, illustration or animation that is not specified. Transitions are instant. This is the right level when the diagram is the specification and someone else owns the visual design \u2014 your job is structural fidelity, not taste."
+  },
+  {
+    level: 2,
+    name: "Clean",
+    hint: "Functional and tidy. Correct states, no flourish.",
+    promptDetails: "Stay close to the specification and make it tidy rather than expressive. Consistent spacing and type, real hover/focus/disabled/loading/empty/error states, and nothing decorative on top. Motion is limited to what communicates a state change \u2014 a spinner, a disclosure opening. This is the right level for internal tools and admin surfaces, where being predictable beats being memorable."
+  },
+  {
+    level: 3,
+    name: "Considered",
+    hint: "Product-grade polish. The sensible default.",
+    promptDetails: "Build it to the standard of a product someone pays for. The described structure stays intact; within it, make real design decisions \u2014 a deliberate type scale, chosen neutrals, considered empty states, transitions in the 120\u2013200ms range on things that actually move. Interactive elements look interactive. Nothing is added for its own sake, and nothing looks unfinished."
+  },
+  {
+    level: 4,
+    name: "Expressive",
+    hint: "Interactive and animated where it earns its place.",
+    promptDetails: "Interpret the specification confidently and make the interface a reason to use the product. Motion, depth and micro-interactions are welcome where they aid comprehension or reward attention: staged reveals on first paint, meaningful transitions between states, hover states that respond, charts that animate in once. Every described screen and transition still exists. Each effect must survive one question \u2014 what does the person understand better because of it? If the answer is nothing, cut it, and honour `prefers-reduced-motion` throughout."
+  },
+  {
+    level: 5,
+    name: "Signature",
+    hint: "A showpiece. Take a real aesthetic risk.",
+    promptDetails: "Treat the specification as direction rather than constraint and build something with a point of view. Take one real aesthetic risk and commit to it \u2014 a distinctive type pairing, an orchestrated load sequence, an ambient or generative background, a signature interaction the product becomes known for. Push the visual design hard, but keep every described screen and transition, keep the flows working, and keep the boldness concentrated in one place with everything around it quiet. Ambition is not the same as noise: the result still has to be legible, accessible, fast on a mid-range phone, and usable with reduced motion."
+  }
+];
+var DEFAULT_UI_LEVEL = 3;
+var uiLevelMap = Object.fromEntries(
+  uiLevels.map((entry) => [entry.level, entry])
+);
+function describeUiLevel(level) {
+  return uiLevelMap[level] ?? uiLevelMap[DEFAULT_UI_LEVEL];
+}
+function uiLevelFromLegacyCreativity(creativity) {
+  if (!Number.isFinite(creativity)) return DEFAULT_UI_LEVEL;
+  const value = Math.round(creativity);
+  if (value <= 2) return 1;
+  if (value <= 4) return 2;
+  if (value <= 6) return 3;
+  if (value <= 8) return 4;
+  return 5;
+}
+function uiLevelOf(doc) {
+  if (typeof doc.uiLevel === "number") return doc.uiLevel;
+  if (typeof doc.creativity === "number") return uiLevelFromLegacyCreativity(doc.creativity);
+  return DEFAULT_UI_LEVEL;
+}
+
+// src/studio/types/project.ts
+var SCHEMA_VERSION = 11;
+var borderRadiusValues = [
+  "none",
+  "small",
+  "medium",
+  "large",
+  "full"
+];
+var buttonStyleValues = [
+  "filled",
+  "outlined",
+  "rounded",
+  "sharp"
+];
+var fontCharacterValues = [
+  "geometric",
+  "grotesque",
+  "humanist",
+  "serif",
+  "slab",
+  "mono"
+];
+var bodyFontValues = ["pair", ...fontCharacterValues];
+var typeScaleValues = ["compact", "balanced", "expressive"];
+var iconStyleValues = ["line", "solid", "duotone"];
+var elevationValues = ["flat", "subtle", "layered"];
+var motionValues = ["none", "restrained", "expressive"];
+var colorSchemeValues = ["light", "both", "dark-first"];
+var elevationStrategyValues = [
+  "shadow",
+  "ladder",
+  "hairline",
+  "grid",
+  "tinted",
+  "glass",
+  "offset"
+];
+var motionModelValues = ["none", "duration", "spring"];
+var inputStyleValues = [
+  /** a 1px box, the label above it — the safe default */
+  "outlined",
+  /** a tinted fill with no border, the label above */
+  "filled",
+  /** a rule under the field only, the label above */
+  "underline",
+  /** the label starts inside the field and rises on focus */
+  "floating",
+  /** the label sits permanently inside the field, above the value */
+  "inset",
+  /** no chrome at all until hover or focus */
+  "borderless"
+];
+var priorityValues = ["logic-first", "ui-first"];
+var shapeSchema = external_exports.object({
+  /** buttons, inputs, chips */
+  control: external_exports.number().min(0).max(64).default(8),
+  /** cards, panels, table shells */
+  card: external_exports.number().min(0).max(64).default(12),
+  /** dialogs, popovers, sheets */
+  overlay: external_exports.number().min(0).max(64).default(16),
+  /** actions are fully round, whatever `control` says */
+  pill: external_exports.boolean().default(false)
+});
+var paletteSchema = external_exports.object({
+  light: external_exports.record(external_exports.string()).default({}),
+  dark: external_exports.record(external_exports.string()).default({})
+});
+var fontsSchema = external_exports.object({
+  display: external_exports.string().default(""),
+  body: external_exports.string().default(""),
+  mono: external_exports.string().default("")
+});
+var themeSchema = external_exports.object({
+  /** id from features/theme/data/design-languages.ts */
+  designLanguage: external_exports.string().default("modern-soft"),
+  primaryColor: external_exports.string().default("#4f46e5"),
+  secondaryColor: external_exports.string().default("#0ea5e9"),
+  borderRadius: external_exports.enum(borderRadiusValues).default("medium"),
+  buttonStyle: external_exports.enum(buttonStyleValues).default("filled"),
+  density: external_exports.enum(["compact", "comfortable", "spacious"]).default("comfortable"),
+  headingFont: external_exports.enum(fontCharacterValues).default("grotesque"),
+  bodyFont: external_exports.enum(bodyFontValues).default("pair"),
+  /** how far apart the heading sizes sit */
+  typeScale: external_exports.enum(typeScaleValues).default("balanced"),
+  iconStyle: external_exports.enum(iconStyleValues).default("line"),
+  elevation: external_exports.enum(elevationValues).default("subtle"),
+  motion: external_exports.enum(motionValues).default("restrained"),
+  colorScheme: external_exports.enum(colorSchemeValues).default("both"),
+  /** id from features/theme/data/presets.ts — the source of every value below */
+  preset: external_exports.string().default("atrium"),
+  shape: shapeSchema.default({}),
+  palette: paletteSchema.default({}),
+  fonts: fontsSchema.default({}),
+  /** step ratio between type sizes; 1.2 minor third, 1.25 major third */
+  scaleRatio: external_exports.number().min(1.05).max(1.7).default(1.25),
+  /** chroma as a percentage of what the hue can actually reach in sRGB */
+  vividness: external_exports.number().min(0).max(100).default(60),
+  /** the hue every neutral is biased toward, so greys read as chosen */
+  neutralHue: external_exports.number().min(0).max(360).default(160),
+  /**
+   * One line on why this design, in the words of whoever chose it.
+   *
+   * A design that arrives in a pasted `.flow` is a suggestion, and a suggestion
+   * you cannot see the reasoning for is only a set of values to accept or
+   * distrust. It is written by the model that produced the file and shown at
+   * the top of the design editor; nothing derives from it.
+   */
+  designNote: external_exports.string().default(""),
+  elevationStrategy: external_exports.enum(elevationStrategyValues).default("shadow"),
+  motionModel: external_exports.enum(motionModelValues).default("duration"),
+  inputStyle: external_exports.enum(inputStyleValues).default("outlined")
+});
+var userStorySchema = external_exports.object({
+  /** "an operations admin" */
+  role: external_exports.string().default(""),
+  /** "see every client in one filterable table" */
+  want: external_exports.string().default(""),
+  /** "I can reach the right record without hunting through pages" */
+  soThat: external_exports.string().default(""),
+  /** checkable acceptance criteria, in the client's language */
+  criteria: external_exports.array(external_exports.string()).default([])
+});
+var flowSchema = external_exports.object({
+  id: external_exports.string(),
+  /** stable slug used by the `.flow` language — unique per project */
+  key: external_exports.string(),
+  name: external_exports.string(),
+  story: userStorySchema.default({}),
+  note: external_exports.string().default(""),
+  order: external_exports.number().default(0)
+});
+var viewSchema = external_exports.object({
+  id: external_exports.string(),
+  /** stable slug used by the `.flow` language — unique per project */
+  key: external_exports.string(),
+  name: external_exports.string(),
+  note: external_exports.string().default("")
+});
+var surfaceValues = ["web", "mobile", "backend"];
+var screenSchema = external_exports.object({
+  id: external_exports.string(),
+  /** stable slug used by the `.flow` language — unique per project */
+  key: external_exports.string(),
+  title: external_exports.string(),
+  template: external_exports.string().default(""),
+  layout: external_exports.string().default(""),
+  note: external_exports.string().default(""),
+  /** which build this screen is part of */
+  surface: external_exports.enum(surfaceValues).default("web"),
+  /**
+   * View ids this screen belongs to. **Empty means every view** — shared
+   * surfaces are the common case, and it keeps projects written before views
+   * existed behaving exactly as they did.
+   */
+  views: external_exports.array(external_exports.string()).default([]),
+  /**
+   * Flow ids this screen is part of. Normally written by the model as it
+   * generates the file and corrected from the inspector — never derived from
+   * the graph, so a tag never re-computes itself behind you. Empty means
+   * ungrouped, which is a state the flow picker shows rather than hides.
+   */
+  flows: external_exports.array(external_exports.string()).default([]),
+  /** why this screen exists, and when it is done */
+  story: userStorySchema.default({}),
+  x: external_exports.number().default(0),
+  y: external_exports.number().default(0)
+});
+var moduleSchema = external_exports.object({
+  id: external_exports.string(),
+  /** owning screen id */
+  screenId: external_exports.string(),
+  /** unique within the owning screen — how `.flow` refers to it */
+  key: external_exports.string(),
+  name: external_exports.string(),
+  /** id from features/library/data/module-kinds.ts */
+  kind: external_exports.string().default("panel"),
+  /** what opens or fires it — "click Add Client", "on page load" */
+  trigger: external_exports.string().default(""),
+  note: external_exports.string().default(""),
+  order: external_exports.number().default(0)
+});
+var moduleEdgeSchema = external_exports.object({
+  id: external_exports.string(),
+  from: external_exports.string(),
+  to: external_exports.string(),
+  trigger: external_exports.string().default("")
+});
+var edgeSchema = external_exports.object({
+  id: external_exports.string(),
+  from: external_exports.string(),
+  to: external_exports.string(),
+  /** what causes the transition — "on submit", "click Add Client" */
+  trigger: external_exports.string().default(""),
+  /** view ids this transition exists in; empty means every view */
+  views: external_exports.array(external_exports.string()).default([])
+});
+var sectionSchema = external_exports.object({
+  id: external_exports.string(),
+  type: external_exports.string(),
+  name: external_exports.string(),
+  layout: external_exports.string().default(""),
+  note: external_exports.string().default(""),
+  order: external_exports.number()
+});
+var fieldKindValues = [
+  "uuid",
+  "text",
+  "string",
+  "integer",
+  "bigint",
+  "decimal",
+  "boolean",
+  "timestamp",
+  "date",
+  "time",
+  "json",
+  "enum",
+  "array",
+  "binary"
+];
+var entityFieldSchema = external_exports.object({
+  id: external_exports.string(),
+  /** column name, as it will exist in the database */
+  name: external_exports.string(),
+  /** free text rather than an enum: every database spells its types its own way */
+  type: external_exports.string().default("text"),
+  primary: external_exports.boolean().default(false),
+  required: external_exports.boolean().default(false),
+  unique: external_exports.boolean().default(false),
+  indexed: external_exports.boolean().default(false),
+  /** literal default, written into the migration — "now()", "0", "'draft'" */
+  defaultValue: external_exports.string().default(""),
+  /** allowed values for an enum column */
+  options: external_exports.array(external_exports.string()).default([]),
+  note: external_exports.string().default("")
+});
+var entitySchema = external_exports.object({
+  id: external_exports.string(),
+  /** table name — snake_case, unique in the project */
+  key: external_exports.string(),
+  /** what a person calls it — "Orders" */
+  name: external_exports.string(),
+  note: external_exports.string().default(""),
+  fields: external_exports.array(entityFieldSchema).default([]),
+  x: external_exports.number().default(0),
+  y: external_exports.number().default(0)
+});
+var relationKindValues = [
+  "one-to-many",
+  "many-to-one",
+  "one-to-one",
+  "many-to-many"
+];
+var relationSchema = external_exports.object({
+  id: external_exports.string(),
+  /** entity id holding the foreign key (for many-to-many, either side) */
+  from: external_exports.string(),
+  /** the column that holds it — "user_id" */
+  fromField: external_exports.string().default(""),
+  /** entity id being pointed at */
+  to: external_exports.string(),
+  /** the column being pointed at — normally the primary key */
+  toField: external_exports.string().default("id"),
+  kind: external_exports.enum(relationKindValues).default("many-to-one"),
+  /** "an order belongs to a customer" */
+  label: external_exports.string().default(""),
+  onDelete: external_exports.enum(["cascade", "restrict", "set-null"]).default("restrict"),
+  /** join table name, many-to-many only */
+  through: external_exports.string().default("")
+});
+var stackSchema = external_exports.object({
+  framework: external_exports.string().default("next-16"),
+  language: external_exports.string().default("ts-strict"),
+  styling: external_exports.string().default("tailwind4-shadcn"),
+  state: external_exports.string().default("tanstack-zustand"),
+  forms: external_exports.string().default("rhf-zod"),
+  http: external_exports.string().default("axios-instance"),
+  icons: external_exports.string().default("lucide"),
+  tables: external_exports.string().default("tanstack-table"),
+  charts: external_exports.string().default("recharts"),
+  testing: external_exports.string().default("vitest"),
+  tooling: external_exports.string().default("biome-prettier"),
+  packageManager: external_exports.string().default("pnpm"),
+  /**
+   * The service half of the stack.
+   *
+   * Blank on a UI surface rather than absent: a screen has no database, and
+   * defaulting these to Postgres would put a database into every web-only
+   * brief that never asked for one. They are filled in only on the backend
+   * surface, where the picker shows them.
+   */
+  database: external_exports.string().default(""),
+  orm: external_exports.string().default(""),
+  apiStyle: external_exports.string().default(""),
+  apiAuth: external_exports.string().default(""),
+  /** free-text additions the catalogue does not know about */
+  extras: external_exports.array(external_exports.string()).default([])
+});
+var structureSchema = external_exports.object({
+  preset: external_exports.string().default("feature-based"),
+  customTree: external_exports.string().default("")
+});
+var conventionsSchema = external_exports.object({
+  ids: external_exports.array(external_exports.string()).default([]),
+  custom: external_exports.string().default("")
+});
+var surfaceConfigSchema = external_exports.object({
+  stack: stackSchema.default({}),
+  structure: structureSchema.default({})
+});
+var mobileSurfaceDefaults = {
+  stack: {
+    framework: "expo-router",
+    styling: "nativewind",
+    state: "rn-query-zustand",
+    icons: "rn-vector-icons",
+    tables: "rn-flashlist",
+    charts: "victory-native",
+    testing: "rn-testing-library"
+  },
+  structure: { preset: "expo-feature-based" }
+};
+var backendSurfaceDefaults = {
+  stack: {
+    // A service has no UI, so the presentation choices are deliberately blank
+    // rather than a web default nobody meant to pick.
+    framework: "fastapi",
+    language: "python",
+    styling: "",
+    forms: "",
+    icons: "",
+    tables: "",
+    charts: "",
+    state: "none-state-server",
+    http: "none-http-server",
+    testing: "pytest",
+    tooling: "ruff-mypy",
+    packageManager: "uv",
+    // The service half, which the Backend tab had no way to express at all
+    // until now: it blanked the presentation fields and offered nothing in
+    // their place, so a backend brief named no server technology.
+    database: "postgres",
+    orm: "sqlalchemy",
+    apiStyle: "rest-openapi",
+    apiAuth: "jwt-refresh"
+  },
+  structure: { preset: "src-layered" }
+};
+var deploymentSchema = external_exports.object({
+  /** ids from features/deploy/data/targets.ts */
+  mcps: external_exports.array(external_exports.string()).default([]),
+  iac: external_exports.string().default("none"),
+  /** free text appended to the deployment block — domains, regions, accounts */
+  notes: external_exports.string().default("")
+});
+var projectDocSchema = external_exports.object({
+  name: external_exports.string().default("Untitled project"),
+  /**
+   * Which builds this project ships.
+   *
+   * Named `builds` rather than `surfaces` because `surfaces` already means
+   * something here — the per-surface stack and folder configuration below.
+   * This is the shorter question: which of them are we shipping at all.
+   *
+   * Until now this was inferred from which screens happened to exist, which
+   * cannot express "there is a backend" before anybody has drawn a service, and
+   * cannot express intent at all: a project meant to ship a phone app looked
+   * identical to one where somebody had tagged a screen `surface mobile` by
+   * accident. Stated up front, it drives what the generated prompt asks for and
+   * what the requirements prompt tells a model to write.
+   *
+   * Web defaults on because every existing project is a web project.
+   */
+  builds: external_exports.object({
+    web: external_exports.boolean().default(true),
+    mobile: external_exports.boolean().default(false),
+    backend: external_exports.boolean().default(false)
+  }).default({}),
+  /**
+   * Whether the build starts from the shared boilerplate repository or from an
+   * empty folder.
+   *
+   * Defaults to "scratch" so no existing project changes shape underneath
+   * anyone: a brief that has been handed to a developer must keep generating
+   * what it generated yesterday.
+   */
+  startFrom: external_exports.enum(["scratch", "boilerplate"]).default("boilerplate"),
+  /**
+   * What this build is for, and therefore what the prompt should contain.
+   *
+   * "ui-first" is a prototype: the design is chosen before the flow is drawn,
+   * and the generated prompt drops the data model, the backend and deployment
+   * — a frontend brief carrying a Prisma schema is the thing that makes people
+   * stop reading. "logic-first" is the whole system, and is what every project
+   * written before this field existed keeps doing.
+   */
+  priority: external_exports.enum(priorityValues).default("logic-first"),
+  target: external_exports.string().default("claude-code"),
+  deployment: deploymentSchema.default({}),
+  /**
+   * Legacy 0–10 creative latitude. No longer written by the UI; kept so an
+   * existing project can be migrated to `uiLevel` rather than silently reset
+   * to the default. See `uiLevelOf`.
+   */
+  creativity: external_exports.number().min(0).max(10).default(5),
+  /**
+   * How much visual and interaction ambition to build — 1 (literal) to 5
+   * (signature). `null` means "never set on this document", which is how a
+   * project written before this field existed is recognised and migrated from
+   * `creativity`. Read it through `uiLevelOf`, never directly.
+   */
+  uiLevel: external_exports.number().int().min(1).max(5).nullable().default(null),
+  views: external_exports.array(viewSchema).default([]),
+  flows: external_exports.array(flowSchema).default([]),
+  screens: external_exports.array(screenSchema).default([]),
+  edges: external_exports.array(edgeSchema).default([]),
+  modules: external_exports.array(moduleSchema).default([]),
+  moduleEdges: external_exports.array(moduleEdgeSchema).default([]),
+  sections: external_exports.array(sectionSchema).default([]),
+  /** the tables behind every build, and how they relate */
+  entities: external_exports.array(entitySchema).default([]),
+  relations: external_exports.array(relationSchema).default([]),
+  theme: themeSchema.default({}),
+  /**
+   * `stack` and `structure` are the **web** surface's, kept at the top level so
+   * every project written before surfaces existed still means what it said.
+   * Mobile and backend carry their own under `surfaces`.
+   */
+  stack: stackSchema.default({}),
+  structure: structureSchema.default({}),
+  surfaces: external_exports.object({
+    mobile: surfaceConfigSchema.default(
+      () => surfaceConfigSchema.parse(mobileSurfaceDefaults)
+    ),
+    backend: surfaceConfigSchema.default(
+      () => surfaceConfigSchema.parse(backendSurfaceDefaults)
+    )
+  }).default({}),
+  conventions: conventionsSchema.default({}),
+  requirements: external_exports.string().default(""),
+  snippetIds: external_exports.array(external_exports.string()).default([])
+});
+var snapshotSchema = external_exports.object({
+  id: external_exports.string(),
+  label: external_exports.string(),
+  createdAt: external_exports.number(),
+  doc: projectDocSchema,
+  /**
+   * Who saved it, by display name.
+   *
+   * Stored rather than looked up: a version outlives the session that made it,
+   * and on a shared project the useful question months later is "who took this
+   * snapshot", which no amount of current state can answer. Blank for versions
+   * saved before this existed, and for anyone working signed out.
+   */
+  by: external_exports.string().default(""),
+  /**
+   * What caused it. Every version used to be labelled "Generated for Claude
+   * Code", so a list of them was twenty identical rows and choosing between
+   * them meant opening each one.
+   */
+  kind: external_exports.enum(["generated", "manual", "auto"]).default("manual")
+});
+var projectSchema = projectDocSchema.extend({
+  id: external_exports.string(),
+  createdAt: external_exports.number(),
+  updatedAt: external_exports.number(),
+  schemaVersion: external_exports.number().default(SCHEMA_VERSION),
+  versions: external_exports.array(snapshotSchema).default([])
+});
+var projectFileSchema = external_exports.object({
+  kind: external_exports.literal("prompt-studio/project"),
+  schemaVersion: external_exports.number(),
+  exportedAt: external_exports.number().optional(),
+  project: projectSchema
+});
+
+// src/studio/features/flow-lang/tokenize.ts
+var HEREDOC_OPEN = "\xABH";
+var HEREDOC_CLOSE = "\xBB";
+function tokenize(source) {
+  const heredocs = [];
+  const withPlaceholders = source.replace(
+    /"""([\s\S]*?)"""/g,
+    (_, body) => {
+      heredocs.push(dedent(String(body)));
+      return ` ${HEREDOC_OPEN}${heredocs.length - 1}${HEREDOC_CLOSE} `;
+    }
+  );
+  const lines = [];
+  const rawLines = withPlaceholders.split(/\r?\n/);
+  rawLines.forEach((raw, index) => {
+    const cleaned = stripComments(raw);
+    for (const piece of splitStatements(cleaned)) {
+      const text2 = piece.trim();
+      if (text2) lines.push({ line: index + 1, text: text2 });
+    }
+  });
+  return { lines, heredocs };
+}
+function resolveHeredoc(value, heredocs) {
+  const match = value.trim().match(/^«H(\d+)»$/);
+  if (!match) return value;
+  return heredocs[Number(match[1])] ?? "";
+}
+function stripComments(input) {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < input.length; i += 1) {
+    const char = input[i];
+    const next = input[i + 1];
+    if (char === '"') {
+      inString = !inString;
+      out += char;
+      continue;
+    }
+    if (!inString) {
+      if (char === "/" && next === "/") break;
+      if (char === "#" && (next === " " || next === "	" || next === void 0)) {
+        break;
+      }
+    }
+    out += char;
+  }
+  return out;
+}
+function splitStatements(input) {
+  const pieces = [];
+  let current = "";
+  let inString = false;
+  for (const char of input) {
+    if (char === '"') inString = !inString;
+    if (!inString && (char === ";" || char === "{" || char === "}")) {
+      if (current.trim()) pieces.push(current);
+      if (char !== ";") pieces.push(char);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  if (current.trim()) pieces.push(current);
+  return pieces;
+}
+function dedent(block2) {
+  const lines = block2.replace(/^\n/, "").replace(/\s+$/, "").split("\n");
+  const indents = lines.filter((l) => l.trim()).map((l) => l.match(/^\s*/)?.[0].length ?? 0);
+  const min = indents.length ? Math.min(...indents) : 0;
+  return lines.map((l) => l.slice(min)).join("\n");
+}
+function readQuoted(text2) {
+  const quoted = [];
+  const rest = text2.replace(/"([^"]*)"/g, (_, value) => {
+    quoted.push(value);
+    return " ";
+  });
+  return { rest, quoted };
+}
+function editDistance(a, b) {
+  if (a === b) return 0;
+  const cols = b.length + 1;
+  let prev = new Array(cols);
+  let curr = new Array(cols);
+  for (let j = 0; j < cols; j += 1) prev[j] = j;
+  for (let i = 1; i <= a.length; i += 1) {
+    curr[0] = i;
+    for (let j = 1; j < cols; j += 1) {
+      curr[j] = Math.min(
+        prev[j] + 1,
+        curr[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    const swap = prev;
+    prev = curr;
+    curr = swap;
+  }
+  return prev[cols - 1];
+}
+function closestMatch(value, candidates) {
+  let best = null;
+  for (const candidate of candidates) {
+    const distance = editDistance(value.toLowerCase(), candidate.toLowerCase());
+    if (!best || distance < best.distance) best = { id: candidate, distance };
+  }
+  if (!best) return null;
+  const tolerance = Math.max(2, Math.floor(value.length / 3));
+  return best.distance <= tolerance ? best.id : null;
+}
+
+// src/studio/features/flow-lang/parser.ts
+var layoutIds = allLayouts.map((l) => l.id);
+var templateIds = screenTemplates.map((t) => t.id);
+var sectionTypeIds = sectionTypes.map((s) => s.id);
+var conventionIds = conventions.map((c) => c.id);
+var snippetIds = snippets.map((s) => s.id);
+var structureIds = structurePresets.map((s) => s.id);
+var targetIds = promptTargets.map((t) => t.id);
+var moduleKindIds = moduleKinds.map((k) => k.id);
+var radiusAliases = {
+  none: "none",
+  "0": "none",
+  square: "none",
+  sm: "small",
+  small: "small",
+  md: "medium",
+  medium: "medium",
+  lg: "large",
+  large: "large",
+  xl: "large",
+  full: "full",
+  pill: "full",
+  rounded: "full"
+};
+var buttonAliases = {
+  filled: "filled",
+  solid: "filled",
+  outlined: "outlined",
+  outline: "outlined",
+  ghost: "outlined",
+  rounded: "rounded",
+  pill: "rounded",
+  sharp: "sharp",
+  square: "sharp"
+};
+var densityAliases = {
+  compact: "compact",
+  dense: "compact",
+  comfortable: "comfortable",
+  normal: "comfortable",
+  default: "comfortable",
+  spacious: "spacious",
+  roomy: "spacious"
+};
+var shapeAliases = {
+  control: "control",
+  controls: "control",
+  button: "control",
+  buttons: "control",
+  input: "control",
+  inputs: "control",
+  card: "card",
+  cards: "card",
+  panel: "card",
+  panels: "card",
+  surface: "card",
+  overlay: "overlay",
+  overlays: "overlay",
+  dialog: "overlay",
+  modal: "overlay",
+  sheet: "overlay"
+};
+var fontSlotAliases = {
+  display: "display",
+  heading: "display",
+  headings: "display",
+  title: "display",
+  body: "body",
+  text: "body",
+  paragraph: "body",
+  mono: "mono",
+  code: "mono",
+  monospace: "mono"
+};
+var PILL_WORDS = /\b(pill|no_pill|nopill|not_pill|square|squared)\b/gi;
+var priorityAliases = {
+  "logic-first": "logic-first",
+  logic_first: "logic-first",
+  logicfirst: "logic-first",
+  logic: "logic-first",
+  system: "logic-first",
+  full: "logic-first",
+  "ui-first": "ui-first",
+  ui_first: "ui-first",
+  uifirst: "ui-first",
+  ui: "ui-first",
+  design: "ui-first",
+  prototype: "ui-first"
+};
+function parseFlow(source) {
+  const { lines, heredocs } = tokenize(source);
+  const warnings = [];
+  const themeStated = /* @__PURE__ */ new Set();
+  const errors = [];
+  const doc = projectDocSchema.parse({});
+  const screens = [];
+  const edges = [];
+  const modules = [];
+  const moduleEdges = [];
+  const sections = [];
+  const views = [];
+  const flows = [];
+  const entities = [];
+  const relationDrafts = [];
+  const byKey = /* @__PURE__ */ new Map();
+  let profile;
+  const stack = [{ kind: "root" }];
+  let pending = null;
+  const ctx = () => stack[stack.length - 1];
+  const ensureScreen = (rawKey, _line, title) => {
+    const key = slugify(rawKey);
+    const existing = byKey.get(key);
+    if (existing) {
+      if (title) existing.title = title;
+      return existing;
+    }
+    const screen = {
+      id: uid("scr"),
+      key: uniqueKey(key, byKey.keys()),
+      title: title || titleFromKey(key),
+      template: "",
+      layout: "",
+      note: "",
+      surface: "web",
+      views: [],
+      flows: [],
+      story: emptyStory(),
+      x: 0,
+      y: 0
+    };
+    screens.push(screen);
+    byKey.set(screen.key, screen);
+    return screen;
+  };
+  const ensureModule = (screenId, rawKey, name) => {
+    const key = slugify(rawKey);
+    const siblings = modules.filter((m) => m.screenId === screenId);
+    const existing = siblings.find((m) => m.key === key);
+    if (existing) {
+      if (name) existing.name = name;
+      return existing;
+    }
+    const module = {
+      id: uid("mod"),
+      screenId,
+      key: uniqueKey(
+        key,
+        siblings.map((m) => m.key)
+      ),
+      name: name || titleFromKey(key),
+      kind: "panel",
+      trigger: "",
+      note: "",
+      order: siblings.length
+    };
+    modules.push(module);
+    return module;
+  };
+  const ensureView = (rawKey, name) => {
+    const key = slugify(rawKey);
+    if (!key) return null;
+    const existing = views.find((v) => v.key === key);
+    if (existing) {
+      if (name) existing.name = name;
+      return existing;
+    }
+    const view = {
+      id: uid("vw"),
+      key,
+      name: name || titleFromKey(key),
+      note: ""
+    };
+    views.push(view);
+    return view;
+  };
+  const ensureFlow = (rawKey, name) => {
+    const key = slugify(rawKey);
+    if (!key) return null;
+    const existing = flows.find((f) => f.key === key);
+    if (existing) {
+      if (name) existing.name = name;
+      return existing;
+    }
+    const flow = {
+      id: uid("flw"),
+      key,
+      name: name || titleFromKey(key),
+      story: emptyStory(),
+      note: "",
+      order: flows.length
+    };
+    flows.push(flow);
+    return flow;
+  };
+  const ensureEntity = (rawKey, name) => {
+    const key = slugify(rawKey).replace(/-/g, "_");
+    if (!key) return null;
+    const existing = entities.find((entity2) => entity2.key === key);
+    if (existing) {
+      if (name) existing.name = name;
+      return existing;
+    }
+    const entity = {
+      id: uid("ent"),
+      key,
+      name: name || titleFromKey(key),
+      note: "",
+      fields: [],
+      x: 0,
+      y: 0
+    };
+    entities.push(entity);
+    return entity;
+  };
+  const readViewTags = (text2) => {
+    const ids = [];
+    for (const match of text2.matchAll(/@([a-z0-9_-]+)/gi)) {
+      const view = ensureView(match[1]);
+      if (view && !ids.includes(view.id)) ids.push(view.id);
+    }
+    return ids;
+  };
+  const matchId = (value, candidates, label, line) => {
+    const normalised = value.trim();
+    if (!normalised) return "";
+    if (candidates.includes(normalised)) return normalised;
+    const suggestion = closestMatch(normalised, candidates);
+    if (suggestion) {
+      warnings.push({
+        line,
+        message: `Unknown ${label} "${normalised}" \u2014 using "${suggestion}".`
+      });
+      return suggestion;
+    }
+    warnings.push({
+      line,
+      message: `Unknown ${label} "${normalised}" \u2014 kept as-is; the prompt will describe it literally.`
+    });
+    return normalised;
+  };
+  for (const entry of lines) {
+    const { line } = entry;
+    const raw = entry.text.trim();
+    if (!raw) continue;
+    if (raw === "{") {
+      stack.push(pending ?? { kind: "unknown" });
+      pending = null;
+      continue;
+    }
+    if (raw === "}") {
+      if (stack.length > 1) stack.pop();
+      else errors.push({ line, message: "Unmatched `}`." });
+      pending = null;
+      continue;
+    }
+    pending = null;
+    const { rest, quoted } = readQuoted(raw);
+    const words = rest.split(/[\s,]+/).filter(Boolean);
+    const keyword = (words[0] ?? "").toLowerCase();
+    const current = ctx();
+    if (current.kind === "inner") {
+      const trigger = quoted[0] ?? "";
+      const chain = rest.split(/->|=>|→/).map((part) => part.replace(/:.*$/, "").trim()).filter(Boolean);
+      if (chain.length === 1) {
+        ensureModule(current.screenId, chain[0]);
+        continue;
+      }
+      if (chain.length < 2) {
+        errors.push({ line, message: `Could not read inner connection: "${raw}".` });
+        continue;
+      }
+      for (let i = 0; i < chain.length - 1; i += 1) {
+        const from = ensureModule(current.screenId, chain[i]);
+        const to = ensureModule(current.screenId, chain[i + 1]);
+        if (from.id === to.id) {
+          warnings.push({ line, message: `"${from.name}" cannot connect to itself.` });
+          continue;
+        }
+        if (moduleEdges.some((e) => e.from === from.id && e.to === to.id)) {
+          warnings.push({
+            line,
+            message: `Duplicate inner connection ${from.key} \u2192 ${to.key} ignored.`
+          });
+          continue;
+        }
+        moduleEdges.push({
+          id: uid("med"),
+          from: from.id,
+          to: to.id,
+          trigger: i === 0 ? trigger : ""
+        });
+      }
+      continue;
+    }
+    if (current.kind === "data" || current.kind === "table") {
+      if (keyword === "rel" || keyword === "relation" || keyword === "ref" || keyword === "references" || current.kind === "data" && /(->|<->|=>|→|↔)/.test(rest)) {
+        const draft = readRelation(rest, quoted, line, warnings);
+        if (draft) relationDrafts.push(draft);
+        else errors.push({ line, message: `Could not read relation: "${raw}".` });
+        continue;
+      }
+      if (current.kind === "data") {
+        const declares = keyword === "table" || keyword === "entity" || keyword === "model";
+        const key = declares ? words[1] ?? "" : words[0] ?? "";
+        const entity2 = ensureEntity(key, quoted[0]);
+        if (!entity2) {
+          errors.push({ line, message: `Could not read table: "${raw}".` });
+          continue;
+        }
+        if (quoted[1]) entity2.note = quoted[1];
+        pending = { kind: "table", id: entity2.id };
+        continue;
+      }
+      const entity = entities.find((e) => e.id === current.id);
+      if (!entity) continue;
+      const isProperty = words.length === 1 && quoted.length > 0;
+      if (isProperty && (keyword === "note" || keyword === "description")) {
+        entity.note = resolveHeredoc(quoted[0] ?? "", heredocs).trim();
+        continue;
+      }
+      if (isProperty && (keyword === "name" || keyword === "title")) {
+        const value = (quoted[0] ?? "").trim();
+        if (value) entity.name = value;
+        continue;
+      }
+      const column = readColumn(rest, quoted, line, warnings);
+      if (!column) {
+        errors.push({ line, message: `Could not read column: "${raw}".` });
+        continue;
+      }
+      const duplicate = entity.fields.find((f) => f.name === column.field.name);
+      if (duplicate) {
+        warnings.push({
+          line,
+          message: `\`${entity.key}.${column.field.name}\` is declared twice \u2014 the second one wins.`
+        });
+        Object.assign(duplicate, column.field, { id: duplicate.id });
+      } else {
+        entity.fields.push(column.field);
+      }
+      if (column.ref) {
+        relationDrafts.push({
+          from: entity.key,
+          fromField: column.field.name,
+          to: column.ref.table,
+          toField: column.ref.field,
+          kind: column.field.unique ? "one-to-one" : "many-to-one",
+          label: "",
+          onDelete: column.ref.onDelete ?? "restrict",
+          through: "",
+          line
+        });
+      }
+      continue;
+    }
+    if (current.kind === "module") {
+      const module = modules.find((m) => m.id === current.id);
+      if (!module) continue;
+      const value = words.slice(1).join(" ").trim();
+      switch (keyword) {
+        case "kind":
+        case "type":
+          module.kind = matchId(
+            value || quoted[0] || "",
+            moduleKindIds,
+            "module kind",
+            line
+          );
+          break;
+        case "on":
+        case "trigger":
+        case "when":
+          module.trigger = quoted[0] ?? value;
+          break;
+        case "name":
+        case "title":
+          module.name = quoted[0] || value;
+          break;
+        case "note":
+        case "notes":
+        case "description":
+          module.note = resolveHeredoc(quoted[0] ?? value, heredocs);
+          break;
+        default:
+          warnings.push({
+            line,
+            message: `Unknown module property "${keyword}" \u2014 ignored.`
+          });
+      }
+      continue;
+    }
+    if (current.kind === "story") {
+      const story = current.story;
+      if (current.collecting) {
+        pushCriteria(story, raw, heredocs);
+        if (raw.includes("]")) current.collecting = false;
+        continue;
+      }
+      const inline = (quoted[0] ?? words.slice(1).join(" ")).trim();
+      const value = resolveHeredoc(inline, heredocs).trim();
+      switch (keyword) {
+        case "as":
+        case "as_a":
+        case "role":
+        case "persona":
+        case "who":
+          story.role = stripLead(value, /^as\s+(a|an|the)\s+/i);
+          break;
+        case "want":
+        case "wants":
+        case "i_want":
+        case "iwant":
+        case "goal":
+        case "need":
+          story.want = stripLead(value, /^i\s+want\s+(to\s+)?/i);
+          break;
+        case "so":
+        case "so_that":
+        case "sothat":
+        case "benefit":
+        case "value":
+        case "why":
+          story.soThat = stripLead(value, /^so\s+that\s+/i);
+          break;
+        case "accept":
+        case "acceptance":
+        case "acceptance_criteria":
+        case "criteria":
+        case "ac":
+        case "given": {
+          const items = quoted.length ? quoted : bracketList(rest);
+          const heredoc = rest.match(/«H\d+»/);
+          if (heredoc) {
+            for (const line2 of resolveHeredoc(heredoc[0], heredocs).split("\n")) {
+              const text2 = line2.replace(/^\s*[-*•]\s*/, "").trim();
+              if (text2) story.criteria.push(text2);
+            }
+          } else {
+            for (const item of items) {
+              const text2 = item.trim();
+              if (text2) story.criteria.push(text2);
+            }
+          }
+          if (raw.includes("[") && !raw.includes("]")) current.collecting = true;
+          break;
+        }
+        default:
+          warnings.push({
+            line,
+            message: `Unknown story property "${keyword}" \u2014 ignored.`
+          });
+      }
+      continue;
+    }
+    if (current.kind === "palette") {
+      const token = words[0] ?? "";
+      if (!token) continue;
+      const bare = raw.slice(raw.indexOf(token) + token.length).trim();
+      const value = quoted.length ? quoted[0] : bare;
+      if (!quoted.length && !bare) {
+        warnings.push({
+          line,
+          message: `\`${token}\` has no colour after it \u2014 ignored.`
+        });
+        continue;
+      }
+      const name = token.replace(/^--/, "").replace(/:$/, "").toLowerCase();
+      doc.theme.palette[current.mode][name] = value;
+      continue;
+    }
+    if (current.kind === "flows") {
+      const declares = keyword === "flow" || keyword === "journey" || keyword === "group";
+      const key = declares ? words[1] ?? slugify(quoted[0] ?? "") : words[0] ?? slugify(quoted[0] ?? "");
+      const flow = ensureFlow(key, quoted[0]);
+      if (!flow) {
+        errors.push({ line, message: `Could not read flow: "${raw}".` });
+        continue;
+      }
+      if (quoted[1]) flow.note = quoted[1];
+      pending = { kind: "flowGroup", id: flow.id };
+      continue;
+    }
+    if (current.kind === "flowGroup") {
+      const flow = flows.find((f) => f.id === current.id);
+      if (!flow) continue;
+      const inline = (quoted[0] ?? words.slice(1).join(" ")).trim();
+      switch (keyword) {
+        case "name":
+        case "title":
+          if (inline) flow.name = inline;
+          continue;
+        case "note":
+        case "notes":
+        case "description":
+          flow.note = resolveHeredoc(inline, heredocs).trim();
+          continue;
+        case "story":
+        case "user_story":
+        case "userstory": {
+          if (quoted[0]) applyStorySentence(flow.story, quoted[0]);
+          pending = { kind: "story", story: flow.story, collecting: false };
+          continue;
+        }
+        case "screens":
+        case "screen": {
+          for (const item of bracketList(rest).concat(quoted)) {
+            const screen = ensureScreen(item, line);
+            if (!screen.flows.includes(flow.id)) screen.flows.push(flow.id);
+          }
+          continue;
+        }
+        default:
+          warnings.push({
+            line,
+            message: `Unknown flow property "${keyword}" \u2014 ignored.`
+          });
+          continue;
+      }
+    }
+    if (current.kind === "flow" || /(->|=>|→)/.test(raw)) {
+      const trigger = quoted[0] ?? "";
+      const edgeViews = readViewTags(rest);
+      const chain = rest.replace(/@[a-z0-9_-]+/gi, " ").split(/->|=>|→/).map((part) => part.replace(/:.*$/, "").trim()).filter(Boolean);
+      if (chain.length >= 2) {
+        for (let i = 0; i < chain.length - 1; i += 1) {
+          const from = ensureScreen(chain[i], line);
+          const to = ensureScreen(chain[i + 1], line);
+          if (from.id === to.id) {
+            warnings.push({ line, message: `"${from.title}" cannot connect to itself.` });
+            continue;
+          }
+          if (edges.some((e) => e.from === from.id && e.to === to.id)) {
+            warnings.push({
+              line,
+              message: `Duplicate connection ${from.key} \u2192 ${to.key} ignored.`
+            });
+            continue;
+          }
+          edges.push({
+            id: uid("edg"),
+            from: from.id,
+            to: to.id,
+            // A chain shares one label only between its first pair.
+            trigger: i === 0 ? trigger : "",
+            views: edgeViews
+          });
+        }
+        continue;
+      }
+      if (current.kind === "flow") {
+        if (chain.length === 1) {
+          ensureScreen(chain[0], line);
+          continue;
+        }
+        errors.push({ line, message: `Could not read connection: "${raw}".` });
+        continue;
+      }
+    }
+    if (current.kind === "views") {
+      const view = ensureView(words[0] ?? slugify(quoted[0] ?? ""), quoted[0]);
+      if (!view) {
+        errors.push({ line, message: `Could not read view: "${raw}".` });
+      } else if (quoted[1]) {
+        view.note = quoted[1];
+      }
+      continue;
+    }
+    if (current.kind === "theme") {
+      const value = words.slice(1).join(" ").trim() || quoted[0] || "";
+      const args = raw.replace(/^\S+\s*/, "");
+      const before = JSON.stringify(doc.theme);
+      const opens = applyThemeProp(doc, keyword, value, line, warnings, args);
+      if (before !== JSON.stringify(doc.theme)) {
+        for (const field2 of Object.keys(doc.theme)) {
+          if (JSON.stringify(doc.theme[field2]) !== JSON.stringify(JSON.parse(before)[field2])) {
+            themeStated.add(field2);
+          }
+        }
+      }
+      if (opens) pending = { kind: "palette", mode: opens };
+      continue;
+    }
+    if (current.kind === "stack") {
+      const target = current.surface === "web" ? doc.stack : doc.surfaces[current.surface].stack;
+      if (keyword === "extras" || keyword === "extra") {
+        const extras = [
+          ...words.slice(1),
+          ...quoted
+        ].map((v) => v.trim()).filter(Boolean);
+        target.extras = [...target.extras, ...extras];
+        continue;
+      }
+      const group = stackGroups.find(
+        (g) => g.key.toLowerCase() === keyword || g.label.toLowerCase() === keyword
+      );
+      const value = words[1] ?? quoted[0] ?? "";
+      if (group) {
+        const ids = group.options.map((o) => o.id);
+        target[group.key] = matchId(value, ids, `${group.label} option`, line);
+      } else if (value) {
+        target.extras.push(`${keyword}: ${value}`);
+        warnings.push({
+          line,
+          message: `Unknown stack key "${keyword}" \u2014 added to extras.`
+        });
+      }
+      continue;
+    }
+    if (current.kind === "landing" || keyword === "section") {
+      if (keyword !== "section") {
+        errors.push({ line, message: `Expected a \`section\` statement, got "${raw}".` });
+        continue;
+      }
+      const type = matchId(words[1] ?? "", sectionTypeIds, "section type", line);
+      const layoutWord = words.indexOf("layout");
+      const layoutValue = layoutWord !== -1 ? words[layoutWord + 1] ?? "" : "";
+      const sectionLayouts2 = allLayouts.filter((l) => l.scope === "section").map((l) => l.id);
+      const meta = sectionTypes.find((s) => s.id === type);
+      sections.push({
+        id: uid("sec"),
+        type,
+        name: quoted[0] || meta?.name || type,
+        layout: layoutValue ? matchId(layoutValue, sectionLayouts2, "layout", line) : meta?.defaultLayout ?? "",
+        note: quoted[1] ?? "",
+        order: sections.length
+      });
+      continue;
+    }
+    if (current.kind === "screen") {
+      const screen = screens.find((s) => s.id === current.id);
+      if (!screen) continue;
+      const value = words.slice(1).join(" ").trim();
+      switch (keyword) {
+        case "module":
+        case "part":
+        case "component": {
+          const module = ensureModule(
+            screen.id,
+            words[1] ?? slugify(quoted[0] ?? "module"),
+            quoted[0]
+          );
+          const kindWord = words.indexOf("kind");
+          if (kindWord !== -1 && words[kindWord + 1]) {
+            module.kind = matchId(
+              words[kindWord + 1],
+              moduleKindIds,
+              "module kind",
+              line
+            );
+          }
+          if (quoted[1]) module.trigger = quoted[1];
+          pending = { kind: "module", id: module.id, screenId: screen.id };
+          continue;
+        }
+        case "surface":
+        case "build":
+        case "platform": {
+          const value2 = (words[1] ?? quoted[0] ?? "").toLowerCase();
+          const match = surfaceValues.find((v) => v === value2);
+          if (match) {
+            screen.surface = match;
+          } else {
+            warnings.push({
+              line,
+              message: `Unknown surface "${value2}" \u2014 kept on web. Use one of ${surfaceValues.join(", ")}.`
+            });
+          }
+          continue;
+        }
+        case "in":
+        case "views":
+        case "roles": {
+          const items = bracketList(rest).concat(quoted);
+          screen.views = items.map((item) => ensureView(item)?.id).filter((id) => Boolean(id));
+          continue;
+        }
+        case "inner":
+        case "internal":
+        case "module_flow": {
+          pending = { kind: "inner", screenId: screen.id };
+          continue;
+        }
+        case "template":
+        case "type":
+          screen.template = matchId(value || quoted[0] || "", templateIds, "screen type", line);
+          if (!screen.layout) {
+            const template = screenTemplates.find((t) => t.id === screen.template);
+            if (template) screen.layout = template.defaultLayout;
+          }
+          break;
+        case "layout":
+          screen.layout = matchId(value || quoted[0] || "", layoutIds, "layout", line);
+          break;
+        case "title":
+          screen.title = quoted[0] || value;
+          break;
+        case "note":
+        case "notes":
+        case "description":
+          screen.note = resolveHeredoc(quoted[0] ?? value, heredocs);
+          break;
+        case "story":
+        case "user_story":
+        case "userstory": {
+          if (quoted[0]) {
+            applyStorySentence(screen.story, resolveHeredoc(quoted[0], heredocs));
+          }
+          pending = { kind: "story", story: screen.story, collecting: false };
+          break;
+        }
+        case "flows":
+        case "flow":
+        case "journeys":
+        case "journey": {
+          for (const item of bracketList(rest).concat(quoted)) {
+            const flow = ensureFlow(item);
+            if (flow && !screen.flows.includes(flow.id)) screen.flows.push(flow.id);
+          }
+          break;
+        }
+        default:
+          warnings.push({
+            line,
+            message: `Unknown screen property "${keyword}" \u2014 ignored.`
+          });
+      }
+      continue;
+    }
+    switch (keyword) {
+      case "app":
+      case "project": {
+        doc.name = quoted[0] || words.slice(1).join(" ") || doc.name;
+        pending = { kind: "app" };
+        continue;
+      }
+      case "screen":
+      case "page": {
+        const key = words[1] ?? slugify(quoted[0] ?? "screen");
+        const screen = ensureScreen(key, line, quoted[0]);
+        pending = { kind: "screen", id: screen.id };
+        continue;
+      }
+      case "flow":
+      case "navigation": {
+        pending = { kind: "flow" };
+        continue;
+      }
+      case "views":
+      case "roles":
+      case "personas": {
+        pending = { kind: "views" };
+        continue;
+      }
+      case "flows":
+      case "journeys": {
+        pending = { kind: "flows" };
+        continue;
+      }
+      case "landing":
+      case "page_sections":
+      case "sections": {
+        pending = { kind: "landing" };
+        continue;
+      }
+      case "data":
+      case "schema":
+      case "tables":
+      case "database":
+      case "model": {
+        pending = { kind: "data" };
+        continue;
+      }
+      case "stack": {
+        pending = { kind: "stack", surface: surfaceWord(words[1], line, warnings) };
+        continue;
+      }
+      case "theme": {
+        pending = { kind: "theme" };
+        continue;
+      }
+      case "builds":
+      case "build": {
+        const named = [...words.slice(1), ...quoted].flatMap((word) => word.split(/[,;]/)).map((word) => word.trim().toLowerCase()).filter(Boolean);
+        if (!named.length) continue;
+        doc.builds = { web: false, mobile: false, backend: false };
+        for (const word of named) {
+          const surface = surfaceWord(word, line, warnings);
+          doc.builds[surface] = true;
+        }
+        continue;
+      }
+      // What the build is for. A sibling of `builds` and `target` because it is
+      // the same kind of fact — one of the few decisions that changes what the
+      // generated prompt contains rather than what it says.
+      case "priority":
+      case "focus": {
+        const word = (words[1] ?? quoted[0] ?? "").toLowerCase().trim();
+        const match = priorityAliases[word];
+        if (match) {
+          doc.priority = match;
+        } else {
+          warnings.push({
+            line,
+            message: `"${word}" is not a priority \u2014 keeping ${doc.priority}. One of: ${priorityValues.join(", ")}.`
+          });
+        }
+        continue;
+      }
+      case "target": {
+        doc.target = matchId(words[1] ?? quoted[0] ?? "", targetIds, "target", line);
+        continue;
+      }
+      case "ui_level": {
+        const level = Number(words[1]);
+        if (Number.isFinite(level)) {
+          doc.uiLevel = Math.max(1, Math.min(5, Math.round(level)));
+        } else {
+          warnings.push({ line, message: `ui_level must be 1\u20135, got "${words[1]}".` });
+        }
+        continue;
+      }
+      // The old 0–10 dial. Still read so a `.flow` file written before the
+      // five-level scale keeps the setting its author chose, and mapped
+      // immediately rather than kept as a second source of truth.
+      case "creativity": {
+        const level = Number(words[1]);
+        if (Number.isFinite(level)) {
+          const clamped = Math.max(0, Math.min(10, Math.round(level)));
+          doc.creativity = clamped;
+          if (doc.uiLevel === null) doc.uiLevel = uiLevelFromLegacyCreativity(clamped);
+        } else {
+          warnings.push({ line, message: `Creativity must be 0\u201310, got "${words[1]}".` });
+        }
+        continue;
+      }
+      case "name": {
+        doc.name = quoted[0] || words.slice(1).join(" ") || doc.name;
+        continue;
+      }
+      case "structure": {
+        const first = (words[1] ?? "").toLowerCase();
+        const named = surfaceValues.some((value2) => value2 === first);
+        const surface = named ? first : "web";
+        const rest_ = named ? words.slice(2) : words.slice(1);
+        const target = surface === "web" ? doc.structure : doc.surfaces[surface].structure;
+        const value = rest_[0] ?? "";
+        if (value.toLowerCase() === "custom") {
+          target.preset = "custom";
+          target.customTree = resolveHeredoc(
+            rest_.slice(1).join(" ") || quoted[0] || "",
+            heredocs
+          );
+        } else {
+          target.preset = matchId(value, structureIds, "folder structure", line);
+        }
+        continue;
+      }
+      case "conventions": {
+        const items = bracketList(rest).concat(quoted);
+        doc.conventions.ids = items.map((item) => matchId(item, conventionIds, "convention", line)).filter(Boolean);
+        continue;
+      }
+      case "snippets": {
+        const items = bracketList(rest).concat(quoted);
+        doc.snippetIds = items.map((item) => matchId(item, snippetIds, "snippet", line)).filter(Boolean);
+        continue;
+      }
+      case "conventions_note":
+      case "house_rules": {
+        doc.conventions.custom = resolveHeredoc(
+          words.slice(1).join(" ") || quoted[0] || "",
+          heredocs
+        ).trim();
+        continue;
+      }
+      case "profile": {
+        profile = quoted[0] ?? words.slice(1).join(" ");
+        continue;
+      }
+      case "requirements":
+      case "notes": {
+        doc.requirements = resolveHeredoc(
+          words.slice(1).join(" ") || quoted[0] || "",
+          heredocs
+        ).trim();
+        continue;
+      }
+      default: {
+        if (current.kind === "app") {
+          warnings.push({ line, message: `Unknown app property "${keyword}" \u2014 ignored.` });
+        } else {
+          warnings.push({ line, message: `Could not understand "${raw}" \u2014 ignored.` });
+        }
+      }
+    }
+  }
+  if (stack.length > 1) {
+    warnings.push({
+      line: lines.at(-1)?.line ?? 1,
+      message: `${stack.length - 1} block(s) left unclosed \u2014 assumed closed at the end.`
+    });
+  }
+  for (const screen of screens) {
+    if (!screen.layout && screen.template) {
+      const template = screenTemplates.find((t) => t.id === screen.template);
+      if (template) screen.layout = template.defaultLayout;
+    }
+  }
+  doc.views = views;
+  const viewIds = new Set(views.map((v) => v.id));
+  for (const screen of screens) {
+    screen.views = screen.views.filter((id) => viewIds.has(id));
+  }
+  flows.forEach((flow, index) => {
+    flow.order = index;
+  });
+  doc.flows = flows;
+  const flowIds = new Set(flows.map((f) => f.id));
+  for (const screen of screens) {
+    screen.flows = [...new Set(screen.flows.filter((id) => flowIds.has(id)))];
+  }
+  for (const edge of edges) {
+    edge.views = edge.views.filter((id) => viewIds.has(id));
+  }
+  const entityByKey = new Map(entities.map((entity) => [entity.key, entity]));
+  const relations = [];
+  for (const draft of relationDrafts) {
+    const from = entityByKey.get(slugify(draft.from).replace(/-/g, "_"));
+    const to = entityByKey.get(slugify(draft.to).replace(/-/g, "_"));
+    if (!from || !to) {
+      const madeFrom = from ?? ensureEntity(draft.from);
+      const madeTo = to ?? ensureEntity(draft.to);
+      if (!madeFrom || !madeTo) {
+        warnings.push({
+          line: draft.line,
+          message: `Relation skipped \u2014 could not read the tables it joins.`
+        });
+        continue;
+      }
+      entityByKey.set(madeFrom.key, madeFrom);
+      entityByKey.set(madeTo.key, madeTo);
+      warnings.push({
+        line: draft.line,
+        message: `Relation joins ${madeFrom.key} \u2192 ${madeTo.key}, which were not declared as tables \u2014 created empty.`
+      });
+      relations.push(buildRelation(madeFrom, madeTo, draft));
+      continue;
+    }
+    relations.push(buildRelation(from, to, draft));
+  }
+  for (const relation of relations) {
+    if (relation.kind === "many-to-many") continue;
+    const from = entities.find((e) => e.id === relation.from);
+    const to = entities.find((e) => e.id === relation.to);
+    if (from && relation.fromField && !from.fields.some((f) => f.name === relation.fromField)) {
+      const target = to?.fields.find((f) => f.name === relation.toField);
+      from.fields.push({
+        id: uid("fld"),
+        name: relation.fromField,
+        type: target?.type ?? "uuid",
+        primary: false,
+        required: relation.kind !== "one-to-one",
+        unique: relation.kind === "one-to-one",
+        indexed: true,
+        defaultValue: "",
+        options: [],
+        note: ""
+      });
+    }
+  }
+  doc.entities = autoLayout(
+    entities,
+    relations.map((relation) => ({
+      id: relation.id,
+      from: relation.from,
+      to: relation.to
+    })),
+    {
+      heights: Object.fromEntries(
+        entities.map((entity) => [entity.id, entityHeight(entity.fields.length)])
+      ),
+      nodeWidth: ENTITY_WIDTH,
+      colGap: 110,
+      rowGap: 44
+    }
+  );
+  doc.relations = relations;
+  doc.screens = autoLayout(screens, edges, {
+    heights: Object.fromEntries(
+      screens.map((screen) => [screen.id, CARD_HEIGHT_FALLBACK])
+    ),
+    widths: Object.fromEntries(
+      screens.map((screen) => [screen.id, nodeWidthFor(screen.surface)])
+    )
+  });
+  doc.edges = edges;
+  doc.sections = sections;
+  const screenIds = new Set(screens.map((s) => s.id));
+  doc.modules = modules.filter((m) => screenIds.has(m.screenId));
+  const moduleIds = new Set(doc.modules.map((m) => m.id));
+  doc.moduleEdges = moduleEdges.filter(
+    (e) => moduleIds.has(e.from) && moduleIds.has(e.to)
+  );
+  if (!screens.length && !sections.length && !entities.length) {
+    errors.push({
+      line: 1,
+      message: "No screens, sections or tables found \u2014 is this Flow source?"
+    });
+  }
+  return { doc, profile, warnings, errors, themeStated: [...themeStated] };
+}
+function emptyStory() {
+  return { role: "", want: "", soThat: "", criteria: [] };
+}
+function stripLead(value, lead) {
+  return value.replace(lead, "").replace(/^[,\s]+/, "").replace(/[,.\s]+$/, "").trim();
+}
+function applyStorySentence(story, sentence2) {
+  const text2 = sentence2.trim();
+  if (!text2) return;
+  const match = text2.match(
+    /^as\s+(?:an?|the)?\s*(.+?)[,\s]+i\s+want\s+(?:to\s+)?(.+?)(?:[,\s]+so\s+that\s+(.+))?$/i
+  );
+  if (!match) {
+    if (!story.want) story.want = text2;
+    return;
+  }
+  if (!story.role) story.role = match[1].trim();
+  if (!story.want) story.want = match[2].trim().replace(/[.,]$/, "");
+  if (!story.soThat && match[3]) story.soThat = match[3].trim().replace(/[.]$/, "");
+}
+function pushCriteria(story, raw, heredocs) {
+  const body = raw.replace(/[[\]]/g, " ");
+  const { rest, quoted } = readQuoted(body);
+  if (quoted.length) {
+    for (const item of quoted) {
+      const text3 = item.trim();
+      if (text3) story.criteria.push(text3);
+    }
+    return;
+  }
+  const text2 = resolveHeredoc(rest, heredocs).replace(/^\s*[-*•]\s*/, "").replace(/,\s*$/, "").trim();
+  if (text2) story.criteria.push(text2);
+}
+function titleFromKey(key) {
+  return key.split("_").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+function bracketList(text2) {
+  const match = text2.match(/\[([^\]]*)\]/);
+  const body = match ? match[1] : text2.replace(/^\s*\w+/, "");
+  return body.split(/[\s,]+/).map((v) => v.trim()).filter((v) => v && v !== "[" && v !== "]");
+}
+function applyThemeProp(doc, key, value, line, warnings, args = "") {
+  const normalised = value.trim().toLowerCase();
+  switch (key) {
+    case "design":
+    case "designlanguage":
+    case "style": {
+      const ids = designLanguages.map((d) => d.id);
+      if (ids.includes(normalised)) {
+        doc.theme.designLanguage = normalised;
+        return;
+      }
+      const suggestion = closestMatch(normalised, ids);
+      if (suggestion) {
+        doc.theme.designLanguage = suggestion;
+        warnings.push({
+          line,
+          message: `Unknown design language "${value.trim()}" \u2014 using "${suggestion}".`
+        });
+      } else {
+        warnings.push({
+          line,
+          message: `Unknown design language "${value.trim()}" \u2014 keeping ${doc.theme.designLanguage}.`
+        });
+      }
+      return;
+    }
+    case "primary":
+    case "primarycolor":
+      doc.theme.primaryColor = normaliseColor(value, doc.theme.primaryColor, line, warnings);
+      return;
+    case "secondary":
+    case "secondarycolor":
+    case "accent":
+      doc.theme.secondaryColor = normaliseColor(value, doc.theme.secondaryColor, line, warnings);
+      return;
+    case "radius":
+    case "borderradius":
+      doc.theme.borderRadius = radiusAliases[normalised] ?? doc.theme.borderRadius;
+      return;
+    case "buttons":
+    case "buttonstyle":
+      doc.theme.buttonStyle = buttonAliases[normalised] ?? doc.theme.buttonStyle;
+      return;
+    case "density":
+    case "spacing":
+      doc.theme.density = densityAliases[normalised] ?? doc.theme.density;
+      return;
+    // The seven settings added with stories and journeys. Without these the
+    // parser dropped them on the floor with an "unknown theme property"
+    // warning, so anything the serializer wrote came back as defaults.
+    //
+    // Each one is checked against its own list of allowed values rather than
+    // assigned blind: a typo should keep the current setting and say so, not
+    // put a word the renderer has never heard of into the document.
+    case "headings":
+    case "headingfont":
+      doc.theme.headingFont = pickThemeValue(
+        normalised,
+        fontCharacterValues,
+        doc.theme.headingFont,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "body":
+    case "bodyfont":
+      doc.theme.bodyFont = pickThemeValue(
+        normalised,
+        bodyFontValues,
+        doc.theme.bodyFont,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "scale":
+    case "typescale":
+      doc.theme.typeScale = pickThemeValue(
+        normalised,
+        typeScaleValues,
+        doc.theme.typeScale,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "icons":
+    case "iconstyle":
+      doc.theme.iconStyle = pickThemeValue(
+        normalised,
+        iconStyleValues,
+        doc.theme.iconStyle,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "elevation":
+    case "shadow":
+      doc.theme.elevation = pickThemeValue(
+        normalised,
+        elevationValues,
+        doc.theme.elevation,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "motion":
+    case "animation":
+      doc.theme.motion = pickThemeValue(
+        normalised,
+        motionValues,
+        doc.theme.motion,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "scheme":
+    case "colorscheme":
+    case "colourscheme":
+      doc.theme.colorScheme = pickThemeValue(
+        normalised,
+        colorSchemeValues,
+        doc.theme.colorScheme,
+        key,
+        line,
+        warnings
+      );
+      return;
+    // The nine settings the presets brought with them. Same rule as the block
+    // above — an unrecognised value keeps the current one and says which word
+    // was not understood, so a typo costs a line rather than the file — and the
+    // same reason for being here at all: what the serializer writes, the parser
+    // has to read, or a round trip resets the design to the defaults.
+    case "preset":
+    case "theme_preset": {
+      if (!normalised) {
+        warnings.push({
+          line,
+          message: `\`preset\` needs a name \u2014 keeping ${doc.theme.preset}.`
+        });
+        return;
+      }
+      if (!presets.some((preset) => preset.id === normalised)) {
+        warnings.push({
+          line,
+          message: `Unknown preset "${normalised}" \u2014 kept as written, but the design falls back to ${presetById(normalised).name}. The presets are: ${presets.map((preset) => preset.id).join(", ")}.`
+        });
+      }
+      doc.theme.preset = normalised;
+      return;
+    }
+    // One line on why this design, written by whoever chose it. Free text, so
+    // it takes the raw value rather than the normalised one — lowercasing
+    // somebody's sentence is not this parser's business.
+    case "note":
+    case "design_note":
+    case "designnote": {
+      const written = (args || value).trim();
+      doc.theme.designNote = written.replace(/^["']|["']$/g, "");
+      return;
+    }
+    case "shape":
+    case "radii":
+    case "corners": {
+      const text2 = args || value;
+      if (/\bpill\b/i.test(text2)) doc.theme.shape.pill = true;
+      if (/\b(no_pill|nopill|not_pill|square|squared)\b/i.test(text2)) {
+        doc.theme.shape.pill = false;
+      }
+      for (const [name, radius] of readPairs(text2.replace(PILL_WORDS, " "))) {
+        const slot = shapeAliases[name];
+        if (!slot) {
+          warnings.push({
+            line,
+            message: `"${name}" is not a shape \u2014 keeping the current radii. One of: control, card, overlay, pill.`
+          });
+          continue;
+        }
+        doc.theme.shape[slot] = clampNumber(
+          radius,
+          0,
+          64,
+          doc.theme.shape[slot],
+          `shape ${slot}`,
+          line,
+          warnings
+        );
+      }
+      return;
+    }
+    case "pill":
+      doc.theme.shape.pill = !/^(false|no|off|0)$/i.test(normalised);
+      return;
+    case "fonts":
+    case "font":
+    case "typefaces": {
+      for (const [name, family] of readPairs(args)) {
+        const slot = fontSlotAliases[name];
+        if (!slot) {
+          warnings.push({
+            line,
+            message: `"${name}" is not a font slot \u2014 ignored. One of: display, body, mono.`
+          });
+          continue;
+        }
+        doc.theme.fonts[slot] = family;
+      }
+      return;
+    }
+    case "scale_ratio":
+    case "scaleratio":
+    case "ratio":
+      doc.theme.scaleRatio = clampNumber(
+        value,
+        1.05,
+        1.7,
+        doc.theme.scaleRatio,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "vividness":
+    case "chroma":
+    case "saturation":
+      doc.theme.vividness = clampNumber(
+        value,
+        0,
+        100,
+        doc.theme.vividness,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "neutral_hue":
+    case "neutralhue":
+    case "neutral":
+    case "grey_hue":
+    case "gray_hue":
+      doc.theme.neutralHue = clampNumber(
+        value,
+        0,
+        360,
+        doc.theme.neutralHue,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "elevation_strategy":
+    case "elevationstrategy":
+    case "depth":
+      doc.theme.elevationStrategy = pickThemeValue(
+        normalised,
+        elevationStrategyValues,
+        doc.theme.elevationStrategy,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "motion_model":
+    case "motionmodel":
+    case "motion_style":
+      doc.theme.motionModel = pickThemeValue(
+        normalised,
+        motionModelValues,
+        doc.theme.motionModel,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "inputs":
+    case "inputstyle":
+    case "input_style":
+    case "fields":
+      doc.theme.inputStyle = pickThemeValue(
+        normalised,
+        inputStyleValues,
+        doc.theme.inputStyle,
+        key,
+        line,
+        warnings
+      );
+      return;
+    case "palette":
+    case "colors":
+    case "colours": {
+      const head = args.trim().split(/\s+/)[0] ?? "";
+      const mode = paletteMode(head);
+      if (!mode) {
+        warnings.push({
+          line,
+          message: `"${head}" is not a palette mode \u2014 expected \`palette light\` or \`palette dark\`.`
+        });
+        return;
+      }
+      const pairs = readPairs(args.trim().slice(head.length));
+      for (const [token, color] of pairs) {
+        doc.theme.palette[mode][token.replace(/^--/, "")] = color;
+      }
+      return pairs.length ? void 0 : mode;
+    }
+    default:
+      warnings.push({ line, message: `Unknown theme property "${key}" \u2014 ignored.` });
+  }
+}
+function paletteMode(word) {
+  const normalised = word.toLowerCase().replace(/[^a-z]/g, "");
+  if (normalised === "light" || normalised === "day") return "light";
+  if (normalised === "dark" || normalised === "night") return "dark";
+  return null;
+}
+function readPairs(text2) {
+  const pairs = [];
+  for (const match of text2.matchAll(/([a-z_][a-z0-9_-]*)\s+(?:"([^"]*)"|([^\s"]+))/gi)) {
+    pairs.push([match[1].toLowerCase(), (match[2] ?? match[3] ?? "").trim()]);
+  }
+  return pairs;
+}
+function clampNumber(value, min, max, fallback, key, line, warnings) {
+  const written = value.trim();
+  const parsed = Number.parseFloat(written);
+  if (!Number.isFinite(parsed)) {
+    warnings.push({
+      line,
+      message: `\`${key}\` must be a number between ${min} and ${max} \u2014 "${written}" is not one, keeping ${fallback}.`
+    });
+    return fallback;
+  }
+  const clamped = Math.min(max, Math.max(min, parsed));
+  if (clamped !== parsed) {
+    warnings.push({
+      line,
+      message: `\`${key}\` must be between ${min} and ${max} \u2014 "${written}" clamped to ${clamped}.`
+    });
+  }
+  return clamped;
+}
+function surfaceWord(word, line, warnings) {
+  if (!word) return "web";
+  const normalised = word.toLowerCase().replace(/[^a-z]/g, "");
+  const known = surfaceValues.find((value) => value === normalised);
+  if (known) return known;
+  if (normalised === "api" || normalised === "server" || normalised === "service") {
+    return "backend";
+  }
+  if (normalised === "app" || normalised === "phone" || normalised === "native") {
+    return "mobile";
+  }
+  warnings.push({
+    line,
+    message: `"${word}" is not a build \u2014 expected one of ${surfaceValues.join(", ")}. Read as web.`
+  });
+  return "web";
+}
+function pickThemeValue(value, allowed, fallback, key, line, warnings) {
+  const match = allowed.find((option) => option === value);
+  if (match) return match;
+  warnings.push({
+    line,
+    message: `"${value}" is not a valid ${key} \u2014 keeping ${fallback}. One of: ${allowed.join(", ")}.`
+  });
+  return fallback;
+}
+function normaliseColor(value, fallback, line, warnings) {
+  const trimmed = value.trim();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) return trimmed;
+  if (/^([0-9a-f]{6})$/i.test(trimmed)) return `#${trimmed}`;
+  warnings.push({
+    line,
+    message: `"${trimmed}" is not a hex colour \u2014 keeping ${fallback}.`
+  });
+  return fallback;
+}
+function buildRelation(from, to, draft) {
+  const key = to.fields.find((f) => f.primary)?.name ?? "id";
+  return {
+    id: uid("rel"),
+    from: from.id,
+    fromField: draft.fromField || (draft.kind === "many-to-many" ? "" : `${singularKey(to.key)}_id`),
+    to: to.id,
+    toField: draft.toField || key,
+    kind: draft.kind,
+    label: draft.label,
+    onDelete: draft.onDelete,
+    through: draft.through
+  };
+}
+function singularKey(key) {
+  if (/(ss|us|is)$/i.test(key)) return key;
+  if (/ies$/i.test(key)) return `${key.slice(0, -3)}y`;
+  if (/(ches|shes|xes|ses)$/i.test(key)) return key.slice(0, -2);
+  if (/s$/i.test(key)) return key.slice(0, -1);
+  return key;
+}
+var relationAliases = {
+  "many-to-one": "many-to-one",
+  manytoone: "many-to-one",
+  "n:1": "many-to-one",
+  "n-1": "many-to-one",
+  belongs_to: "many-to-one",
+  "one-to-many": "one-to-many",
+  onetomany: "one-to-many",
+  "1:n": "one-to-many",
+  "1-n": "one-to-many",
+  has_many: "one-to-many",
+  "one-to-one": "one-to-one",
+  onetoone: "one-to-one",
+  "1:1": "one-to-one",
+  "1-1": "one-to-one",
+  has_one: "one-to-one",
+  "many-to-many": "many-to-many",
+  manytomany: "many-to-many",
+  "n:n": "many-to-many",
+  "n-n": "many-to-many",
+  "m:n": "many-to-many",
+  m2m: "many-to-many"
+};
+var deleteAliases = {
+  cascade: "cascade",
+  delete: "cascade",
+  restrict: "restrict",
+  block: "restrict",
+  noaction: "restrict",
+  "no-action": "restrict",
+  "set-null": "set-null",
+  setnull: "set-null",
+  set_null: "set-null",
+  null: "set-null"
+};
+function readRelation(rest, quoted, line, warnings) {
+  const body = rest.replace(/^\s*(rel|relation|ref|references)\b/i, "").trim();
+  const symmetric = /<->|↔/.test(body);
+  const [leftRaw, rightRaw] = body.split(/<->|↔|->|=>|→/).map((part) => part.trim());
+  if (!leftRaw || !rightRaw) return null;
+  const left = readSide(leftRaw);
+  const trimmedRight = rightRaw.trim();
+  const firstToken = trimmedRight.split(/[\s,:]/)[0] ?? "";
+  const right = readSide(firstToken);
+  if (!left.table || !right.table) return null;
+  const words = trimmedRight.slice(firstToken.length).replace(/^\s*:\s*/, "").split(/[\s,]+/).map((word) => word.trim().toLowerCase()).filter(Boolean);
+  let kind = symmetric ? "many-to-many" : "many-to-one";
+  let onDelete = "restrict";
+  let through = "";
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index];
+    const known = relationAliases[word];
+    if (known) {
+      kind = known;
+      continue;
+    }
+    if (relationKindValues.includes(word)) {
+      kind = word;
+      continue;
+    }
+    if (word === "through" || word === "via" || word === "join") {
+      through = words[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (word === "on_delete" || word === "ondelete") {
+      const next = words[index + 1] ?? "";
+      onDelete = deleteAliases[next] ?? "restrict";
+      index += 1;
+      continue;
+    }
+    if (deleteAliases[word] && word !== "null") {
+      onDelete = deleteAliases[word];
+      continue;
+    }
+    warnings.push({
+      line,
+      message: `Unknown relation option "${word}" \u2014 ignored.`
+    });
+  }
+  return {
+    from: left.table,
+    fromField: left.field,
+    to: right.table,
+    toField: right.field,
+    kind,
+    label: quoted[0] ?? "",
+    onDelete,
+    through,
+    line
+  };
+}
+function readSide(value) {
+  const cleaned = value.replace(/[^a-z0-9_.]/gi, "");
+  const [table2, field2 = ""] = cleaned.split(".");
+  return { table: table2 ?? "", field: field2 };
+}
+function readColumn(rest, quoted, line, warnings) {
+  const options = [];
+  const withoutList = rest.replace(/\[([^\]]*)\]/g, (_, body) => {
+    for (const item of String(body).split(/[,;]/)) {
+      const value = item.trim();
+      if (value) options.push(value);
+    }
+    return " ";
+  });
+  const words = withoutList.split(/[\s,]+/).filter(Boolean);
+  const name = slugify(words[0] ?? "").replace(/-/g, "_");
+  if (!name) return null;
+  const field2 = {
+    id: uid("fld"),
+    name,
+    type: "text",
+    primary: false,
+    required: false,
+    unique: false,
+    indexed: false,
+    defaultValue: "",
+    options,
+    note: ""
+  };
+  let ref;
+  let quotedAt = 0;
+  const nextQuoted = () => quoted[quotedAt++] ?? "";
+  for (let index = 1; index < words.length; index += 1) {
+    const word = words[index].toLowerCase();
+    if (index === 1 && !FLAG_WORDS.has(word)) {
+      const known = fieldKindValues.find((value) => value === word);
+      if (!known) {
+        warnings.push({
+          line,
+          message: `"${words[index]}" is not a known column type \u2014 kept as written.`
+        });
+      }
+      field2.type = known ?? words[index];
+      continue;
+    }
+    switch (word) {
+      case "pk":
+      case "primary":
+      case "primary_key":
+      case "id":
+        field2.primary = true;
+        field2.required = true;
+        break;
+      case "required":
+      case "not_null":
+      case "notnull":
+      case "!":
+        field2.required = true;
+        break;
+      case "optional":
+      case "nullable":
+      case "null":
+        field2.required = false;
+        break;
+      case "unique":
+        field2.unique = true;
+        break;
+      case "index":
+      case "indexed":
+        field2.indexed = true;
+        break;
+      case "default": {
+        const value = nextQuoted() || words[index + 1] || "";
+        if (!quoted.length) index += 1;
+        field2.defaultValue = value;
+        break;
+      }
+      case "note":
+      case "comment":
+        field2.note = nextQuoted();
+        break;
+      case "ref":
+      case "references":
+      case "->": {
+        const side = readSide(words[index + 1] ?? "");
+        if (side.table) ref = { table: side.table, field: side.field || "id" };
+        index += 1;
+        break;
+      }
+      case "cascade":
+        if (ref) ref.onDelete = "cascade";
+        break;
+      default:
+        warnings.push({
+          line,
+          message: `Unknown column option "${words[index]}" \u2014 ignored.`
+        });
+    }
+  }
+  if (!field2.note && quoted[quotedAt]) field2.note = quoted[quotedAt];
+  return { field: field2, ref };
+}
+var FLAG_WORDS = /* @__PURE__ */ new Set([
+  "pk",
+  "primary",
+  "primary_key",
+  "required",
+  "not_null",
+  "notnull",
+  "optional",
+  "nullable",
+  "null",
+  "unique",
+  "index",
+  "indexed",
+  "default",
+  "note",
+  "comment",
+  "ref",
+  "references",
+  "cascade"
+]);
+
+// src/studio/features/flow-lang/serializer.ts
+var defaults = projectDocSchema.parse({});
+function serializeFlow(doc) {
+  const out = [];
+  out.push(`app ${quote(doc.name)} {`);
+  out.push(`  target ${doc.target}`);
+  out.push(`  ui_level ${uiLevelOf(doc)}`);
+  out.push(`  builds ${buildWords(doc).join(", ")}`);
+  if (doc.priority !== defaults.priority) out.push(`  priority ${doc.priority}`);
+  out.push(`  theme {`, ...themeLines(doc.theme), `  }`);
+  out.push("}");
+  if (doc.views.length) {
+    out.push("");
+    out.push("views {");
+    for (const view of doc.views) {
+      const note = view.note.trim() ? ` ${quote(view.note.trim())}` : "";
+      out.push(`  ${view.key} ${quote(view.name)}${note}`);
+    }
+    out.push("}");
+  }
+  if (doc.flows.length) {
+    out.push("");
+    out.push("flows {");
+    for (const flow of [...doc.flows].sort((a, b) => a.order - b.order)) {
+      const head = `  flow ${flow.key} ${quote(flow.name)}`;
+      const hasStory = storyLines(flow.story, 4).length > 0;
+      if (!hasStory && !flow.note.trim()) {
+        out.push(`${head} {}`);
+        continue;
+      }
+      out.push(`${head} {`);
+      if (flow.note.trim()) out.push(`    note ${block(flow.note.trim(), 4)}`);
+      out.push(...storyLines(flow.story, 4));
+      out.push("  }");
+    }
+    out.push("}");
+  }
+  const viewKeyOf = new Map(doc.views.map((v) => [v.id, v.key]));
+  const viewKeys = (ids) => ids.map((id) => viewKeyOf.get(id)).filter(Boolean);
+  const flowKeyOf = new Map(doc.flows.map((f) => [f.id, f.key]));
+  const flowKeys = (ids) => ids.map((id) => flowKeyOf.get(id)).filter(Boolean);
+  if (doc.screens.length) {
+    out.push("");
+    for (const screen of doc.screens) {
+      out.push(`screen ${screen.key} ${quote(screen.title)} {`);
+      if (screen.template) out.push(`  template ${screen.template}`);
+      if (screen.layout) out.push(`  layout ${screen.layout}`);
+      if (screen.note.trim()) {
+        out.push(`  note ${block(screen.note.trim(), 2)}`);
+      }
+      if (screen.surface !== "web") out.push(`  surface ${screen.surface}`);
+      const belongsTo = viewKeys(screen.views);
+      if (belongsTo.length) out.push(`  in [${belongsTo.join(", ")}]`);
+      const journeys = flowKeys(screen.flows);
+      if (journeys.length) out.push(`  flows [${journeys.join(", ")}]`);
+      out.push(...storyLines(screen.story, 2));
+      const modules = doc.modules.filter((m) => m.screenId === screen.id).sort((a, b) => a.order - b.order);
+      for (const module of modules) {
+        const head = `  module ${module.key} ${quote(module.name)}`;
+        const props = [`kind ${module.kind}`];
+        if (module.trigger.trim()) props.push(`on ${quote(module.trigger.trim())}`);
+        const note = module.note.trim();
+        if (note.includes("\n")) {
+          out.push(`${head} {`);
+          for (const prop of props) out.push(`    ${prop}`);
+          out.push(`    note ${block(note, 4)}`);
+          out.push("  }");
+        } else {
+          if (note) props.push(`note ${quote(note)}`);
+          out.push(`${head} { ${props.join("; ")} }`);
+        }
+      }
+      const moduleIds = new Set(modules.map((m) => m.id));
+      const byModuleId = new Map(modules.map((m) => [m.id, m]));
+      const inner = doc.moduleEdges.filter(
+        (e) => moduleIds.has(e.from) && moduleIds.has(e.to)
+      );
+      if (inner.length) {
+        out.push("  inner {");
+        const width = Math.max(
+          ...inner.map((e) => byModuleId.get(e.from)?.key.length ?? 0)
+        );
+        for (const edge of inner) {
+          const from = byModuleId.get(edge.from);
+          const to = byModuleId.get(edge.to);
+          const label = edge.trigger.trim() ? ` : ${quote(edge.trigger.trim())}` : "";
+          out.push(`    ${from.key.padEnd(width)} -> ${to.key}${label}`);
+        }
+        out.push("  }");
+      }
+      out.push("}");
+    }
+  }
+  const byId2 = new Map(doc.screens.map((s) => [s.id, s]));
+  const liveEdges = doc.edges.filter((e) => byId2.has(e.from) && byId2.has(e.to));
+  if (liveEdges.length) {
+    out.push("");
+    out.push("flow {");
+    const width = Math.max(
+      ...liveEdges.map((e) => byId2.get(e.from)?.key.length ?? 0)
+    );
+    for (const edge of liveEdges) {
+      const from = byId2.get(edge.from);
+      const to = byId2.get(edge.to);
+      const label = edge.trigger.trim() ? ` : ${quote(edge.trigger.trim())}` : "";
+      const tags = viewKeys(edge.views);
+      const scope = tags.length ? ` ${tags.map((k) => `@${k}`).join(" ")}` : "";
+      out.push(`  ${from.key.padEnd(width)} -> ${to.key}${label}${scope}`);
+    }
+    out.push("}");
+  }
+  if (doc.entities.length) {
+    out.push("");
+    out.push("data {");
+    for (const entity of doc.entities) {
+      out.push(`  table ${entity.key} ${quote(entity.name)} {`);
+      if (entity.note.trim()) out.push(`    note ${quote(entity.note.trim())}`);
+      for (const field2 of entity.fields) {
+        const parts = [`    ${field2.name} ${field2.type}`];
+        if (field2.options.length) parts.push(`[${field2.options.join(", ")}]`);
+        if (field2.primary) parts.push("pk");
+        if (field2.required && !field2.primary) parts.push("required");
+        if (field2.unique && !field2.primary) parts.push("unique");
+        if (field2.indexed && !field2.primary) parts.push("index");
+        if (field2.defaultValue.trim()) {
+          parts.push(`default ${quote(field2.defaultValue.trim())}`);
+        }
+        if (field2.note.trim()) parts.push(`note ${quote(field2.note.trim())}`);
+        out.push(parts.join(" "));
+      }
+      out.push("  }");
+    }
+    const keyOf = new Map(doc.entities.map((entity) => [entity.id, entity.key]));
+    for (const relation of doc.relations) {
+      const from = keyOf.get(relation.from);
+      const to = keyOf.get(relation.to);
+      if (!from || !to) continue;
+      const left = relation.fromField ? `${from}.${relation.fromField}` : from;
+      const right = relation.toField ? `${to}.${relation.toField}` : to;
+      const parts = [`  rel ${left} -> ${right} : ${relation.kind}`];
+      if (relation.label.trim()) parts.push(quote(relation.label.trim()));
+      if (relation.through.trim()) parts.push(`through ${relation.through.trim()}`);
+      if (relation.onDelete !== "restrict") {
+        parts.push(`on_delete ${relation.onDelete}`);
+      }
+      out.push(parts.join(" "));
+    }
+    out.push("}");
+  }
+  if (doc.sections.length) {
+    out.push("");
+    out.push("landing {");
+    for (const section2 of [...doc.sections].sort((a, b) => a.order - b.order)) {
+      const defaultName = sectionTypeMap[section2.type]?.name ?? section2.type;
+      const parts = [`  section ${section2.type}`];
+      parts.push(quote(section2.name || defaultName));
+      if (section2.layout) parts.push(`layout ${section2.layout}`);
+      if (section2.note.trim()) parts.push(`note ${quote(section2.note.trim())}`);
+      out.push(parts.join(" "));
+    }
+    out.push("}");
+  }
+  out.push("");
+  out.push("stack {");
+  out.push(...stackLines(doc.stack));
+  out.push("}");
+  out.push("");
+  if (doc.structure.preset === "custom") {
+    out.push(`structure custom ${block(doc.structure.customTree, 0)}`);
+  } else {
+    out.push(`structure ${doc.structure.preset}`);
+  }
+  for (const surface of ["mobile", "backend"]) {
+    if (!doc.builds[surface]) continue;
+    const config2 = doc.surfaces[surface];
+    out.push("");
+    out.push(`stack ${surface} {`);
+    out.push(...stackLines(config2.stack));
+    out.push("}");
+    if (config2.structure.preset === "custom") {
+      out.push(`structure ${surface} custom ${block(config2.structure.customTree, 0)}`);
+    } else {
+      out.push(`structure ${surface} ${config2.structure.preset}`);
+    }
+  }
+  if (doc.conventions.ids.length) {
+    out.push(`conventions [${doc.conventions.ids.join(", ")}]`);
+  }
+  if (doc.snippetIds.length) {
+    out.push(`snippets [${doc.snippetIds.join(", ")}]`);
+  }
+  if (doc.conventions.custom.trim()) {
+    out.push(`conventions_note ${block(doc.conventions.custom.trim(), 0)}`);
+  }
+  if (doc.requirements.trim()) {
+    out.push("");
+    out.push(`requirements ${block(doc.requirements.trim(), 0)}`);
+  }
+  return `${out.join("\n")}
+`;
+}
+function themeLines(theme) {
+  const base = defaults.theme;
+  const lines = [
+    // The preset every value below came from. Written even when it is the
+    // default one: it is the name of the design, and a file that omits it reads
+    // as though nobody chose.
+    `    preset ${theme.preset}`,
+    // Why this design, in the words of whoever chose it. First, because it is
+    // the line a person reads before the values — and omitted when empty, so a
+    // project nobody wrote one for does not carry an empty quote.
+    ...theme.designNote.trim() ? [`    note ${quote(theme.designNote.trim())}`] : [],
+    `    design ${theme.designLanguage}; primary ${theme.primaryColor}; secondary ${theme.secondaryColor}`,
+    `    radius ${theme.borderRadius}; buttons ${theme.buttonStyle}; density ${theme.density}`,
+    `    headings ${theme.headingFont}; body ${theme.bodyFont}; scale ${theme.typeScale}`,
+    `    icons ${theme.iconStyle}; elevation ${theme.elevation}; motion ${theme.motion}; scheme ${theme.colorScheme}`
+  ];
+  const { shape } = theme;
+  if (shape.control !== base.shape.control || shape.card !== base.shape.card || shape.overlay !== base.shape.overlay || shape.pill !== base.shape.pill) {
+    const pill2 = shape.pill ? " pill" : "";
+    lines.push(
+      `    shape control ${shape.control} card ${shape.card} overlay ${shape.overlay}${pill2}`
+    );
+  }
+  const families = [];
+  if (theme.fonts.display) families.push(`display ${quote(theme.fonts.display)}`);
+  if (theme.fonts.body) families.push(`body ${quote(theme.fonts.body)}`);
+  if (theme.fonts.mono) families.push(`mono ${quote(theme.fonts.mono)}`);
+  if (families.length) lines.push(`    fonts ${families.join(" ")}`);
+  const dials = [];
+  if (theme.scaleRatio !== base.scaleRatio) dials.push(`scale_ratio ${theme.scaleRatio}`);
+  if (theme.vividness !== base.vividness) dials.push(`vividness ${theme.vividness}`);
+  if (theme.neutralHue !== base.neutralHue) dials.push(`neutral_hue ${theme.neutralHue}`);
+  if (dials.length) lines.push(`    ${dials.join("; ")}`);
+  const depth = [];
+  if (theme.elevationStrategy !== base.elevationStrategy) {
+    depth.push(`elevation_strategy ${theme.elevationStrategy}`);
+  }
+  if (theme.motionModel !== base.motionModel) depth.push(`motion_model ${theme.motionModel}`);
+  if (theme.inputStyle !== base.inputStyle) depth.push(`inputs ${theme.inputStyle}`);
+  if (depth.length) lines.push(`    ${depth.join("; ")}`);
+  for (const mode of ["light", "dark"]) {
+    const entries = Object.entries(theme.palette[mode]);
+    if (!entries.length) continue;
+    lines.push(`    palette ${mode} {`);
+    for (const [token, value] of entries) {
+      lines.push(`      ${token} ${colorValue(value)}`);
+    }
+    lines.push(`    }`);
+  }
+  return lines;
+}
+function colorValue(value) {
+  const trimmed = value.trim();
+  return !trimmed || /[";{}]|\/\//.test(trimmed) ? quote(trimmed) : trimmed;
+}
+function stackLines(stack) {
+  const keys = [
+    ["framework", "framework"],
+    ["language", "language"],
+    ["styling", "styling"],
+    ["state", "state"],
+    ["forms", "forms"],
+    ["http", "http"],
+    ["icons", "icons"],
+    ["tables", "tables"],
+    ["charts", "charts"],
+    ["database", "database"],
+    ["orm", "orm"],
+    ["apiStyle", "apiStyle"],
+    ["apiAuth", "apiAuth"],
+    ["testing", "testing"],
+    ["tooling", "tooling"],
+    ["packageManager", "packageManager"]
+  ];
+  const width = Math.max(...keys.map(([, label]) => label.length));
+  const lines = [];
+  for (const [key, label] of keys) {
+    const value = stack[key];
+    if (typeof value !== "string" || !value.trim()) continue;
+    lines.push(`  ${label.padEnd(width)} ${value}`);
+  }
+  if (stack.extras.length) {
+    lines.push(`  extras ${stack.extras.map((extra) => quote(extra)).join(" ")}`);
+  }
+  return lines;
+}
+function buildWords(doc) {
+  const words = ["web", "mobile", "backend"].filter(
+    (surface) => doc.builds[surface]
+  );
+  return words.length ? [...words] : ["web"];
+}
+function storyLines(story, indent) {
+  const flat = (value) => value.replace(/\s*\n\s*/g, " ").trim();
+  const role = flat(story.role);
+  const want = flat(story.want);
+  const soThat = flat(story.soThat);
+  const criteria = story.criteria.map(flat).filter(Boolean);
+  if (!role && !want && !soThat && !criteria.length) return [];
+  const pad = " ".repeat(indent);
+  const inner = " ".repeat(indent + 2);
+  const item = " ".repeat(indent + 4);
+  const lines = [`${pad}story {`];
+  if (role) lines.push(`${inner}as     ${quote(role)}`);
+  if (want) lines.push(`${inner}want   ${quote(want)}`);
+  if (soThat) lines.push(`${inner}so     ${quote(soThat)}`);
+  if (criteria.length) {
+    lines.push(`${inner}accept [`);
+    for (const entry of criteria) lines.push(`${item}${quote(entry)}`);
+    lines.push(`${inner}]`);
+  }
+  lines.push(`${pad}}`);
+  return lines;
+}
+function quote(value) {
+  return `"${value.replace(/"/g, "'")}"`;
+}
+function block(value, indent) {
+  if (!value.includes("\n")) return quote(value);
+  const pad = " ".repeat(indent);
+  const body = value.split("\n").map((line) => `${pad}${line}`).join("\n");
+  return `"""
+${body}
+${pad}"""`;
+}
+
+// src/studio/features/library/data/starters.ts
+var starters = [
+  {
+    id: "blank",
+    name: "Blank project",
+    description: "Empty canvas \u2014 start from nothing.",
+    source: `app "Untitled project" {
+  target claude-code
+  ui_level 3
+}`
+  },
+  {
+    id: "full-system",
+    name: "Web + mobile + API",
+    description: "One product, three builds, wired together and tested end to end.",
+    source: `app "Field Service" {
+  target claude-code
+  ui_level 3
+  builds web, mobile, backend
+  theme { design modern-soft; primary #0891b2; secondary #f97316; radius large }
+}
+
+views { dispatcher "Dispatcher"; engineer "Field Engineer" }
+
+flows {
+  flow access "Signing in" {
+    story {
+      as     "anyone on the team"
+      want   "sign in on whichever device I am holding"
+      so     "I can start work without finding a laptop"
+      accept [
+        "the same account works on the phone and in the console"
+        "a wrong password does not say whether the address is registered"
+        "signing out on one device does not sign me out of the other"
+      ]
+    }
+  }
+  flow dispatching "Assigning work" {
+    story {
+      as     "a dispatcher"
+      want   "see the day's jobs and give each one to an engineer"
+      so     "nobody is idle and nothing is double-booked"
+      accept [
+        "a job assigned to someone already busy is refused, and says who has them"
+        "the board reflects an engineer's update without a refresh"
+      ]
+    }
+  }
+  flow on_site "Working a job" {
+    story {
+      as     "an engineer in the field"
+      want   "open my next job, record what I did, and move on"
+      so     "the office knows where things stand without me phoning in"
+      accept [
+        "an update made with no signal is sent when the network returns"
+        "the same update arriving twice leaves one record, not two"
+        "the job I am on survives closing and reopening the app"
+      ]
+    }
+  }
+}
+
+# ---- web console ----
+screen login "Sign In" {
+  template auth
+  layout   auth-split
+  flows    [access]
+}
+
+screen board "Dispatch Board" {
+  template dashboard
+  layout   dashboard-sidebar
+  in       [dispatcher]
+  flows    [dispatching]
+  story {
+    as     "a dispatcher starting the day"
+    want   "see every job and who is on it"
+    so     "I can fix a gap before a customer notices it"
+    accept [
+      "an unassigned job is visible without filtering for it"
+      "assigning from here reaches the engineer's phone"
+    ]
+  }
+  module queue  "Unassigned"   { kind list }
+  module people "Engineers"    { kind list }
+  module assign "Assign"       { kind modal; on "drag a job onto an engineer" }
+  inner {
+    queue  -> assign : "drag a job onto an engineer"
+    assign -> people : "on assigned, their column updates"
+  }
+}
+
+screen jobs "All Jobs" {
+  template table
+  layout   table-advanced
+  in       [dispatcher]
+  flows    [dispatching]
+}
+
+# ---- phone app ----
+screen app_signin "Sign In" {
+  template auth
+  layout   mobile-auth
+  surface  mobile
+  flows    [access]
+}
+
+screen app_today "Today" {
+  template dashboard
+  layout   mobile-tabs
+  surface  mobile
+  in       [engineer]
+  flows    [on_site]
+  story {
+    as     "an engineer between jobs"
+    want   "see what is next without hunting for it"
+    so     "I can drive straight there"
+    accept [
+      "the list is readable in sunlight and usable with gloves on"
+      "it opens to something useful with no signal"
+    ]
+  }
+}
+
+screen app_job "Job" {
+  template detail
+  layout   mobile-detail
+  surface  mobile
+  in       [engineer]
+  flows    [on_site]
+  module status "Update status" { kind action }
+  module photo  "Add photo"     { kind camera; on "tap Add photo" }
+  module perms  "Camera access" { kind permission; on "camera not granted yet" }
+  inner {
+    photo -> perms : "permission not granted yet"
+  }
+}
+
+# ---- the service both call ----
+screen api_auth "Auth" {
+  template admin
+  surface  backend
+  flows    [access]
+  story {
+    as     "either client app"
+    want   "exchange credentials for a token and refresh it without asking again"
+    so     "an engineer is not signed out halfway through a job"
+    accept [
+      "a wrong password answers 401 without saying which field was wrong"
+      "a refresh token is single-use; reusing an old one revokes the session"
+      "signing out on one device leaves the other signed in"
+    ]
+  }
+  module login   "POST /auth/login"   { kind action }
+  module refresh "POST /auth/refresh" { kind action }
+}
+
+screen api_jobs "Jobs" {
+  template admin
+  surface  backend
+  flows    [dispatching, on_site]
+  story {
+    as     "the console and the phone app"
+    want   "read the jobs a person may see and record what happened on them"
+    so     "the board and the device never disagree"
+    accept [
+      "an engineer only ever receives their own jobs, enforced on the server"
+      "the same status update sent twice leaves one record \u2014 the phone retries after a dropped connection"
+      "a job already assigned cannot be assigned again without releasing it first"
+      "lists are paginated and filtered in the query, never in the client"
+    ]
+  }
+  module list   "GET /jobs"              { kind action }
+  module detail "GET /jobs/{id}"         { kind action }
+  module assign "POST /jobs/{id}/assign" { kind action }
+  module status "POST /jobs/{id}/status" { kind action }
+}
+
+flow {
+  login      -> board     : "on successful sign in" @dispatcher
+  board      -> jobs      : "click All jobs"
+  app_signin -> app_today : "on successful sign in" @engineer
+  app_today  -> app_job   : "tap a job"
+}
+
+data {
+  table users "Users" {
+    note "Anyone who can sign in, on either device."
+    id uuid pk
+    email string unique required
+    password_hash text required
+    full_name string required
+    role enum [dispatcher, engineer] required default "engineer"
+    active boolean required default "true"
+    created_at timestamp required default "now()"
+  }
+
+  table customers "Customers" {
+    note "Whose site the work happens at."
+    id uuid pk
+    name string required
+    phone string
+    address text required
+    created_at timestamp required default "now()"
+  }
+
+  table jobs "Jobs" {
+    note "One visit to one site. The board is a day of these."
+    id uuid pk
+    reference string unique required note "What everyone calls it on the phone"
+    customer_id uuid required index
+    assigned_to uuid index note "Null until a dispatcher assigns it"
+    status enum [unassigned, assigned, in_progress, done, cancelled] required default "unassigned"
+    scheduled_for timestamp required index
+    notes text
+    created_at timestamp required default "now()"
+    updated_at timestamp required default "now()"
+  }
+
+  table job_events "Job events" {
+    note "Every status change, kept rather than overwritten \u2014 this is what the office reads."
+    id uuid pk
+    job_id uuid required index
+    actor_id uuid required
+    status enum [assigned, in_progress, done, cancelled] required
+    note text
+    idempotency_key string unique note "The phone retries after a dropped connection; the second arrival must not add a row"
+    created_at timestamp required default "now()"
+  }
+
+  table sessions "Sessions" {
+    note "One row per signed-in device, so signing out on the phone leaves the console signed in."
+    id uuid pk
+    user_id uuid required index
+    refresh_token_hash text unique required
+    device string
+    expires_at timestamp required
+    revoked_at timestamp
+    created_at timestamp required default "now()"
+  }
+
+  rel jobs.customer_id -> customers.id : many-to-one "a job happens at one customer's site" on_delete restrict
+  rel jobs.assigned_to -> users.id : many-to-one "a job is assigned to one engineer" on_delete set-null
+  rel job_events.job_id -> jobs.id : many-to-one "an event belongs to one job" on_delete cascade
+  rel job_events.actor_id -> users.id : many-to-one "somebody recorded it" on_delete restrict
+  rel sessions.user_id -> users.id : many-to-one "a session belongs to one person" on_delete cascade
+}
+
+
+stack { framework next-16; styling tailwind4-shadcn; state tanstack-zustand; forms rhf-zod }
+structure feature-based
+
+stack mobile {
+  framework expo-router
+  styling   nativewind
+  state     rn-query-zustand
+  testing   rn-testing-library
+}
+structure mobile expo-feature-based
+
+stack backend {
+  framework fastapi
+  language  python
+  database  postgres
+  orm       sqlalchemy
+  apiStyle  rest-openapi
+  apiAuth   jwt-refresh
+  testing   pytest
+  tooling   ruff-mypy
+  packageManager uv
+}
+structure backend src-layered
+
+requirements """
+Three builds, one product. Engineers work offline in poor signal, so every write
+endpoint has to tolerate the same request arriving twice. Neither client talks to
+the database \u2014 both go through the API.
+"""`
+  },
+  {
+    id: "saas-dashboard",
+    name: "SaaS dashboard",
+    description: "Auth, dashboard, records, detail, settings.",
+    source: `app "SaaS Dashboard" {
+  target claude-code
+  ui_level 3
+  theme { primary #4f46e5; secondary #0ea5e9; radius md; buttons filled }
+}
+
+flows {
+  flow access "Getting in" {
+    story {
+      as     "a returning customer"
+      want   "sign in and land where the work is"
+      so     "I am not navigating before I can start"
+      accept [
+        "signing in goes straight to the dashboard, not to a landing page"
+        "a wrong password does not reveal whether the address is registered"
+      ]
+    }
+  }
+  flow record_work "Working with records" {
+    story {
+      as     "somebody who lives in this product"
+      want   "find a record, open it, and change it"
+      so     "the day's work takes a few clicks rather than a search"
+      accept [
+        "the list keeps its filters when you come back from a record"
+        "saving a new record returns to the list with it visible"
+        "an empty list says what to do next, not 'no data'"
+      ]
+    }
+  }
+  flow account "Account and settings" {
+    story {
+      as     "an account owner"
+      want   "change how the product is set up for us"
+      so     "I do not have to ask support for a routine change"
+      accept [ "every change says whether it saved" ]
+    }
+  }
+}
+
+screen login "Sign In" {
+  template auth
+  layout   auth-split
+  flows    [access]
+  story {
+    as     "a signed-out customer"
+    want   "sign in with my email and password"
+    so     "I can reach my work"
+    accept [
+      "the submit button stays disabled until both fields have something in them"
+      "a failed attempt keeps the email filled in"
+    ]
+  }
+}
+
+screen dashboard "Dashboard" {
+  template dashboard
+  layout   dashboard-sidebar
+  flows    [access, record_work]
+  story {
+    as     "somebody starting their day"
+    want   "see what needs attention before I go looking for it"
+    so     "nothing important waits because nobody opened the right screen"
+    accept [ "every figure says the period it covers" ]
+  }
+}
+
+screen records "Records" {
+  template table
+  layout   table-advanced
+  flows    [record_work]
+  story {
+    as     "somebody looking for one record"
+    want   "filter and sort until I can see it"
+    so     "I do not page through hundreds by hand"
+    accept [
+      "clearing a filter returns to page 1 rather than an empty page 7"
+      "the filtered list can be shared as a link"
+    ]
+  }
+}
+
+screen record "Record" {
+  template detail
+  layout   detail-two-column
+  flows    [record_work]
+  story {
+    as     "somebody who opened a record"
+    want   "see everything about it in one place"
+    so     "I can answer a question without opening three more screens"
+  }
+}
+
+screen record_new "New Record" {
+  template form
+  layout   form-two-column
+  flows    [record_work]
+  story {
+    as     "somebody adding a record"
+    want   "fill it in and save without losing what I typed"
+    so     "a mistyped field does not cost me the whole form"
+    accept [
+      "validation errors appear beside the field, not only at the top"
+      "leaving with unsaved changes asks first"
+    ]
+  }
+}
+
+screen settings "Settings" {
+  template settings
+  layout   settings-sections
+  flows    [account]
+}
+
+flow {
+  login      -> dashboard  : "on successful login"
+  dashboard  -> records    : "click Records"
+  records    -> record     : "click a row"
+  records    -> record_new : "click New record"
+  record_new -> records    : "on save"
+  dashboard  -> settings   : "open the account menu"
+}
+
+structure feature-based
+conventions [kebab-files, barrel-exports, alias-@, states-required, a11y-baseline, tokens-only]
+snippets [a11y, states, tables, data-table-shell, api-hooks, pagination]`
+  },
+  {
+    id: "auth-flow",
+    name: "Authentication flow",
+    description: "Sign in, sign up, OTP, reset, first run.",
+    source: `app "Authentication" {
+  target claude-code
+  ui_level 2
+  theme { primary #0f766e; secondary #f59e0b; radius md; buttons filled }
+}
+
+flows {
+  flow sign_up "Creating an account" {
+    story {
+      as     "somebody who has just decided to try this"
+      want   "create an account and get in"
+      so     "I can judge the product rather than the sign-up form"
+      accept [
+        "the email is verified before the account can do anything"
+        "the resend link says how long until it can be used again"
+      ]
+    }
+  }
+  flow sign_in "Signing in" {
+    story {
+      as     "a returning user"
+      want   "get back in"
+      so     "I can carry on"
+      accept [ "a failed attempt says what to try, not just that it failed" ]
+    }
+  }
+  flow recovery "Recovering an account" {
+    story {
+      as     "somebody who has forgotten their password"
+      want   "set a new one without contacting support"
+      so     "I am not blocked for a day waiting on someone"
+      accept [
+        "the screen never reveals whether an address is registered"
+        "a reset link works once, and expires"
+        "changing the password signs out every other session"
+      ]
+    }
+  }
+  flow first_run "First run" {
+    story {
+      as     "somebody who has just signed up"
+      want   "know what to do first"
+      so     "the empty product does not feel like a mistake"
+    }
+  }
+}
+
+screen login "Sign In" {
+  template auth
+  layout   auth-split
+  flows    [sign_in]
+  story {
+    as     "a returning user"
+    want   "sign in with my email and password"
+    so     "I reach my work"
+  }
+}
+
+screen signup "Create Account" {
+  template auth
+  layout   auth-center
+  flows    [sign_up]
+  story {
+    as     "a new user"
+    want   "create an account with as little typing as possible"
+    so     "I can see the product before committing to anything"
+    accept [ "password rules are stated before the first attempt, not after it" ]
+  }
+}
+
+screen otp "Verify Email" {
+  template auth
+  layout   auth-otp
+  flows    [sign_up]
+  story {
+    as     "somebody who has just signed up"
+    want   "enter the code from my email"
+    so     "I can finish setting up"
+    accept [
+      "pasting the whole code fills every box"
+      "a wrong code can be corrected without starting over"
+    ]
+  }
+}
+
+screen forgot "Forgot Password" {
+  template auth
+  layout   auth-minimal
+  flows    [recovery]
+  story {
+    as     "somebody locked out"
+    want   "ask for a reset link"
+    so     "I can get back in myself"
+    accept [ "the confirmation is the same whether or not the address exists" ]
+  }
+}
+
+screen reset "Set New Password" {
+  template auth
+  layout   auth-center
+  flows    [recovery]
+  story {
+    as     "somebody who clicked a reset link"
+    want   "set a new password and be signed in"
+    so     "I am not asked to sign in again immediately"
+    accept [ "an expired or reused link explains itself and offers a new one" ]
+  }
+}
+
+screen welcome "Welcome" {
+  template onboarding
+  layout   onboarding-checklist
+  flows    [first_run]
+  story {
+    as     "somebody on their first visit"
+    want   "be told the two or three things worth doing first"
+    so     "the empty product does not look broken"
+  }
+}
+
+flow {
+  login  -> signup  : "click Create account"
+  signup -> otp     : "on submit"
+  otp    -> welcome : "on code verified"
+  login  -> forgot  : "click Forgot password"
+  forgot -> reset   : "click the emailed link"
+  reset  -> login   : "on password changed"
+}
+
+structure feature-based
+conventions [kebab-files, alias-@, states-required, a11y-baseline]
+snippets [a11y, forms, states]
+
+requirements """
+Rate-limit OTP resend to once every 30 seconds and show the countdown.
+Never reveal whether an email address exists on the forgot-password screen.
+"""`
+  },
+  {
+    id: "admin-crud",
+    name: "Admin CRUD",
+    description: "Master/detail, bulk actions, audit.",
+    source: `app "Admin Console" {
+  target claude-code
+  ui_level 2
+  theme { primary #1d4ed8; secondary #059669; radius sm; buttons filled; density compact }
+}
+
+flows {
+  flow access "Getting in" {
+    story { as "an administrator"; want "sign in"; so "I can do the work" }
+  }
+  flow user_admin "Managing users" {
+    story {
+      as     "an administrator"
+      want   "add people, change what they can do, and remove them"
+      so     "access matches who actually works here"
+      accept [
+        "a destructive action names the record it is about to affect"
+        "deactivating somebody does not delete their history"
+        "bulk actions say how many rows they will touch before they run"
+      ]
+    }
+  }
+  flow governance "Roles and audit" {
+    story {
+      as     "whoever answers for access in an audit"
+      want   "see who can do what, and who changed it"
+      so     "I can answer the question without asking engineering"
+      accept [
+        "every destructive action writes an audit entry"
+        "the audit log records who, what, and when \u2014 and cannot be edited"
+      ]
+    }
+  }
+}
+
+screen login "Sign In" {
+  template auth
+  layout   auth-center
+  flows    [access]
+}
+
+screen users "Users" {
+  template table
+  layout   table-master-detail
+  flows    [user_admin]
+  story {
+    as     "an administrator"
+    want   "find a person and act on them without leaving the list"
+    so     "routine changes take seconds"
+    accept [
+      "the list keeps its filters after an action closes"
+      "an action on a row says what happened when it finishes"
+    ]
+  }
+
+  module filters   "Filter bar"    { kind filters; on "page load" }
+  module table     "User table"    { kind table;   note "server-driven paging, 25 per page" }
+  module row_menu  "Row actions"   { kind action;  on "click the row overflow menu" }
+  module bulk      "Bulk actions"  { kind action;  on "select one or more rows" }
+  module deactivate "Deactivate"   { kind modal;   on "choose Deactivate" }
+
+  inner {
+    filters  -> table      : "on filter change, refetch page 1"
+    table    -> row_menu   : "click the row overflow menu"
+    table    -> bulk       : "select one or more rows"
+    row_menu -> deactivate : "choose Deactivate"
+    deactivate -> table    : "on confirm, close and refetch"
+  }
+}
+
+screen user_new "Invite User" {
+  template form
+  layout   form-single
+  flows    [user_admin]
+  story {
+    as     "an administrator"
+    want   "invite somebody with the right role from the start"
+    so     "they do not need a second change on their first day"
+    accept [ "inviting an address that already has an account says so" ]
+  }
+}
+
+screen roles    "Roles"     { template admin;    layout table-advanced; flows [governance] }
+screen audit    "Audit Log" { template table;    layout table-basic;    flows [governance] }
+screen settings "Settings"  { template settings; layout settings-sections; flows [user_admin] }
+
+flow {
+  login    -> users    : "on successful login"
+  users    -> user_new : "click Invite user"
+  user_new -> users    : "on invite sent"
+  users    -> roles    : "click Roles"
+  roles    -> audit    : "click Audit log"
+  users    -> settings : "open settings"
+}
+
+structure feature-based
+conventions [kebab-files, barrel-exports, no-deep-imports, alias-@, states-required, a11y-baseline]
+snippets [a11y, states, tables, data-table-shell, rbac, api-hooks, pagination]
+
+requirements """
+Every destructive action names the record in its confirmation and writes an audit entry.
+"""`
+  },
+  {
+    id: "marketing-site",
+    name: "Marketing site",
+    description: "Full landing page, section by section.",
+    source: `app "Marketing Site" {
+  target v0
+  ui_level 4
+  theme { primary #7c3aed; secondary #f59e0b; radius lg; buttons rounded; density spacious }
+}
+
+flows {
+  flow convert "Deciding to try it" {
+    story {
+      as     "somebody who arrived from a search result"
+      want   "understand what this is and what it costs"
+      so     "I can decide without booking a call"
+      accept [
+        "what the product does is legible without scrolling"
+        "pricing is reachable from anywhere on the page"
+        "there is one obvious next action, and it is the same one throughout"
+      ]
+    }
+  }
+  flow enquiry "Talking to a person" {
+    story {
+      as     "somebody whose situation does not fit the pricing table"
+      want   "reach a human without a lengthy form"
+      so     "I do not give up and go elsewhere"
+      accept [ "the form says what happens next and when to expect a reply" ]
+    }
+  }
+}
+
+screen home    "Home"    { template landing; layout hero-two-column; flows [convert] }
+screen pricing "Pricing" { template landing; layout hero-center;     flows [convert] }
+screen contact "Contact" { template form;    layout form-single;     flows [enquiry] }
+
+flow {
+  home    -> pricing : "click Pricing"
+  pricing -> contact : "click Talk to sales"
+}
+
+landing {
+  section navigation   "Header"       layout nav-split
+  section hero         "Hero"         layout hero-two-column
+  section logos        "Trusted by"   layout logos-strip
+  section features     "Features"     layout features-bento
+  section stats        "By the numbers" layout stats-row
+  section testimonials "Customers"    layout testimonials-cards
+  section pricing      "Pricing"      layout pricing-three
+  section faq          "FAQ"          layout faq-accordion
+  section cta          "Get started"  layout cta-banner
+  section footer       "Footer"       layout footer-columns
+}
+
+structure route-colocated
+conventions [kebab-files, shared-first, tokens-only, a11y-baseline]
+snippets [responsive, a11y]`
+  },
+  {
+    id: "checkout",
+    name: "Commerce checkout",
+    description: "Product, cart, checkout, confirmation.",
+    source: `app "Storefront Checkout" {
+  target claude-code
+  ui_level 3
+  theme { primary #db2777; secondary #0ea5e9; radius lg; buttons rounded }
+}
+
+flows {
+  flow browse "Finding something to buy" {
+    story {
+      as     "a shopper"
+      want   "narrow a large catalogue to the few things I might buy"
+      so     "I am not scrolling past things that were never relevant"
+      accept [ "a filtered catalogue can be shared as a link" ]
+    }
+  }
+  flow purchase "Buying it" {
+    story {
+      as     "a shopper who has decided"
+      want   "pay without being made to create an account first"
+      so     "I do not abandon a full basket at the last step"
+      accept [
+        "the order summary stays visible at every step, including on mobile"
+        "a payment failure returns to the payment step with the details kept"
+        "the total, including delivery and tax, is shown before payment"
+      ]
+    }
+  }
+}
+
+screen catalogue "Catalogue"  { template search;  layout search-results;  flows [browse] }
+screen product   "Product"    { template product; layout product-gallery; flows [browse, purchase] }
+screen cart      "Cart"       { template table;   layout table-basic;     flows [purchase] }
+
+screen checkout "Checkout" {
+  template checkout
+  layout   checkout-steps
+  flows    [purchase]
+  story {
+    as     "a shopper paying"
+    want   "get through the steps without losing what I have entered"
+    so     "one mistake does not cost me the whole order"
+    accept [
+      "going back a step keeps everything already filled in"
+      "the step I am on, and how many remain, is always visible"
+    ]
+  }
+}
+
+screen confirm "Order Placed" {
+  template empty
+  layout   empty-first-run
+  flows    [purchase]
+  story {
+    as     "somebody who has just paid"
+    want   "proof it worked and a way to check on it"
+    so     "I do not have to email to ask whether the order went through"
+  }
+}
+
+flow {
+  catalogue -> product  : "click a product"
+  product   -> cart     : "click Add to cart"
+  cart      -> checkout : "click Checkout"
+  checkout  -> confirm  : "on payment accepted"
+  confirm   -> catalogue: "click Continue shopping"
+}
+
+structure feature-based
+conventions [kebab-files, alias-@, states-required, a11y-baseline, tokens-only]
+snippets [a11y, states, forms, responsive, api-hooks]
+
+requirements """
+The order summary stays visible at every checkout step, including on mobile.
+Payment failures return to the payment step with the entered details preserved.
+"""`
+  },
+  {
+    id: "mobile-app",
+    name: "React Native app",
+    description: "Expo Router, tabs, offline-aware.",
+    source: `app "Field App" {
+  target claude-code
+  ui_level 3
+  theme { design modern-soft; primary #0891b2; secondary #f97316; radius large; buttons rounded }
+}
+
+flows {
+  flow access "Getting in" {
+    story {
+      as     "a field engineer picking up a phone at 7am"
+      want   "sign in once and stay signed in"
+      so     "I am not typing a password in a van in the rain"
+      accept [ "the session survives the app being closed and reopened" ]
+    }
+  }
+  flow day_of_work "Working through the day" {
+    story {
+      as     "a field engineer"
+      want   "see today's jobs and update each one as I finish it"
+      so     "the office knows where things stand without phoning me"
+      accept [
+        "the app opens with the last known list even before the network answers"
+        "a status update made offline is queued, and the screen says so"
+        "queued work syncs on its own when signal returns"
+      ]
+    }
+  }
+  flow getting_there "Getting to the job" {
+    story {
+      as     "a field engineer between calls"
+      want   "see where my stops are"
+      so     "I am not driving back across the same town twice"
+      accept [ "declining location permission still leaves the addresses readable" ]
+    }
+  }
+}
+
+screen onboarding "Get Started" { template onboarding; layout mobile-onboarding; surface mobile; flows [access] }
+screen signin     "Sign In"     { template auth;       layout mobile-form; surface mobile; flows [access] }
+
+screen home "Today" {
+  template dashboard
+  layout   mobile-tabs
+  surface  mobile
+  flows    [day_of_work]
+  story {
+    as     "a field engineer starting the day"
+    want   "see what I have on, in the order I will do it"
+    so     "I can leave without planning it myself"
+    accept [ "the list is readable one-handed, outdoors, in daylight" ]
+  }
+  module tabs   "Tab bar"      { kind nav }
+  module stats  "Today's jobs" { kind stats }
+  module list   "Job list"     { kind list; on "screen focus" }
+  module offline "Offline banner" { kind panel; on "network drops" }
+  inner {
+    list -> offline : "request fails while offline"
+  }
+}
+
+screen job "Job Detail" {
+  template detail
+  layout   mobile-detail
+  surface  mobile
+  flows    [day_of_work]
+  story {
+    as     "a field engineer standing on site"
+    want   "change the status and attach a photo in a few taps"
+    so     "I never write the same thing again in the van afterwards"
+    accept [
+      "a photo taken with no signal is queued rather than lost"
+      "declining the camera permission leaves a way to finish without a photo"
+      "the sticky actions stay reachable one-handed"
+    ]
+  }
+  module summary "Job summary"   { kind panel }
+  module actions "Sticky actions" { kind action }
+  module sheet   "Update status"  { kind sheet; on "tap Update status" }
+  module camera  "Photo proof"    { kind camera; on "tap Add photo" }
+  module perms   "Camera permission" { kind permission; on "first photo attempt" }
+  inner {
+    actions -> sheet  : "tap Update status"
+    sheet   -> camera : "choose Add photo"
+    camera  -> perms  : "camera permission not granted yet"
+    sheet   -> summary : "on save, close and refresh"
+  }
+}
+
+screen map "Route Map" {
+  template dashboard
+  layout   mobile-map
+  surface  mobile
+  flows    [getting_there]
+  module map_view "Map"          { kind map }
+  module sheet    "Stops sheet"  { kind sheet }
+  module perms    "Location permission" { kind permission; on "screen open" }
+  inner {
+    perms -> map_view : "permission granted"
+    map_view -> sheet : "tap a marker"
+  }
+}
+
+screen profile "Profile" { template profile; layout mobile-profile; surface mobile; flows [access] }
+
+flow {
+  onboarding -> signin  : "tap Get started"
+  signin     -> home    : "on successful sign in"
+  home       -> job     : "tap a job"
+  home       -> map     : "tap the Map tab"
+  home       -> profile : "tap the Profile tab"
+  job        -> home    : "on job completed"
+}
+
+stack {
+  framework expo-router
+  language  ts-strict
+  styling   nativewind
+  state     rn-query-zustand
+  forms     rhf-zod
+  http      axios-instance
+  icons     rn-vector-icons
+  tables    rn-flashlist
+  charts    victory-native
+  testing   rn-testing-library
+}
+
+structure expo-feature-based
+conventions [kebab-files, barrel-exports, alias-@, shared-first, reuse-components, states-required]
+snippets [states, api-hooks, forms]
+
+requirements """
+Field engineers use this on Android in poor signal. Job data is cached and the
+app opens with the last known list; status updates queue and sync when the
+network returns.
+Permissions: location (background while on a job), camera, notifications.
+"""`
+  },
+  {
+    id: "swift-app",
+    name: "SwiftUI app",
+    description: "NavigationStack, sheets, Swift Charts.",
+    source: `app "Swift Client" {
+  target claude-code
+  ui_level 3
+  theme { design minimal-mono; primary #0a84ff; secondary #30d158; radius large; buttons filled }
+}
+
+flows {
+  flow access "Getting in" {
+    story { as "a returning user"; want "sign in on my phone"; so "I can reach my clients" }
+  }
+  flow client_work "Keeping client records" {
+    story {
+      as     "somebody who sees clients all day"
+      want   "find a client, read their history, and add to it"
+      so     "the record is written while I still remember the visit"
+      accept [
+        "reads work offline from the local store"
+        "a write made offline retries when connectivity returns"
+        "the list stays usable at accessibility text sizes"
+      ]
+    }
+  }
+  flow overview "Seeing how things are going" {
+    story {
+      as     "somebody running their own book of work"
+      want   "see the trend without exporting anything"
+      so     "I notice a quiet month while I can still do something about it"
+    }
+  }
+}
+
+screen signin "Sign In" { template auth; layout mobile-form; surface mobile; flows [access] }
+
+screen home "Overview" {
+  template dashboard
+  layout   mobile-tabs
+  surface  mobile
+  flows    [overview]
+  module tabs  "Tab view"    { kind nav }
+  module cards "Summary"     { kind stats }
+  module chart "Trend chart" { kind chart }
+}
+
+screen clients "Clients" {
+  template list
+  layout   mobile-list
+  surface  mobile
+  flows    [client_work]
+  module search "Searchable list" { kind filters }
+  module list   "Client list"     { kind list }
+  module add    "Add client"      { kind sheet; on "tap the plus button" }
+  inner {
+    search -> list : "on search text change"
+    list   -> add  : "tap the plus button"
+    add    -> list : "on save, dismiss and refresh"
+  }
+}
+
+screen client "Client Detail" {
+  template detail
+  layout   mobile-detail
+  surface  mobile
+  flows    [client_work]
+  story {
+    as     "somebody who has just finished a visit"
+    want   "add what happened to the client's history"
+    so     "the next visit starts from what actually happened"
+  }
+  module header  "Header"      { kind panel }
+  module history "Visit history" { kind timeline }
+  module edit    "Edit sheet"  { kind sheet; on "tap Edit" }
+  inner {
+    header -> edit : "tap Edit"
+  }
+}
+
+screen settings "Settings" { template settings; layout mobile-profile; surface mobile; flows [access] }
+
+flow {
+  signin  -> home     : "on successful sign in"
+  home    -> clients  : "tap the Clients tab"
+  clients -> client   : "tap a client row"
+  home    -> settings : "tap the Settings tab"
+}
+
+stack {
+  framework swiftui
+  language  swift
+  styling   swiftui-modifiers
+  state     swift-observable
+  http      swift-urlsession
+  icons     sf-symbols
+  tables    swift-list
+  charts    swift-charts
+  testing   swift-testing
+  tooling   swiftlint
+}
+
+structure swift-features
+conventions [shared-first, reuse-components, typed-payloads, small-files, comments-why]
+
+requirements """
+Supports the two most recent major iOS versions.
+Dynamic Type up to the accessibility sizes; light and dark from the asset catalogue.
+Offline reads come from the local store; writes retry when connectivity returns.
+"""`
+  }
+];
+function starterDoc(id) {
+  const starter = starters.find((s) => s.id === id);
+  if (!starter) return null;
+  const { doc } = parseFlow(starter.source);
+  return { ...doc, name: starter.name };
+}
+
+// src/studio/features/builder/utils/surfaces.ts
+var surfaceMeta = {
+  web: {
+    label: "Web",
+    icon: "globe",
+    hint: "Browser app \u2014 routes, pages, responsive layouts"
+  },
+  mobile: {
+    label: "Mobile",
+    icon: "smartphone",
+    hint: "Phone app \u2014 React Native or native iOS"
+  },
+  backend: {
+    label: "Backend",
+    icon: "layers",
+    hint: "Services, endpoints and jobs"
+  }
+};
+function stackFor(doc, surface) {
+  return surface === "web" ? doc.stack : doc.surfaces[surface].stack;
+}
+function structureFor(doc, surface) {
+  return surface === "web" ? doc.structure : doc.surfaces[surface].structure;
+}
+
+// src/studio/features/builder/utils/views.ts
+function inView(tagged, viewId, strict = false) {
+  if (!viewId) return true;
+  if (strict) return tagged.views.includes(viewId);
+  return tagged.views.length === 0 || tagged.views.includes(viewId);
+}
+function screensInView(doc, viewId, strict = false) {
+  return doc.screens.filter((screen) => inView(screen, viewId, strict));
+}
+function edgesInView(doc, viewId, strict = false) {
+  if (!viewId) return doc.edges;
+  const visible = new Set(screensInView(doc, viewId, strict).map((s) => s.id));
+  return doc.edges.filter(
+    (edge) => inView(edge, viewId, strict) && visible.has(edge.from) && visible.has(edge.to)
+  );
+}
+function viewNames(doc, ids) {
+  return ids.map((id) => doc.views.find((v) => v.id === id)?.name).filter((name) => Boolean(name));
+}
+
+// src/studio/features/data/utils/schema.ts
+function primaryKeyOf(entity) {
+  return entity.fields.find((field2) => field2.primary) ?? null;
+}
+function fieldByName(entity, name) {
+  const wanted = name.trim().toLowerCase();
+  return entity.fields.find((field2) => field2.name.toLowerCase() === wanted) ?? null;
+}
+function relationsOf(doc, entityId) {
+  return doc.relations.filter(
+    (relation) => relation.from === entityId || relation.to === entityId
+  );
+}
+function singular(key) {
+  if (/(ss|us|is)$/i.test(key)) return key;
+  if (/ies$/i.test(key)) return `${key.slice(0, -3)}y`;
+  if (/(ches|shes|xes|ses)$/i.test(key)) return key.slice(0, -2);
+  if (/s$/i.test(key)) return key.slice(0, -1);
+  return key;
+}
+var relationWording = {
+  "many-to-one": "many rows point at one",
+  "one-to-many": "one row owns many",
+  "one-to-one": "exactly one each way",
+  "many-to-many": "many on both sides, through a join table"
+};
+function joinTableName(doc, relation) {
+  if (relation.through) return relation.through;
+  const from = doc.entities.find((e) => e.id === relation.from);
+  const to = doc.entities.find((e) => e.id === relation.to);
+  return [singular(from?.key ?? "a"), singular(to?.key ?? "b")].sort().join("_");
+}
+function checkDataModel(doc) {
+  const issues = [];
+  const byId2 = new Map(doc.entities.map((entity) => [entity.id, entity]));
+  const keys = /* @__PURE__ */ new Map();
+  for (const entity of doc.entities) {
+    keys.set(entity.key, (keys.get(entity.key) ?? 0) + 1);
+  }
+  for (const [key, count] of keys) {
+    if (count > 1) {
+      issues.push({
+        level: "error",
+        message: `Two tables are both called \`${key}\` \u2014 rename one.`
+      });
+    }
+  }
+  for (const entity of doc.entities) {
+    if (!entity.fields.length) {
+      issues.push({
+        level: "error",
+        message: `\`${entity.key}\` has no columns.`,
+        entityId: entity.id
+      });
+      continue;
+    }
+    if (!primaryKeyOf(entity)) {
+      issues.push({
+        level: "error",
+        message: `\`${entity.key}\` has no primary key \u2014 mark one column as the key.`,
+        entityId: entity.id
+      });
+    }
+    if (entity.fields.filter((field2) => field2.primary).length > 1) {
+      issues.push({
+        level: "warning",
+        message: `\`${entity.key}\` marks more than one primary key \u2014 that is a composite key; say so in the note if it is deliberate.`,
+        entityId: entity.id
+      });
+    }
+    const seen = /* @__PURE__ */ new Set();
+    for (const field2 of entity.fields) {
+      const name = field2.name.trim().toLowerCase();
+      if (!name) {
+        issues.push({
+          level: "error",
+          message: `\`${entity.key}\` has a column with no name.`,
+          entityId: entity.id
+        });
+        continue;
+      }
+      if (seen.has(name)) {
+        issues.push({
+          level: "error",
+          message: `\`${entity.key}.${field2.name}\` is declared twice.`,
+          entityId: entity.id
+        });
+      }
+      seen.add(name);
+      if (!/^[a-z_][a-z0-9_]*$/.test(name)) {
+        issues.push({
+          level: "warning",
+          message: `\`${entity.key}.${field2.name}\` is not snake_case \u2014 every other column is, and the generated code will follow the majority.`,
+          entityId: entity.id
+        });
+      }
+      if (field2.type === "enum" && !field2.options.length) {
+        issues.push({
+          level: "warning",
+          message: `\`${entity.key}.${field2.name}\` is an enum with no values listed.`,
+          entityId: entity.id
+        });
+      }
+    }
+    for (const field2 of entity.fields) {
+      if (!/_id$/.test(field2.name) || field2.primary) continue;
+      const joined = doc.relations.some(
+        (relation) => relation.from === entity.id && relation.fromField === field2.name || relation.to === entity.id && relation.toField === field2.name
+      );
+      if (!joined) {
+        issues.push({
+          level: "warning",
+          message: `\`${entity.key}.${field2.name}\` looks like a foreign key but joins nothing \u2014 draw the relation.`,
+          entityId: entity.id
+        });
+      }
+    }
+    if (doc.entities.length > 1 && !relationsOf(doc, entity.id).length) {
+      issues.push({
+        level: "warning",
+        message: `\`${entity.key}\` relates to nothing else.`,
+        entityId: entity.id
+      });
+    }
+  }
+  for (const relation of doc.relations) {
+    const from = byId2.get(relation.from);
+    const to = byId2.get(relation.to);
+    if (!from || !to) {
+      issues.push({
+        level: "error",
+        message: `A relation points at a table that no longer exists \u2014 delete it or repoint it.`
+      });
+      continue;
+    }
+    if (relation.kind === "many-to-many") {
+      if (!relation.through) {
+        issues.push({
+          level: "warning",
+          message: `\`${from.key}\` \u2194 \`${to.key}\` is many-to-many with no join table named \u2014 one will be called \`${joinTableName(doc, relation)}\`.`,
+          entityId: from.id
+        });
+      }
+      continue;
+    }
+    if (relation.fromField && !fieldByName(from, relation.fromField)) {
+      issues.push({
+        level: "error",
+        message: `\`${from.key}.${relation.fromField}\` does not exist, but a relation uses it.`,
+        entityId: from.id
+      });
+    }
+    if (relation.toField && !fieldByName(to, relation.toField)) {
+      issues.push({
+        level: "error",
+        message: `\`${to.key}.${relation.toField}\` does not exist, but a relation points at it.`,
+        entityId: to.id
+      });
+    }
+  }
+  return issues;
 }
 
 // src/studio/features/theme/data/typography.ts
@@ -35656,7 +35706,8 @@ default every product gets.
 - \`elevation\` \u2014 ${elevationValues.join(", ")}: how much the surfaces lift off the page
 - \`motion\` \u2014 ${motionValues.join(", ")}
 - \`scheme\` \u2014 ${colorSchemeValues.join(", ")}: \`both\` ships light and dark, \`dark-first\` designs dark and derives light
-- \`preset\` \u2014 the named design everything else is a variation of; leave it out to keep the standard one
+- \`preset\` \u2014 the named design everything else is a variation of. Pick one **by id from the catalogue below**; every other value in this block is an override on top of it
+- \`note\` \u2014 one sentence on why this design suits this product, quoted: \`note "A filing product, so it reads as a printed record"\`. Written for the person who will read your file, not for the build agent
 - \`shape\` \u2014 corner radii in px, each surface on its own: \`shape control 8 card 12 overlay 16\`. Add the word \`pill\` for fully round actions whatever \`control\` says. This is what expresses "square everywhere, with one pill in it" \u2014 a single radius cannot
 - \`fonts\` \u2014 real family names, quoted: \`fonts display "Bricolage Grotesque" body "Public Sans" mono "JetBrains Mono"\`. Leave a slot out and it follows the character chosen above. Name a family only when the product genuinely has one; \`headings\`/\`body\` are the safer way to ask
 - \`scale_ratio\` \u2014 1.05\u20131.7, the step between one type size and the next (1.2 minor third, 1.25 major third, 1.5 for a display-led page)
@@ -35666,6 +35717,37 @@ default every product gets.
 - \`motion_model\` \u2014 ${motionModelValues.join(", ")}: what the transitions are built out of
 - \`inputs\` \u2014 ${inputStyleValues.join(", ")}: how a text field is drawn and where its label sits
 - \`palette\` \u2014 per-mode overrides of single colour tokens, named as shadcn names them without the \`--\`: \`palette light { primary oklch(0.55 0.12 250) }\`, \`palette dark { \u2026 }\`. Overrides **only** \u2014 every token you leave out comes from the preset, which is what lets the preset improve later
+
+## presets \u2014 pick one, by id
+
+The design is a decision, and this is where you make it. Read the brief, decide
+what the product should feel like to use, and choose the preset closest to it.
+Every value in the theme block is an override on top of that choice, so the
+closer the preset, the less you have to say.
+
+Two rules that matter more than they look:
+
+**Use an id from this list.** A name that is not here is not corrected into one
+that is \u2014 the file keeps your word and the design silently falls back, which is
+the one failure nobody notices.
+
+**Override only what the brief actually demands.** A preset is a set of
+decisions that agree with each other; three arbitrary overrides is how it stops
+being one. If you find yourself overriding five things, you picked the wrong
+preset.
+
+${presets.map(
+    (preset) => `- \`${preset.id}\` \u2014 **${preset.name}**: ${preset.character}
+` + preset.axes.map((axis) => `  - ${axis}`).join("\n")
+  ).join("\n")}
+
+## which build this is for (\`priority\`)
+
+- \`logic-first\` \u2014 the default. The prompt carries the data model, the
+  deployment notes and everything else a working system needs
+- \`ui-first\` \u2014 a prototype. The data model and deployment sections are
+  dropped, and the design carries proportionally more of the brief. Choose it
+  when the brief is about screens rather than about a system
 
 ## screen templates
 ${screenTemplates.map((t) => `- ${t.id} \u2014 ${t.description}`).join("\n")}

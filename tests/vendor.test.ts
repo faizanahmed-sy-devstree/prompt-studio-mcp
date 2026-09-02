@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { buildAuthoringPrompt } from "../src/studio/features/flow-lang/authoring-prompt"
 import { checkFlow, newDoc, promptFor, readDoc, toFlow } from "../src/flow"
 
 /**
@@ -89,5 +90,18 @@ describe("the vendored copy still speaks the app's document format", () => {
   it("still teaches the grammar it now writes", () => {
     const guide = promptFor(doc, "web")
     expect(guide.length).toBeGreaterThan(1000)
+  })
+})
+
+describe("the guide it hands Claude asks for a design", () => {
+  it("lists the presets by id", () => {
+    const guide = buildAuthoringPrompt()
+    for (const id of ["atrium", "telegraph", "azure", "scalpel"]) {
+      expect(guide, `${id} missing`).toContain(`\`${id}\``)
+    }
+  })
+
+  it("asks for the reason as well as the choice", () => {
+    expect(buildAuthoringPrompt()).toContain("note")
   })
 })

@@ -15,6 +15,7 @@ import { conventions } from "../stack/data/conventions"
 import { stackGroups } from "../stack/data/stack-catalogue"
 import { structurePresets } from "../stack/data/structures"
 import { designLanguages } from "../theme/data/design-languages"
+import { presetById, presets } from "../theme/data/presets"
 import { uiLevelFromLegacyCreativity } from "../theme/data/ui-levels"
 import { slugify, uid, uniqueKey } from "../../lib/utils"
 import {
@@ -64,6 +65,15 @@ export type ParseResult = {
   profile?: string
   warnings: ParseIssue[]
   errors: ParseIssue[]
+  /**
+   * The theme fields this file actually stated.
+   *
+   * Empty for a file with no theme block, which is the difference between "no
+   * opinion about the design" and "the default design" — a distinction a
+   * parsed document cannot express on its own, because every absent line comes
+   * back as its default.
+   */
+  themeStated: (keyof ProjectDoc["theme"])[]
 }
 
 const layoutIds = allLayouts.map((l) => l.id)
@@ -209,6 +219,8 @@ type Ctx =
 export function parseFlow(source: string): ParseResult {
   const { lines, heredocs } = tokenize(source)
   const warnings: ParseIssue[] = []
+  /** Filled as theme lines are applied; see the diff at the call site. */
+  const themeStated = new Set<keyof ProjectDoc["theme"]>()
   const errors: ParseIssue[] = []
 
   const doc: ProjectDoc = projectDocSchema.parse({})
@@ -802,7 +814,23 @@ export function parseFlow(source: string): ParseResult {
       // `value` has lost the quoting that says where one family name ends, so
       // the statement itself is passed alongside it.
       const args = raw.replace(/^\S+\s*/, "")
+      // Which theme fields this file actually spoke about, taken by diffing
+      // rather than bookkept per case.
+      //
+      // Merging needs it: every absent line comes back as its default, so
+      // without knowing what was *stated* a merge either drops the design the
+      // file carried or overwrites tuning the file never mentioned. Diffing the
+      // object around the call gets it exactly right and cannot drift out of
+      // step with the switch below, which is thirty cases long.
+      const before = JSON.stringify(doc.theme)
       const opens = applyThemeProp(doc, keyword, value, line, warnings, args)
+      if (before !== JSON.stringify(doc.theme)) {
+        for (const field of Object.keys(doc.theme) as (keyof ProjectDoc["theme"])[]) {
+          if (JSON.stringify(doc.theme[field]) !== JSON.stringify(JSON.parse(before)[field])) {
+            themeStated.add(field)
+          }
+        }
+      }
       if (opens) pending = { kind: "palette", mode: opens }
       continue
     }
@@ -1300,7 +1328,7 @@ export function parseFlow(source: string): ParseResult {
     })
   }
 
-  return { doc, profile, warnings, errors }
+  return { doc, profile, warnings, errors, themeStated: [...themeStated] }
 }
 
 function emptyStory(): UserStory {
@@ -1533,11 +1561,34 @@ function applyThemeProp(
         })
         return
       }
-      // Not checked against the catalogue, unlike `design`: presets are data
-      // that grows between releases, and a file naming one this build has not
-      // shipped yet has to round trip rather than be corrected into something
-      // its author did not choose.
+      // Kept whatever it says, even when this build has never heard of it:
+      // presets are data that grows between releases, and correcting a file
+      // into a design its author did not choose is worse than carrying a name
+      // forward. But a name nobody recognises is nearly always a model
+      // inventing one, and silently rendering the default is how that goes
+      // unnoticed — so it is said out loud, with the real names to hand.
+      // `presetById` falls back to the default rather than answering "no", so
+      // the id list is what says whether this one is real.
+      if (!presets.some((preset) => preset.id === normalised)) {
+        warnings.push({
+          line,
+          message:
+            `Unknown preset "${normalised}" — kept as written, but the design falls back to ` +
+            `${presetById(normalised).name}. The presets are: ` +
+            `${presets.map((preset) => preset.id).join(", ")}.`,
+        })
+      }
       doc.theme.preset = normalised
+      return
+    }
+    // One line on why this design, written by whoever chose it. Free text, so
+    // it takes the raw value rather than the normalised one — lowercasing
+    // somebody's sentence is not this parser's business.
+    case "note":
+    case "design_note":
+    case "designnote": {
+      const written = (args || value).trim()
+      doc.theme.designNote = written.replace(/^["']|["']$/g, "")
       return
     }
     case "shape":

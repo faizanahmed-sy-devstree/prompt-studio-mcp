@@ -14,6 +14,10 @@ export type MergeReport = {
   newEdges: number
   newInnerEdges: number
   newSections: number
+  /** theme fields the incoming file stated and this merge applied */
+  themeFields: number
+  /** the preset it named, when it named one */
+  preset: string
 }
 
 /**
@@ -30,7 +34,21 @@ export type MergeReport = {
  * with only the new modules inside it; anything it leaves out is deliberately
  * absent, not deliberately blank, so absent means "leave alone".
  */
-export function mergeDoc(doc: ProjectDoc, incoming: ProjectDoc): MergeReport {
+export function mergeDoc(
+  doc: ProjectDoc,
+  incoming: ProjectDoc,
+  /**
+   * The theme fields the incoming file actually stated, from the parser.
+   *
+   * Merging used to skip the theme entirely, so a file carrying a design — the
+   * whole point of asking a model to choose one — landed its screens and left
+   * the design behind unless you replaced the project outright. Copying the
+   * whole theme instead is no better: every line the file omitted comes back
+   * as a default, which would quietly undo tuning it never mentioned. So only
+   * what was stated is applied.
+   */
+  themeStated: (keyof ProjectDoc["theme"])[] = []
+): MergeReport {
   const report: MergeReport = {
     newFlows: 0,
     newTables: 0,
@@ -43,6 +61,19 @@ export function mergeDoc(doc: ProjectDoc, incoming: ProjectDoc): MergeReport {
     newEdges: 0,
     newInnerEdges: 0,
     newSections: 0,
+    themeFields: 0,
+    preset: "",
+  }
+
+  // ---------------------------------------------------------------- theme
+  for (const field of themeStated) {
+    const value = incoming.theme[field]
+    if (JSON.stringify(doc.theme[field]) === JSON.stringify(value)) continue
+    // `structuredClone` because shape, fonts and palette are objects, and
+    // sharing them would let a later edit reach back into the parsed document.
+    Object.assign(doc.theme, { [field]: structuredClone(value) })
+    report.themeFields += 1
+    if (field === "preset") report.preset = String(value)
   }
 
   // --------------------------------------------------------------- flows
@@ -273,6 +304,14 @@ export function describeMerge(report: MergeReport): string {
     report.newColumns && `${report.newColumns} column${plural(report.newColumns)}`,
     report.newRelations &&
       `${report.newRelations} relation${plural(report.newRelations)}`,
+    // Last, and phrased as the design rather than as a field count, because
+    // that is the part somebody wants to look at before anything else.
+    report.themeFields &&
+      (report.preset
+        ? `design: ${report.preset}${
+            report.themeFields > 1 ? ` +${report.themeFields - 1} override${plural(report.themeFields - 1)}` : ""
+          }`
+        : `${report.themeFields} design setting${plural(report.themeFields)}`),
   ].filter(Boolean)
   return parts.length ? parts.join(" · ") : "Nothing new — the project already had all of it"
 }

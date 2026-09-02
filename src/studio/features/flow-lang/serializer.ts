@@ -297,6 +297,10 @@ function themeLines(theme: ProjectDoc["theme"]): string[] {
     // default one: it is the name of the design, and a file that omits it reads
     // as though nobody chose.
     `    preset ${theme.preset}`,
+    // Why this design, in the words of whoever chose it. First, because it is
+    // the line a person reads before the values — and omitted when empty, so a
+    // project nobody wrote one for does not carry an empty quote.
+    ...(theme.designNote.trim() ? [`    note ${quote(theme.designNote.trim())}`] : []),
     `    design ${theme.designLanguage}; primary ${theme.primaryColor}; secondary ${theme.secondaryColor}`,
     `    radius ${theme.borderRadius}; buttons ${theme.buttonStyle}; density ${theme.density}`,
     `    headings ${theme.headingFont}; body ${theme.bodyFont}; scale ${theme.typeScale}`,

@@ -11,6 +11,7 @@ import { conventions } from "../stack/data/conventions"
 import { stackGroups } from "../stack/data/stack-catalogue"
 import { structurePresets } from "../stack/data/structures"
 import { designLanguages } from "../theme/data/design-languages"
+import { presets } from "../theme/data/presets"
 import type { ProjectDoc } from "../../types/project"
 import {
   bodyFontValues,
@@ -494,7 +495,8 @@ default every product gets.
 - \`elevation\` — ${elevationValues.join(", ")}: how much the surfaces lift off the page
 - \`motion\` — ${motionValues.join(", ")}
 - \`scheme\` — ${colorSchemeValues.join(", ")}: \`both\` ships light and dark, \`dark-first\` designs dark and derives light
-- \`preset\` — the named design everything else is a variation of; leave it out to keep the standard one
+- \`preset\` — the named design everything else is a variation of. Pick one **by id from the catalogue below**; every other value in this block is an override on top of it
+- \`note\` — one sentence on why this design suits this product, quoted: \`note "A filing product, so it reads as a printed record"\`. Written for the person who will read your file, not for the build agent
 - \`shape\` — corner radii in px, each surface on its own: \`shape control 8 card 12 overlay 16\`. Add the word \`pill\` for fully round actions whatever \`control\` says. This is what expresses "square everywhere, with one pill in it" — a single radius cannot
 - \`fonts\` — real family names, quoted: \`fonts display "Bricolage Grotesque" body "Public Sans" mono "JetBrains Mono"\`. Leave a slot out and it follows the character chosen above. Name a family only when the product genuinely has one; \`headings\`/\`body\` are the safer way to ask
 - \`scale_ratio\` — 1.05–1.7, the step between one type size and the next (1.2 minor third, 1.25 major third, 1.5 for a display-led page)
@@ -504,6 +506,40 @@ default every product gets.
 - \`motion_model\` — ${motionModelValues.join(", ")}: what the transitions are built out of
 - \`inputs\` — ${inputStyleValues.join(", ")}: how a text field is drawn and where its label sits
 - \`palette\` — per-mode overrides of single colour tokens, named as shadcn names them without the \`--\`: \`palette light { primary oklch(0.55 0.12 250) }\`, \`palette dark { … }\`. Overrides **only** — every token you leave out comes from the preset, which is what lets the preset improve later
+
+## presets — pick one, by id
+
+The design is a decision, and this is where you make it. Read the brief, decide
+what the product should feel like to use, and choose the preset closest to it.
+Every value in the theme block is an override on top of that choice, so the
+closer the preset, the less you have to say.
+
+Two rules that matter more than they look:
+
+**Use an id from this list.** A name that is not here is not corrected into one
+that is — the file keeps your word and the design silently falls back, which is
+the one failure nobody notices.
+
+**Override only what the brief actually demands.** A preset is a set of
+decisions that agree with each other; three arbitrary overrides is how it stops
+being one. If you find yourself overriding five things, you picked the wrong
+preset.
+
+${presets
+  .map(
+    (preset) =>
+      `- \`${preset.id}\` — **${preset.name}**: ${preset.character}\n` +
+      preset.axes.map((axis) => `  - ${axis}`).join("\n")
+  )
+  .join("\n")}
+
+## which build this is for (\`priority\`)
+
+- \`logic-first\` — the default. The prompt carries the data model, the
+  deployment notes and everything else a working system needs
+- \`ui-first\` — a prototype. The data model and deployment sections are
+  dropped, and the design carries proportionally more of the brief. Choose it
+  when the brief is about screens rather than about a system
 
 ## screen templates
 ${screenTemplates.map((t) => `- ${t.id} — ${t.description}`).join("\n")}

@@ -168,8 +168,7 @@ async function doPushWeave(dir: string): Promise<number> {
     const known = new Map<string, string>()
     try {
       for (const summary of await api.listArtifacts(project)) {
-        const sha = summary.sha256 ?? summary.sha
-        if (sha) known.set(summary.name, sha)
+        if (summary.sha) known.set(summary.name, summary.sha)
       }
     } catch {
       // First push, or an older backend. Send everything.

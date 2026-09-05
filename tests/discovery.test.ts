@@ -125,7 +125,7 @@ const answer = (over: Partial<DiscoveryAnswer>): DiscoveryAnswer => ({
   family: "ISSUE",
   decision: "resolve: a",
   choice_key: "a",
-  note: null,
+  note: "",
   ...over,
 })
 
@@ -215,6 +215,7 @@ describe("the progress summary", () => {
     source: "weaver",
     done: false,
     created_at: "2026-09-05T00:00:00Z",
+    updated_at: "2026-09-05T00:00:00Z",
     progress: {
       total: 178,
       answered: 40,

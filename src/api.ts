@@ -67,26 +67,40 @@ export type DiscoveryProgress = {
   modules: Record<string, { total: number; answered: number }>
 }
 
-export type DiscoveryRun = {
+export type RunSummary = {
   id: string
   label: string
   source: string
-  done: boolean
   created_at: string
-  progress: DiscoveryProgress
+  updated_at: string
 }
 
+export type DiscoveryRun = RunSummary & {
+  progress: DiscoveryProgress
+  /** Every item answered. There is no status column to forget to set. */
+  done: boolean
+}
+
+/** One line of `GET /answers` — the whole run's decisions, keyed by question. */
 export type DiscoveryAnswer = {
   key: string
   family: string
   decision: string
   choice_key: string | null
-  note: string | null
+  note: string
+}
+
+/** The decision hanging off one item, which already knows its own key. */
+export type ItemAnswer = {
+  decision: string
+  choice_key: string | null
+  note: string
+  created_at: string
 }
 
 export type DiscoveryItem = DiscoveryItemInput & {
   id: string
-  answer: DiscoveryAnswer | null
+  answer: ItemAnswer | null
 }
 
 /**
@@ -95,13 +109,12 @@ export type DiscoveryItem = DiscoveryItemInput & {
  * anything without downloading every file to find out.
  */
 export type ArtifactSummary = {
+  id: string
   name: string
   kind: string
-  size: number
+  /** sha256 of the body — how a push knows there is nothing to send. */
+  sha: string
   updated_at: string
-  /** Named `sha256` by the API; `sha` is tolerated so a rename is not an outage. */
-  sha256?: string
-  sha?: string
 }
 
 export type ArtifactDetail = ArtifactSummary & { body: string }
@@ -138,11 +151,10 @@ export type Activity = {
 export type ApiToken = {
   id: string
   name: string
-  /** Only ever present on the create response — it is not stored in readable form. */
-  token?: string
   created_at: string
-  last_used_at: string | null
   revoked_at: string | null
+  /** Only on the create response — the plaintext is stored nowhere. */
+  token?: string
 }
 
 export type Page<T> = { items: T[]; total: number; has_next: boolean }
@@ -310,8 +322,8 @@ export class Api {
 
   // ── discovery ─────────────────────────────────────────────────────────────
 
-  listRuns(project: string): Promise<DiscoveryRun[]> {
-    return this.request<DiscoveryRun[]>("GET", `${discovery(project)}/runs`)
+  listRuns(project: string): Promise<RunSummary[]> {
+    return this.request<RunSummary[]>("GET", `${discovery(project)}/runs`)
   }
 
   createRun(
@@ -346,8 +358,8 @@ export class Api {
     runId: string,
     itemId: string,
     body: { decision: string; choice_key?: string; note?: string }
-  ): Promise<DiscoveryAnswer> {
-    return this.request<DiscoveryAnswer>(
+  ): Promise<DiscoveryItem> {
+    return this.request<DiscoveryItem>(
       "POST",
       `${discovery(project)}/runs/${encodeURIComponent(runId)}/items/${encodeURIComponent(itemId)}/answer`,
       body
@@ -442,8 +454,9 @@ export class Api {
     return this.request<ApiToken[]>("GET", "/users/me/tokens")
   }
 
-  revokeApiToken(id: string): Promise<ApiToken> {
-    return this.request<ApiToken>("DELETE", `/users/me/tokens/${encodeURIComponent(id)}`)
+  /** No body comes back — the token is gone, and that is the whole answer. */
+  revokeApiToken(id: string): Promise<void> {
+    return this.request<void>("DELETE", `/users/me/tokens/${encodeURIComponent(id)}`)
   }
 }
 

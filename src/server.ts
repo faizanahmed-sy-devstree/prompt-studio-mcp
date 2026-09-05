@@ -697,8 +697,7 @@ server.registerTool(
       const known = new Map<string, string>()
       try {
         for (const summary of await api.listArtifacts(project)) {
-          const sha = summary.sha256 ?? summary.sha
-          if (sha) known.set(summary.name, sha)
+          if (summary.sha) known.set(summary.name, summary.sha)
         }
       } catch {
         // A project with no artifacts yet, or an older backend. Push everything.
@@ -1034,7 +1033,7 @@ server.registerTool(
       const artifacts = await api.listArtifacts(projectFor(project_id))
       if (!artifacts.length) return "No artifacts yet. Run discovery_push_docs."
       const rows = artifacts.map(
-        (artifact) => `${artifact.name}  [${artifact.kind}]  ${artifact.size} bytes  ${artifact.updated_at}`
+        (artifact) => `${artifact.name}  [${artifact.kind}]  ${artifact.updated_at}`
       )
       return `${artifacts.length} artifact(s):\n\n${rows.join("\n")}`
     })
@@ -1074,7 +1073,7 @@ server.registerTool(
   async ({ name, kind, body, project_id }) =>
     guard(async () => {
       const saved = await api.putArtifact(projectFor(project_id), name, { kind, body })
-      return `Saved ${saved.name} (${saved.size} bytes).`
+      return `Saved ${saved.name} (${body.length} bytes).`
     })
 )
 
@@ -1230,7 +1229,7 @@ server.registerTool(
       if (!tokens.length) return "No API tokens."
       const rows = tokens.map(
         (token) =>
-          `${token.id}  ${token.name}  created ${token.created_at}${token.revoked_at ? "  [revoked]" : ""}${token.last_used_at ? `  last used ${token.last_used_at}` : ""}`
+          `${token.id}  ${token.name}  created ${token.created_at}${token.revoked_at ? "  [revoked]" : ""}`
       )
       return `${tokens.length} token(s):\n\n${rows.join("\n")}`
     })
@@ -1245,8 +1244,8 @@ server.registerTool(
   },
   async ({ token_id }) =>
     guard(async () => {
-      const token = await api.revokeApiToken(token_id)
-      return `Revoked "${token.name}" (${token.id}).`
+      await api.revokeApiToken(token_id)
+      return `Revoked ${token_id}. Anything using it has stopped working.`
     })
 )
 

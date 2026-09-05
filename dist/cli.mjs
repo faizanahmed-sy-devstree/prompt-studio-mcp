@@ -124,6 +124,12 @@ var init_auth = __esm({
 });
 
 // src/api.ts
+function discovery(project) {
+  return `/projects/${encodeURIComponent(project)}/discovery`;
+}
+function artifactPath(name) {
+  return name.split("/").map(encodeURIComponent).join("/");
+}
 async function login(baseUrl, email2, password) {
   const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/v1/auth/login`, {
     method: "POST",
@@ -295,7 +301,310 @@ var init_api = __esm({
       restoreVersion(id, versionId) {
         return this.request("POST", `/projects/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`);
       }
+      // ── discovery ─────────────────────────────────────────────────────────────
+      listRuns(project) {
+        return this.request("GET", `${discovery(project)}/runs`);
+      }
+      createRun(project, body) {
+        return this.request("POST", `${discovery(project)}/runs`, body);
+      }
+      getRun(project, runId) {
+        return this.request("GET", `${discovery(project)}/runs/${encodeURIComponent(runId)}`);
+      }
+      listItems(project, runId, filters = {}) {
+        const query = new URLSearchParams();
+        for (const [key, value] of Object.entries(filters)) {
+          if (value !== void 0 && value !== "") query.set(key, String(value));
+        }
+        const suffix = query.toString() ? `?${query}` : "";
+        return this.request(
+          "GET",
+          `${discovery(project)}/runs/${encodeURIComponent(runId)}/items${suffix}`
+        );
+      }
+      answerItem(project, runId, itemId, body) {
+        return this.request(
+          "POST",
+          `${discovery(project)}/runs/${encodeURIComponent(runId)}/items/${encodeURIComponent(itemId)}/answer`,
+          body
+        );
+      }
+      acceptDefaults(project, runId, itemIds) {
+        return this.request(
+          "POST",
+          `${discovery(project)}/runs/${encodeURIComponent(runId)}/answers/bulk`,
+          { item_ids: itemIds }
+        );
+      }
+      listAnswers(project, runId) {
+        return this.request(
+          "GET",
+          `${discovery(project)}/runs/${encodeURIComponent(runId)}/answers`
+        );
+      }
+      listArtifacts(project) {
+        return this.request("GET", `${discovery(project)}/artifacts`);
+      }
+      getArtifact(project, name) {
+        return this.request("GET", `${discovery(project)}/artifacts/${artifactPath(name)}`);
+      }
+      putArtifact(project, name, body) {
+        return this.request(
+          "PUT",
+          `${discovery(project)}/artifacts/${artifactPath(name)}`,
+          body
+        );
+      }
+      // ── people, notes, history ────────────────────────────────────────────────
+      listMembers(project) {
+        return this.request("GET", `/projects/${encodeURIComponent(project)}/members`);
+      }
+      addMember(project, body) {
+        return this.request("POST", `/projects/${encodeURIComponent(project)}/members`, body);
+      }
+      listComments(project, includeResolved = false) {
+        return this.request(
+          "GET",
+          `/projects/${encodeURIComponent(project)}/comments?include_resolved=${includeResolved}`
+        );
+      }
+      addComment(project, body) {
+        return this.request("POST", `/projects/${encodeURIComponent(project)}/comments`, body);
+      }
+      resolveComment(project, commentId) {
+        return this.request(
+          "PATCH",
+          `/projects/${encodeURIComponent(project)}/comments/${encodeURIComponent(commentId)}`,
+          { resolved: true }
+        );
+      }
+      listActivity(project) {
+        return this.request(
+          "GET",
+          `/projects/${encodeURIComponent(project)}/activity?size=30`
+        );
+      }
+      // ── personal access tokens ────────────────────────────────────────────────
+      createApiToken(name) {
+        return this.request("POST", "/users/me/tokens", { name });
+      }
+      listApiTokens() {
+        return this.request("GET", "/users/me/tokens");
+      }
+      revokeApiToken(id) {
+        return this.request("DELETE", `/users/me/tokens/${encodeURIComponent(id)}`);
+      }
     };
+  }
+});
+
+// src/discovery.ts
+import { createHash } from "node:crypto";
+import { existsSync as existsSync2, readdirSync, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { join as join2, relative, sep } from "node:path";
+function skipped(name) {
+  return name.startsWith("discovery/raw/") || name === "discovery/questions.json" || name.endsWith(".run-id");
+}
+function sha256(body) {
+  return createHash("sha256").update(body, "utf8").digest("hex");
+}
+function collectWeaveArtifacts(dir) {
+  const root = join2(dir, "weave");
+  if (!existsSync2(root)) return [];
+  const found = [];
+  const walk = (current) => {
+    for (const entry of readdirSync(current, { withFileTypes: true }).sort(
+      (a, b) => a.name.localeCompare(b.name)
+    )) {
+      const path = join2(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(path);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const name = relative(root, path).split(sep).join("/");
+      const kind = KINDS[name.split(".").pop()?.toLowerCase() ?? ""];
+      if (!kind || skipped(name)) continue;
+      found.push({ name, kind, body: readFileSync2(path, "utf8") });
+    }
+  };
+  walk(root);
+  return found;
+}
+function writeBackDecisions(dir, answers) {
+  const root = join2(dir, "weave");
+  const read = (name) => {
+    const path = join2(root, name);
+    return existsSync2(path) ? readFileSync2(path, "utf8") : null;
+  };
+  let issuesText = read(ISSUES);
+  let featuresText = read(FEATURES);
+  const report = {
+    issues: 0,
+    implied: 0,
+    unmatched: [],
+    remainingPending: 0,
+    changed: []
+  };
+  for (const answer of answers) {
+    const decision = flatten(answer.decision);
+    if (!answer.key || !decision) continue;
+    if (issuesText !== null) {
+      const next = setIssueDecision(issuesText, answer.key, decision);
+      if (next !== null) {
+        issuesText = next;
+        report.issues += 1;
+        continue;
+      }
+    }
+    if (featuresText !== null) {
+      const next = setFeatureDecision(featuresText, answer.key, decision);
+      if (next !== null) {
+        featuresText = next;
+        report.implied += 1;
+        continue;
+      }
+    }
+    report.unmatched.push(answer.key);
+  }
+  if (report.issues && issuesText !== null) {
+    writeFileSync2(join2(root, ISSUES), issuesText);
+    report.changed.push(ISSUES);
+  }
+  if (report.implied && featuresText !== null) {
+    writeFileSync2(join2(root, FEATURES), featuresText);
+    report.changed.push(FEATURES);
+  }
+  report.remainingPending = countPending(issuesText) + countPending(featuresText);
+  return report;
+}
+function countPending(text2) {
+  if (!text2) return 0;
+  return (text2.match(/decision: PENDING/g)?.length ?? 0) + (text2.match(/\| *PENDING *\|/g)?.length ?? 0);
+}
+function setIssueDecision(text2, key, decision) {
+  const header = new RegExp(`^## ${escape2(key)}(?=[ \\t]|$)`, "m");
+  const start = text2.search(header);
+  if (start < 0) return null;
+  const rest = text2.slice(start);
+  const end = rest.indexOf("\n## ");
+  const block2 = end < 0 ? rest : rest.slice(0, end);
+  const replaced = block2.replace(/^decision: PENDING[^\n]*$/m, `decision: ${decision}`);
+  if (replaced === block2) return null;
+  return text2.slice(0, start) + replaced + (end < 0 ? "" : rest.slice(end));
+}
+function setFeatureDecision(text2, key, decision) {
+  const row2 = new RegExp(`^\\| *${escape2(key)} *\\|.*$`, "m");
+  const match = text2.match(row2);
+  if (!match) return null;
+  const replaced = match[0].replace(/\| *PENDING *\|(\s*)$/, `| ${decision.replace(/\|/g, "\xA6")} |$1`);
+  if (replaced === match[0]) return null;
+  return text2.replace(row2, () => replaced);
+}
+function flatten(decision) {
+  return decision.replace(/\s+/g, " ").trim();
+}
+function escape2(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function progressSummary(run, unansweredRoots = []) {
+  const p = run.progress;
+  const lines = [
+    `${run.label || "(unlabelled run)"} \u2014 ${run.id}`,
+    `${p.answered}/${p.total} answered \xB7 ${p.needs_user_answered}/${p.needs_user} of the ones that need a person \xB7 ${run.done ? "DONE" : "not done"}`,
+    ""
+  ];
+  const modules = Object.entries(p.modules ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  if (modules.length) {
+    lines.push("module                    answered");
+    for (const [name, counts] of modules) {
+      const flag = counts.answered >= counts.total ? "" : "  \u2190";
+      lines.push(`${name.padEnd(24)}  ${counts.answered}/${counts.total}${flag}`);
+    }
+  }
+  if (unansweredRoots.length) {
+    lines.push("", `Root questions still open (${unansweredRoots.length}):`);
+    for (const item of unansweredRoots.slice(0, 20)) {
+      lines.push(`  ${item.key}  ${item.title}`);
+    }
+    if (unansweredRoots.length > 20) lines.push(`  \u2026 and ${unansweredRoots.length - 20} more`);
+  }
+  return lines.join("\n");
+}
+function rootsOf(items) {
+  return items.filter((item) => !(item.depends_on ?? []).length && item.family !== "RULE");
+}
+var KINDS, ISSUES, FEATURES;
+var init_discovery = __esm({
+  "src/discovery.ts"() {
+    "use strict";
+    KINDS = {
+      md: "md",
+      dbml: "dbml",
+      mmd: "mermaid",
+      weave: "weave",
+      json: "json",
+      flow: "flow"
+    };
+    ISSUES = "discovery/issues.md";
+    FEATURES = "discovery/features.md";
+  }
+});
+
+// src/link.ts
+import { existsSync as existsSync3, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "node:fs";
+import { dirname as dirname2, isAbsolute, join as join3, resolve } from "node:path";
+function findLinkFile(start = process.cwd()) {
+  let dir = resolve(start);
+  for (; ; ) {
+    const candidate = join3(dir, LINK_FILE);
+    if (existsSync3(candidate)) return candidate;
+    const parent = dirname2(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function readLinks(start = process.cwd()) {
+  const path = findLinkFile(start);
+  if (!path) return null;
+  try {
+    const parsed = JSON.parse(readFileSync3(path, "utf8"));
+    return {
+      path,
+      root: dirname2(path),
+      links: { projects: parsed.projects ?? {} }
+    };
+  } catch {
+    return { path, root: dirname2(path), links: { projects: {} } };
+  }
+}
+function writeLinks(root, links) {
+  const path = join3(root, LINK_FILE);
+  writeFileSync3(path, `${JSON.stringify(links, null, 2)}
+`);
+  return path;
+}
+function upsertLink(root, link) {
+  const existing = readLinks(root);
+  const links = existing?.links ?? { projects: {} };
+  links.projects[link.projectId] = link;
+  return writeLinks(existing?.root ?? root, links);
+}
+function resolveLink(projectId, start = process.cwd()) {
+  const found = readLinks(start);
+  if (!found) return null;
+  const all = Object.values(found.links.projects);
+  if (projectId) return found.links.projects[projectId] ?? null;
+  return all.length === 1 ? all[0] : null;
+}
+function flowPathOf(link, root) {
+  return isAbsolute(link.flowFile) ? link.flowFile : join3(root, link.flowFile);
+}
+var LINK_FILE;
+var init_link = __esm({
+  "src/link.ts"() {
+    "use strict";
+    LINK_FILE = ".prompt-studio.json";
   }
 });
 
@@ -13071,7 +13380,7 @@ var init_protocol = __esm({
               return;
             }
             const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-            await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+            await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
             options?.signal?.throwIfAborted();
           }
         } catch (error2) {
@@ -13088,7 +13397,7 @@ var init_protocol = __esm({
        */
       request(request, resultSchema, options) {
         const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-        return new Promise((resolve3, reject) => {
+        return new Promise((resolve4, reject) => {
           const earlyReject = (error2) => {
             reject(error2);
           };
@@ -13166,7 +13475,7 @@ var init_protocol = __esm({
               if (!parseResult.success) {
                 reject(parseResult.error);
               } else {
-                resolve3(parseResult.data);
+                resolve4(parseResult.data);
               }
             } catch (error2) {
               reject(error2);
@@ -13427,12 +13736,12 @@ var init_protocol = __esm({
           }
         } catch {
         }
-        return new Promise((resolve3, reject) => {
+        return new Promise((resolve4, reject) => {
           if (signal.aborted) {
             reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
             return;
           }
-          const timeoutId = setTimeout(resolve3, interval);
+          const timeoutId = setTimeout(resolve4, interval);
           signal.addEventListener("abort", () => {
             clearTimeout(timeoutId);
             reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -16459,7 +16768,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve3.call(this, root, ref);
+      let _sch = resolve4.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -16486,7 +16795,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve3(root, ref) {
+    function resolve4(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -17311,7 +17620,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve3(baseURI, relativeURI, options) {
+    function resolve4(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -17344,49 +17653,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative2, options, skipNormalization) {
+    function resolveComponent(base, relative3, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative2 = parse3(serialize(relative2, options), options);
+        relative3 = parse3(serialize(relative3, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative2.scheme) {
-        target.scheme = relative2.scheme;
-        target.userinfo = relative2.userinfo;
-        target.host = relative2.host;
-        target.port = relative2.port;
-        target.path = removeDotSegments(relative2.path || "");
-        target.query = relative2.query;
+      if (!options.tolerant && relative3.scheme) {
+        target.scheme = relative3.scheme;
+        target.userinfo = relative3.userinfo;
+        target.host = relative3.host;
+        target.port = relative3.port;
+        target.path = removeDotSegments(relative3.path || "");
+        target.query = relative3.query;
       } else {
-        if (relative2.userinfo !== void 0 || relative2.host !== void 0 || relative2.port !== void 0) {
-          target.userinfo = relative2.userinfo;
-          target.host = relative2.host;
-          target.port = relative2.port;
-          target.path = removeDotSegments(relative2.path || "");
-          target.query = relative2.query;
+        if (relative3.userinfo !== void 0 || relative3.host !== void 0 || relative3.port !== void 0) {
+          target.userinfo = relative3.userinfo;
+          target.host = relative3.host;
+          target.port = relative3.port;
+          target.path = removeDotSegments(relative3.path || "");
+          target.query = relative3.query;
         } else {
-          if (!relative2.path) {
+          if (!relative3.path) {
             target.path = base.path;
-            if (relative2.query !== void 0) {
-              target.query = relative2.query;
+            if (relative3.query !== void 0) {
+              target.query = relative3.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative2.path[0] === "/") {
-              target.path = removeDotSegments(relative2.path);
+            if (relative3.path[0] === "/") {
+              target.path = removeDotSegments(relative3.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative2.path;
+                target.path = "/" + relative3.path;
               } else if (!base.path) {
-                target.path = relative2.path;
+                target.path = relative3.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative2.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative3.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative2.query;
+            target.query = relative3.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -17394,7 +17703,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative2.fragment;
+      target.fragment = relative3.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -17673,7 +17982,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve3,
+      resolve: resolve4,
       resolveComponent,
       equal,
       serialize,
@@ -21791,7 +22100,7 @@ var init_mcp = __esm({
         let task = createTaskResult.task;
         const pollInterval = task.pollInterval ?? 5e3;
         while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-          await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+          await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
           const updatedTask = await extra.taskStore.getTask(taskId);
           if (!updatedTask) {
             throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -22400,12 +22709,12 @@ var init_stdio2 = __esm({
         this.onclose?.();
       }
       send(message) {
-        return new Promise((resolve3) => {
+        return new Promise((resolve4) => {
           const json = serializeMessage(message);
           if (this._stdout.write(json)) {
-            resolve3();
+            resolve4();
           } else {
-            this._stdout.once("drain", resolve3);
+            this._stdout.once("drain", resolve4);
           }
         });
       }
@@ -36267,7 +36576,7 @@ function applyFlow(current, source, mode) {
     return { ok: true, doc: parsed.doc, summary: `Replaced. ${describe(parsed.doc)}` };
   }
   const target = structuredClone(current);
-  const report = mergeDoc(target, parsed.doc);
+  const report = mergeDoc(target, parsed.doc, parsed.themeStated);
   return { ok: true, doc: target, summary: `${describeMerge(report)}. ${describe(target)}` };
 }
 function newDoc(name, source) {
@@ -36303,63 +36612,6 @@ var init_flow = __esm({
     init_starters();
     init_build_prompt();
     init_project();
-  }
-});
-
-// src/link.ts
-import { existsSync as existsSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname2, isAbsolute, join as join2, resolve } from "node:path";
-function findLinkFile(start = process.cwd()) {
-  let dir = resolve(start);
-  for (; ; ) {
-    const candidate = join2(dir, LINK_FILE);
-    if (existsSync2(candidate)) return candidate;
-    const parent = dirname2(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-function readLinks(start = process.cwd()) {
-  const path = findLinkFile(start);
-  if (!path) return null;
-  try {
-    const parsed = JSON.parse(readFileSync2(path, "utf8"));
-    return {
-      path,
-      root: dirname2(path),
-      links: { projects: parsed.projects ?? {} }
-    };
-  } catch {
-    return { path, root: dirname2(path), links: { projects: {} } };
-  }
-}
-function writeLinks(root, links) {
-  const path = join2(root, LINK_FILE);
-  writeFileSync2(path, `${JSON.stringify(links, null, 2)}
-`);
-  return path;
-}
-function upsertLink(root, link) {
-  const existing = readLinks(root);
-  const links = existing?.links ?? { projects: {} };
-  links.projects[link.projectId] = link;
-  return writeLinks(existing?.root ?? root, links);
-}
-function resolveLink(projectId, start = process.cwd()) {
-  const found = readLinks(start);
-  if (!found) return null;
-  const all = Object.values(found.links.projects);
-  if (projectId) return found.links.projects[projectId] ?? null;
-  return all.length === 1 ? all[0] : null;
-}
-function flowPathOf(link, root) {
-  return isAbsolute(link.flowFile) ? link.flowFile : join2(root, link.flowFile);
-}
-var LINK_FILE;
-var init_link = __esm({
-  "src/link.ts"() {
-    "use strict";
-    LINK_FILE = ".prompt-studio.json";
   }
 });
 
@@ -37220,8 +37472,8 @@ var init_authoring_prompt = __esm({
 
 // src/server.ts
 var server_exports = {};
-import { mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "node:fs";
-import { dirname as dirname3, relative, resolve as resolve2, sep } from "node:path";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "node:fs";
+import { dirname as dirname3, join as join4, relative as relative2, resolve as resolve2, sep as sep2 } from "node:path";
 function text(body) {
   return { content: [{ type: "text", text: body }] };
 }
@@ -37261,7 +37513,7 @@ function syncLinkedFile(projectId, doc, version2) {
     const link = found.links.projects[projectId];
     if (!link) return;
     const path = flowPathOf(link, found.root);
-    writeFileSync3(path, `${toFlow(doc)}
+    writeFileSync4(path, `${toFlow(doc)}
 `);
     upsertLink(found.root, {
       ...link,
@@ -37271,7 +37523,71 @@ function syncLinkedFile(projectId, doc, version2) {
   } catch {
   }
 }
-var auth, api, VERSION, server, NO_LINK;
+function projectFor(explicit) {
+  const given = explicit.trim();
+  if (given) return given;
+  const link = resolveLink(void 0);
+  if (link) return link.projectId;
+  throw new Error(NO_LINK);
+}
+function repoRoot(dir) {
+  if (dir.trim()) return resolve2(dir.trim());
+  return readLinks()?.root ?? process.cwd();
+}
+function runIdFor(explicit, root) {
+  const given = explicit.trim();
+  if (given) return given;
+  const path = join4(root, RUN_ID_FILE);
+  const stored = existsSync4(path) ? readFileSync4(path, "utf8").trim() : "";
+  if (stored) return stored;
+  throw new Error(
+    `No run id. Pass run_id, or run discovery_push_run first \u2014 it writes ${RUN_ID_FILE}.`
+  );
+}
+function studioUrl(projectId) {
+  const configured = process.env.PROMPT_STUDIO_APP_URL?.replace(/\/+$/, "");
+  const base = configured || guessAppUrl();
+  return `${base}/discovery?p=${encodeURIComponent(projectId)}`;
+}
+function guessAppUrl() {
+  const api2 = (process.env.PROMPT_STUDIO_API_URL ?? DEFAULT_API_URL).replace(/\/+$/, "");
+  try {
+    const url = new URL(api2);
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return "http://localhost:3000";
+    url.hostname = url.hostname.replace("-backend.", ".");
+    url.port = "";
+    return url.origin;
+  } catch {
+    return api2;
+  }
+}
+async function mergeSchemaFlow(project, source) {
+  const detail = await api.getProject(project);
+  const current = readDoc(detail.doc);
+  const applied = applyFlow(current, source, "merge");
+  if (!applied.ok) {
+    return `weave/schema.flow did not parse, so the schema was not merged:
+${applied.issues.map((issue2) => `  ${issue2}`).join("\n")}`;
+  }
+  if (JSON.stringify(applied.doc) === JSON.stringify(current)) {
+    return "weave/schema.flow is already on the Data canvas, unchanged.";
+  }
+  let snapshot = "";
+  try {
+    const version2 = await api.saveVersion(project, "weaver apply");
+    snapshot = `Snapshot saved as "${version2.label}". `;
+  } catch (error2) {
+    snapshot = `Could not snapshot first (${failure(error2)}). Merging anyway. `;
+  }
+  const saved = await api.saveDocument(project, {
+    doc: applied.doc,
+    base_version: detail.doc_version,
+    schema_version: SCHEMA_VERSION
+  });
+  syncLinkedFile(project, applied.doc, saved.doc_version);
+  return `${snapshot}Merged weave/schema.flow: ${applied.summary} Project is now at version ${saved.doc_version}.`;
+}
+var auth, api, VERSION, server, NO_LINK, RUN_ID_FILE;
 var init_server3 = __esm({
   async "src/server.ts"() {
     "use strict";
@@ -37280,13 +37596,14 @@ var init_server3 = __esm({
     init_zod();
     init_api();
     init_auth();
+    init_discovery();
     init_flow();
     init_link();
     init_authoring_prompt();
     init_project();
     auth = resolveAuth();
     api = new Api(auth);
-    VERSION = "1.0.0";
+    VERSION = "1.2.0";
     server = new McpServer({ name: "prompt-studio", version: VERSION });
     server.registerTool(
       "flow_language_guide",
@@ -37525,24 +37842,24 @@ Restored. The project is now at document version ${restored.doc_version}.`;
         const root = existing?.root ?? process.cwd();
         const source = toFlow(project.doc);
         const target = resolve2(root, flow_file);
-        const inside = target === root || target.startsWith(`${root}${sep}`);
+        const inside = target === root || target.startsWith(`${root}${sep2}`);
         if (!inside) {
           return `The flow file has to live inside this repository. "${flow_file}" resolves to ${target}.`;
         }
         mkdirSync2(dirname3(target), { recursive: true });
-        writeFileSync3(target, `${source}
+        writeFileSync4(target, `${source}
 `);
         const path = upsertLink(root, {
           projectId: project.id,
           projectName: project.name,
-          flowFile: relative(root, target) || flow_file,
+          flowFile: relative2(root, target) || flow_file,
           lastSyncedVersion: project.doc_version,
           lastSyncedAt: (/* @__PURE__ */ new Date()).toISOString(),
           apiUrl: process.env.PROMPT_STUDIO_API_URL ?? ""
         });
         return [
-          `Linked "${project.name}" to ${relative(root, target)}.`,
-          `Wrote the current document (version ${project.doc_version}) to that file, and recorded the link in ${relative(root, path)}.`,
+          `Linked "${project.name}" to ${relative2(root, target)}.`,
+          `Wrote the current document (version ${project.doc_version}) to that file, and recorded the link in ${relative2(root, path)}.`,
           "Commit both \u2014 the .flow file is the diagram in a form your repository can review."
         ].join("\n");
       })
@@ -37563,14 +37880,14 @@ Restored. The project is now at document version ${restored.doc_version}.`;
         const root = found?.root ?? process.cwd();
         const project = await api.getProject(link.projectId);
         const path = flowPathOf(link, root);
-        writeFileSync3(path, `${toFlow(project.doc)}
+        writeFileSync4(path, `${toFlow(project.doc)}
 `);
         upsertLink(root, {
           ...link,
           lastSyncedVersion: project.doc_version,
           lastSyncedAt: (/* @__PURE__ */ new Date()).toISOString()
         });
-        return `Pulled "${project.name}" (version ${project.doc_version}) into ${relative(root, path)}.`;
+        return `Pulled "${project.name}" (version ${project.doc_version}) into ${relative2(root, path)}.`;
       })
     );
     server.registerTool(
@@ -37594,18 +37911,18 @@ Restored. The project is now at document version ${restored.doc_version}.`;
         const found = readLinks();
         const root = found?.root ?? process.cwd();
         const path = flowPathOf(link, root);
-        const source = readFileSync3(path, "utf8");
+        const source = readFileSync4(path, "utf8");
         const project = await api.getProject(link.projectId);
         if (project.doc_version !== link.lastSyncedVersion) {
           return [
-            `Refused. ${relative(root, path)} was pulled at version ${link.lastSyncedVersion}, and the project is now at version ${project.doc_version}.`,
+            `Refused. ${relative2(root, path)} was pulled at version ${link.lastSyncedVersion}, and the project is now at version ${project.doc_version}.`,
             "",
             "Somebody changed it in the studio since. Run pull_flow to bring the file up to date \u2014 commit or stash your edits first \u2014 then reapply and push."
           ].join("\n");
         }
         const applied = applyFlow(readDoc(project.doc), source, mode);
         if (!applied.ok) {
-          return `Refused \u2014 ${relative(root, path)} does not parse:
+          return `Refused \u2014 ${relative2(root, path)} does not parse:
 
 ${applied.issues.map((i) => `  ${i}`).join("\n")}`;
         }
@@ -37613,7 +37930,7 @@ ${applied.issues.map((i) => `  ${i}`).join("\n")}`;
         try {
           const version2 = await api.saveVersion(
             link.projectId,
-            label.trim() || `Before pushing ${relative(root, path)}`
+            label.trim() || `Before pushing ${relative2(root, path)}`
           );
           snapshot = `Snapshot saved as "${version2.label}".`;
         } catch (error2) {
@@ -37651,9 +37968,9 @@ ${applied.issues.map((i) => `  ${i}`).join("\n")}`;
           const path = flowPathOf(link, found.root);
           let fileMatches = false;
           try {
-            fileMatches = readFileSync3(path, "utf8").trim() === toFlow(project.doc).trim();
+            fileMatches = readFileSync4(path, "utf8").trim() === toFlow(project.doc).trim();
           } catch {
-            lines.push(`${link.projectName}: ${relative(found.root, path)} is missing. Run pull_flow.`);
+            lines.push(`${link.projectName}: ${relative2(found.root, path)} is missing. Run pull_flow.`);
             continue;
           }
           const behind = project.doc_version !== link.lastSyncedVersion;
@@ -37670,13 +37987,535 @@ ${applied.issues.map((i) => `  ${i}`).join("\n")}`;
       "Call link_project with a project id from list_projects. It writes .prompt-studio.json",
       "and drops the project's Flow source into a file you can commit."
     ].join("\n");
+    RUN_ID_FILE = "weave/discovery/.run-id";
+    server.registerTool(
+      "discovery_push_run",
+      {
+        title: "Push a discovery run",
+        description: "Send weave/discovery/questions.json to Prompt Studio as a run of questions, and record the run id in weave/discovery/.run-id. Returns the URL a person answers them at.",
+        inputSchema: {
+          questions_path: external_exports.string().default("weave/discovery/questions.json").describe("Path to the questions file, relative to the repository root"),
+          project_id: external_exports.string().default("").describe("Omit when the repository links one project"),
+          dir: external_exports.string().default("").describe("Repository root. Omit for the linked one.")
+        }
+      },
+      async ({ questions_path, project_id, dir }) => guard(async () => {
+        const project = projectFor(project_id);
+        const root = repoRoot(dir);
+        const path = resolve2(root, questions_path);
+        if (!existsSync4(path)) return `No questions file at ${path}.`;
+        let parsed;
+        try {
+          parsed = JSON.parse(readFileSync4(path, "utf8"));
+        } catch (error2) {
+          return `${relative2(root, path)} is not valid JSON: ${error2.message}`;
+        }
+        const items = parsed.items ?? [];
+        if (!items.length) return `${relative2(root, path)} carries no items.`;
+        const run = await api.createRun(project, {
+          label: parsed.label ?? "discovery",
+          source: parsed.source ?? "weaver",
+          items
+        });
+        const idFile = join4(root, RUN_ID_FILE);
+        mkdirSync2(dirname3(idFile), { recursive: true });
+        writeFileSync4(idFile, `${run.id}
+`);
+        return [
+          `Pushed ${items.length} question(s) as run ${run.id}.`,
+          `Recorded in ${RUN_ID_FILE}.`,
+          "",
+          `Answer them here: ${studioUrl(project)}`
+        ].join("\n");
+      })
+    );
+    server.registerTool(
+      "discovery_push_docs",
+      {
+        title: "Push the weave folder",
+        description: "Upload every artifact under weave/ to the project \u2014 the knowledge base, issues, features, schema and journey diagrams \u2014 skipping any file the studio already has unchanged. If weave/schema.flow exists it is also merged into the project document, so the schema appears on the Data canvas.",
+        inputSchema: {
+          dir: external_exports.string().default("").describe("Repository root. Omit for the linked one."),
+          project_id: external_exports.string().default("")
+        }
+      },
+      async ({ dir, project_id }) => guard(async () => {
+        const project = projectFor(project_id);
+        const root = repoRoot(dir);
+        const artifacts = collectWeaveArtifacts(root);
+        if (!artifacts.length) return `Nothing to push \u2014 no artifacts under ${join4(root, "weave")}.`;
+        const known = /* @__PURE__ */ new Map();
+        try {
+          for (const summary of await api.listArtifacts(project)) {
+            const sha = summary.sha256 ?? summary.sha;
+            if (sha) known.set(summary.name, sha);
+          }
+        } catch {
+        }
+        const pushed = [];
+        let unchanged = 0;
+        for (const artifact of artifacts) {
+          if (known.get(artifact.name) === sha256(artifact.body)) {
+            unchanged += 1;
+            continue;
+          }
+          await api.putArtifact(project, artifact.name, {
+            kind: artifact.kind,
+            body: artifact.body
+          });
+          pushed.push(artifact.name);
+        }
+        const lines = [
+          pushed.length ? `Pushed ${pushed.length} artifact(s): ${pushed.join(", ")}.` : "Every artifact was already up to date."
+        ];
+        if (unchanged) lines.push(`${unchanged} unchanged.`);
+        const schemaPath = join4(root, "weave", "schema.flow");
+        if (existsSync4(schemaPath)) {
+          lines.push("", await mergeSchemaFlow(project, readFileSync4(schemaPath, "utf8")));
+        }
+        return lines.join("\n");
+      })
+    );
+    server.registerTool(
+      "discovery_status",
+      {
+        title: "Discovery progress",
+        description: "How far through the questions the run is \u2014 answered per module, which root questions are still open, and whether it is done.",
+        inputSchema: {
+          run_id: external_exports.string().default("").describe("Omit to use weave/discovery/.run-id"),
+          project_id: external_exports.string().default(""),
+          dir: external_exports.string().default("")
+        }
+      },
+      async ({ run_id, project_id, dir }) => guard(async () => {
+        const project = projectFor(project_id);
+        const runId = runIdFor(run_id, repoRoot(dir));
+        const run = await api.getRun(project, runId);
+        const open = rootsOf(await api.listItems(project, runId, { unanswered: true }));
+        return `${progressSummary(run, open)}
+
+${studioUrl(project)}`;
+      })
+    );
+    server.registerTool(
+      "discovery_wait",
+      {
+        title: "Wait for the questions to be answered",
+        description: "Poll the run every 15 seconds until it is done or the timeout runs out, then report where it got to. Call it again to keep waiting \u2014 a person answering 40 questions takes longer than one call.",
+        inputSchema: {
+          run_id: external_exports.string().default(""),
+          project_id: external_exports.string().default(""),
+          dir: external_exports.string().default(""),
+          timeout_seconds: external_exports.number().int().min(15).max(300).default(300).describe("At most 300 \u2014 a longer wait belongs in a second call")
+        }
+      },
+      async ({ run_id, project_id, dir, timeout_seconds }) => guard(async () => {
+        const project = projectFor(project_id);
+        const runId = runIdFor(run_id, repoRoot(dir));
+        const deadline = Date.now() + Math.min(timeout_seconds, 300) * 1e3;
+        for (; ; ) {
+          const run = await api.getRun(project, runId);
+          if (run.done) {
+            return `Done.
+
+${progressSummary(run)}
+
+Run discovery_writeback next.`;
+          }
+          if (Date.now() >= deadline) {
+            const open = rootsOf(await api.listItems(project, runId, { unanswered: true }));
+            return [
+              "Still going.",
+              "",
+              progressSummary(run, open),
+              "",
+              `Answer them here: ${studioUrl(project)}`,
+              "Call discovery_wait again to keep waiting."
+            ].join("\n");
+          }
+          await new Promise((done) => setTimeout(done, 15e3));
+        }
+      })
+    );
+    server.registerTool(
+      "discovery_list_items",
+      {
+        title: "List discovery questions",
+        description: "The questions in a run, with whatever has been answered so far.",
+        inputSchema: {
+          run_id: external_exports.string().default(""),
+          project_id: external_exports.string().default(""),
+          dir: external_exports.string().default(""),
+          module: external_exports.string().default("").describe("Only this module"),
+          family: external_exports.string().default("").describe("RULE, QUESTION, ISSUE, \u2026"),
+          needs_user: external_exports.boolean().optional().describe("Only the ones a person has to decide"),
+          unanswered: external_exports.boolean().optional()
+        }
+      },
+      async ({ run_id, project_id, dir, module, family, needs_user, unanswered }) => guard(async () => {
+        const project = projectFor(project_id);
+        const runId = runIdFor(run_id, repoRoot(dir));
+        const items = await api.listItems(project, runId, {
+          module: module || void 0,
+          family: family || void 0,
+          needs_user,
+          unanswered
+        });
+        if (!items.length) return "No questions match.";
+        const rows = items.map((item) => {
+          const answered = item.answer ? `\u2192 ${item.answer.decision}` : "PENDING";
+          const tags = (item.modules ?? []).join("/") || "\u2014";
+          return `${item.key}  [${item.family}${item.needs_user ? " needs-user" : ""}]  ${tags}  ${item.title}
+    ${answered}`;
+        });
+        return `${items.length} question(s):
+
+${rows.join("\n")}`;
+      })
+    );
+    server.registerTool(
+      "discovery_answer",
+      {
+        title: "Answer one question",
+        description: "Record a decision against one question, by its key \u2014 for a decision you proposed and the user approved, or one they dictated.",
+        inputSchema: {
+          key: external_exports.string().describe("The question's key, e.g. I-014 or Q3"),
+          decision: external_exports.string().describe("The decision in gate grammar \u2014 resolve: \u2026, waive: \u2026, confirm, drop"),
+          choice_key: external_exports.string().default("").describe("The option key this decision came from, if any"),
+          note: external_exports.string().default(""),
+          run_id: external_exports.string().default(""),
+          project_id: external_exports.string().default(""),
+          dir: external_exports.string().default("")
+        }
+      },
+      async ({ key, decision, choice_key, note, run_id, project_id, dir }) => guard(async () => {
+        const project = projectFor(project_id);
+        const runId = runIdFor(run_id, repoRoot(dir));
+        const item = (await api.listItems(project, runId)).find((candidate) => candidate.key === key);
+        if (!item) return `No question keyed ${key} in run ${runId}.`;
+        await api.answerItem(project, runId, item.id, {
+          decision,
+          choice_key: choice_key || void 0,
+          note: note || void 0
+        });
+        return `${key} answered: ${decision}`;
+      })
+    );
+    server.registerTool(
+      "discovery_accept_defaults",
+      {
+        title: "Accept proposed answers",
+        description: "Accept the proposed decision on many questions at once \u2014 named keys, one module, or every standing rule.",
+        inputSchema: {
+          keys: external_exports.array(external_exports.string()).default([]),
+          module: external_exports.string().default(""),
+          all_rules: external_exports.boolean().default(false).describe("Every RULE-family item"),
+          run_id: external_exports.string().default(""),
+          project_id: external_exports.string().default(""),
+          dir: external_exports.string().default("")
+        }
+      },
+      async ({ keys, module, all_rules, run_id, project_id, dir }) => guard(async () => {
+        if (!keys.length && !module && !all_rules) {
+          return "Say which ones: keys, module, or all_rules.";
+        }
+        const project = projectFor(project_id);
+        const runId = runIdFor(run_id, repoRoot(dir));
+        const all = await api.listItems(project, runId);
+        const wanted = new Set(keys);
+        const chosen = all.filter(
+          (item) => !item.answer && (wanted.has(item.key) || module && (item.modules ?? []).includes(module) || all_rules && item.family === "RULE")
+        );
+        if (!chosen.length) return "Nothing to accept \u2014 those are answered already, or match nothing.";
+        const result = await api.acceptDefaults(
+          project,
+          runId,
+          chosen.map((item) => item.id)
+        );
+        const skipped2 = result.skipped?.length ? ` ${result.skipped.length} skipped (no proposed answer to accept).` : "";
+        return `Accepted ${result.accepted} proposed answer(s).${skipped2}`;
+      })
+    );
+    server.registerTool(
+      "discovery_answers",
+      {
+        title: "Read the decisions",
+        description: "Every decision recorded against a run.",
+        inputSchema: {
+          run_id: external_exports.string().default(""),
+          project_id: external_exports.string().default(""),
+          dir: external_exports.string().default("")
+        }
+      },
+      async ({ run_id, project_id, dir }) => guard(async () => {
+        const project = projectFor(project_id);
+        const runId = runIdFor(run_id, repoRoot(dir));
+        const answers = await api.listAnswers(project, runId);
+        if (!answers.length) return "Nothing answered yet.";
+        const rows = answers.map(
+          (answer) => `${answer.key}  [${answer.family}]  ${answer.decision}${answer.note ? `
+    note: ${answer.note}` : ""}`
+        );
+        return `${answers.length} decision(s):
+
+${rows.join("\n")}`;
+      })
+    );
+    server.registerTool(
+      "discovery_writeback",
+      {
+        title: "Write the decisions back into weave/",
+        description: "Fold every recorded decision into weave/discovery/issues.md and features.md, push the rewritten files back, and report how many PENDING rows are left. The gate before weave-author needs that to be zero.",
+        inputSchema: {
+          run_id: external_exports.string().default(""),
+          project_id: external_exports.string().default(""),
+          dir: external_exports.string().default("").describe("Repository root. Omit for the linked one.")
+        }
+      },
+      async ({ run_id, project_id, dir }) => guard(async () => {
+        const project = projectFor(project_id);
+        const root = repoRoot(dir);
+        const runId = runIdFor(run_id, root);
+        const answers = await api.listAnswers(project, runId);
+        if (!answers.length) return "Nothing to write back \u2014 no decisions recorded yet.";
+        const report = writeBackDecisions(root, answers);
+        for (const name of report.changed) {
+          const body = readFileSync4(join4(root, "weave", name), "utf8");
+          await api.putArtifact(project, name, { kind: "md", body });
+        }
+        const lines = [
+          `Wrote back ${report.issues} issue decision(s) and ${report.implied} feature decision(s).`,
+          report.changed.length ? `Re-pushed ${report.changed.join(", ")}.` : "Nothing on disk needed changing."
+        ];
+        if (report.unmatched.length) {
+          lines.push(
+            `${report.unmatched.length} decision(s) matched no row in either file: ${report.unmatched.join(", ")}.`
+          );
+        }
+        lines.push(
+          report.remainingPending === 0 ? "0 PENDING left. The gate is clear \u2014 commit weave/ and run weave-author." : `${report.remainingPending} PENDING still left. Answer those before weave-author runs.`
+        );
+        return lines.join("\n");
+      })
+    );
+    server.registerTool(
+      "artifact_list",
+      {
+        title: "List studio artifacts",
+        description: "Every file the project holds \u2014 names, kinds and sizes, no bodies.",
+        inputSchema: { project_id: external_exports.string().default("") }
+      },
+      async ({ project_id }) => guard(async () => {
+        const artifacts = await api.listArtifacts(projectFor(project_id));
+        if (!artifacts.length) return "No artifacts yet. Run discovery_push_docs.";
+        const rows = artifacts.map(
+          (artifact) => `${artifact.name}  [${artifact.kind}]  ${artifact.size} bytes  ${artifact.updated_at}`
+        );
+        return `${artifacts.length} artifact(s):
+
+${rows.join("\n")}`;
+      })
+    );
+    server.registerTool(
+      "artifact_read",
+      {
+        title: "Read a studio artifact",
+        description: "One artifact's body, by name \u2014 'discovery/issues.md', 'schema.dbml'.",
+        inputSchema: {
+          name: external_exports.string().describe("Artifact name including its folder"),
+          project_id: external_exports.string().default("")
+        }
+      },
+      async ({ name, project_id }) => guard(async () => {
+        const artifact = await api.getArtifact(projectFor(project_id), name);
+        return `# ${artifact.name} [${artifact.kind}]
+
+${artifact.body}`;
+      })
+    );
+    server.registerTool(
+      "artifact_write",
+      {
+        title: "Write a studio artifact",
+        description: "Upsert one artifact by name. Use discovery_push_docs for the whole weave/ folder.",
+        inputSchema: {
+          name: external_exports.string(),
+          kind: external_exports.enum(["md", "dbml", "mermaid", "weave", "json", "flow"]).default("md"),
+          body: external_exports.string(),
+          project_id: external_exports.string().default("")
+        }
+      },
+      async ({ name, kind, body, project_id }) => guard(async () => {
+        const saved = await api.putArtifact(projectFor(project_id), name, { kind, body });
+        return `Saved ${saved.name} (${saved.size} bytes).`;
+      })
+    );
+    server.registerTool(
+      "list_members",
+      {
+        title: "List project members",
+        description: "Who can open this project, and with what standing.",
+        inputSchema: { project_id: external_exports.string().default("") }
+      },
+      async ({ project_id }) => guard(async () => {
+        const members = await api.listMembers(projectFor(project_id));
+        const rows = members.map(
+          (member) => `${member.email}  ${member.role}  ${member.status}  ${member.id}`
+        );
+        return rows.length ? `${members.length} member(s):
+
+${rows.join("\n")}` : "No members.";
+      })
+    );
+    server.registerTool(
+      "add_member",
+      {
+        title: "Share the project",
+        description: "Invite one email address onto the project. The address does not need an account yet \u2014 the invitation waits for it.",
+        inputSchema: {
+          email: external_exports.string(),
+          role: external_exports.enum(["OWNER", "EDITOR", "COMMENTER", "VIEWER"]).default("EDITOR"),
+          project_id: external_exports.string().default("")
+        }
+      },
+      async ({ email: email2, role, project_id }) => guard(async () => {
+        const member = await api.addMember(projectFor(project_id), { email: email2, role });
+        return `Invited ${member.email} as ${member.role} (${member.status}).`;
+      })
+    );
+    server.registerTool(
+      "list_comments",
+      {
+        title: "List comments",
+        description: "Review notes left on the project.",
+        inputSchema: {
+          project_id: external_exports.string().default(""),
+          include_resolved: external_exports.boolean().default(false)
+        }
+      },
+      async ({ project_id, include_resolved }) => guard(async () => {
+        const comments = await api.listComments(projectFor(project_id), include_resolved);
+        if (!comments.length) return "No comments.";
+        const rows = comments.map(
+          (comment) => `${comment.id}  ${comment.target_kind}${comment.target_key ? `:${comment.target_key}` : ""}  ${comment.author_email}${comment.resolved_at ? "  [resolved]" : ""}
+    ${comment.body}`
+        );
+        return `${comments.length} comment(s):
+
+${rows.join("\n")}`;
+      })
+    );
+    server.registerTool(
+      "add_comment",
+      {
+        title: "Leave a comment",
+        description: "Pin a review note to the canvas, a screen, a module or an edge.",
+        inputSchema: {
+          body: external_exports.string(),
+          target_kind: external_exports.enum(["canvas", "screen", "module", "edge"]).default("canvas"),
+          target_key: external_exports.string().default(""),
+          project_id: external_exports.string().default("")
+        }
+      },
+      async ({ body, target_kind, target_key, project_id }) => guard(async () => {
+        const comment = await api.addComment(projectFor(project_id), {
+          body,
+          target_kind,
+          target_key
+        });
+        return `Left a comment on ${comment.target_kind}${comment.target_key ? `:${comment.target_key}` : ""} (${comment.id}).`;
+      })
+    );
+    server.registerTool(
+      "resolve_comment",
+      {
+        title: "Resolve a comment",
+        description: "Mark one comment thread resolved.",
+        inputSchema: { comment_id: external_exports.string(), project_id: external_exports.string().default("") }
+      },
+      async ({ comment_id, project_id }) => guard(async () => {
+        const comment = await api.resolveComment(projectFor(project_id), comment_id);
+        return `Resolved ${comment.id}.`;
+      })
+    );
+    server.registerTool(
+      "list_activity",
+      {
+        title: "Project activity",
+        description: "What changed on this project, newest first.",
+        inputSchema: { project_id: external_exports.string().default("") }
+      },
+      async ({ project_id }) => guard(async () => {
+        const page = await api.listActivity(projectFor(project_id));
+        if (!page.items.length) return "Nothing has happened yet.";
+        const rows = page.items.map(
+          (entry) => `${entry.created_at}  ${entry.actor_email || "\u2014"}  ${entry.summary}`
+        );
+        return `${page.items.length} of ${page.total} event(s):
+
+${rows.join("\n")}`;
+      })
+    );
+    server.registerTool(
+      "create_api_token",
+      {
+        title: "Create an API token",
+        description: "Mint a personal API token for CI or `weaver push` \u2014 set it as STUDIO_TOKEN. Shown once and never again.",
+        inputSchema: { name: external_exports.string().describe("What it is for \u2014 'weaver push on CI'") }
+      },
+      async ({ name }) => guard(async () => {
+        const token = await api.createApiToken(name);
+        return [
+          `Created "${token.name}" (${token.id}).`,
+          "",
+          token.token ?? "(the API returned no token value)",
+          "",
+          "Copy it now \u2014 it is not stored in a form anybody can read back.",
+          "Use it as STUDIO_TOKEN, or as a bearer token against /api/v1."
+        ].join("\n");
+      })
+    );
+    server.registerTool(
+      "list_api_tokens",
+      {
+        title: "List API tokens",
+        description: "The personal API tokens on this account.",
+        inputSchema: {}
+      },
+      async () => guard(async () => {
+        const tokens = await api.listApiTokens();
+        if (!tokens.length) return "No API tokens.";
+        const rows = tokens.map(
+          (token) => `${token.id}  ${token.name}  created ${token.created_at}${token.revoked_at ? "  [revoked]" : ""}${token.last_used_at ? `  last used ${token.last_used_at}` : ""}`
+        );
+        return `${tokens.length} token(s):
+
+${rows.join("\n")}`;
+      })
+    );
+    server.registerTool(
+      "revoke_api_token",
+      {
+        title: "Revoke an API token",
+        description: "Retire one token. Anything using it stops working immediately.",
+        inputSchema: { token_id: external_exports.string() }
+      },
+      async ({ token_id }) => guard(async () => {
+        const token = await api.revokeApiToken(token_id);
+        return `Revoked "${token.name}" (${token.id}).`;
+      })
+    );
     await server.connect(new StdioServerTransport());
   }
 });
 
 // src/cli.ts
 init_api();
+init_discovery();
+init_link();
 init_auth();
+import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
+import { join as join5, resolve as resolve3 } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 var USAGE = `prompt-studio-mcp \u2014 Prompt Studio for Claude Code
@@ -37685,6 +38524,10 @@ var USAGE = `prompt-studio-mcp \u2014 Prompt Studio for Claude Code
   npx prompt-studio-mcp whoami    show who this machine is signed in as
   npx prompt-studio-mcp logout    forget the stored tokens
   npx prompt-studio-mcp serve     run the MCP server on stdio (what Claude runs)
+
+  npx prompt-studio-mcp push-weave [dir]        push weave/ to the linked project
+  npx prompt-studio-mcp discovery status        how far through the questions it is
+  npx prompt-studio-mcp token create <name>     mint an API token for CI (STUDIO_TOKEN)
 
 Registering it with Claude Code, after logging in once:
 
@@ -37773,11 +38616,116 @@ function doLogout() {
   );
   return 0;
 }
+function linkedProject(start) {
+  return resolveLink(void 0, start)?.projectId ?? null;
+}
+function apiOrExit() {
+  const auth2 = resolveAuth();
+  if (auth2.kind === "none") {
+    console.error("Not signed in. Run `npx prompt-studio-mcp login`.");
+    return null;
+  }
+  return new Api(auth2);
+}
+async function doPushWeave(dir) {
+  const root = resolve3(dir || process.cwd());
+  const project = linkedProject(root);
+  if (!project) {
+    console.error(`No linked project under ${root}. Run /prompt-studio:link, or pass a directory that has .prompt-studio.json.`);
+    return 1;
+  }
+  const artifacts = collectWeaveArtifacts(root);
+  if (!artifacts.length) {
+    console.error(`Nothing to push \u2014 no artifacts under ${join5(root, "weave")}.`);
+    return 1;
+  }
+  const api2 = apiOrExit();
+  if (!api2) return 1;
+  try {
+    const known = /* @__PURE__ */ new Map();
+    try {
+      for (const summary of await api2.listArtifacts(project)) {
+        const sha = summary.sha256 ?? summary.sha;
+        if (sha) known.set(summary.name, sha);
+      }
+    } catch {
+    }
+    let pushed = 0;
+    let unchanged = 0;
+    for (const artifact of artifacts) {
+      if (known.get(artifact.name) === sha256(artifact.body)) {
+        unchanged += 1;
+        continue;
+      }
+      await api2.putArtifact(project, artifact.name, { kind: artifact.kind, body: artifact.body });
+      console.log(`  pushed ${artifact.name}`);
+      pushed += 1;
+    }
+    console.log(`
+${pushed} pushed, ${unchanged} unchanged.`);
+    if (existsSync5(join5(root, "weave", "schema.flow"))) {
+      console.log("weave/schema.flow is here \u2014 run the discovery_push_docs tool to also merge it onto the Data canvas.");
+    }
+    return 0;
+  } catch (error2) {
+    console.error(`Could not push: ${error2.message}`);
+    return 1;
+  }
+}
+async function doDiscoveryStatus() {
+  const root = process.cwd();
+  const project = linkedProject(root);
+  if (!project) {
+    console.error("No linked project here. Run /prompt-studio:link first.");
+    return 1;
+  }
+  const idFile = join5(readLinks(root)?.root ?? root, "weave/discovery/.run-id");
+  if (!existsSync5(idFile)) {
+    console.error("No weave/discovery/.run-id \u2014 nothing has been pushed for this repository yet.");
+    return 1;
+  }
+  const runId = readFileSync5(idFile, "utf8").trim();
+  const api2 = apiOrExit();
+  if (!api2) return 1;
+  try {
+    const run = await api2.getRun(project, runId);
+    const open = rootsOf(await api2.listItems(project, runId, { unanswered: true }));
+    console.log(progressSummary(run, open));
+    return run.done ? 0 : 1;
+  } catch (error2) {
+    console.error(`Could not read the run: ${error2.message}`);
+    return 1;
+  }
+}
+async function doTokenCreate(name) {
+  if (!name) {
+    console.error('Give the token a name: `npx prompt-studio-mcp token create "weaver push on CI"`.');
+    return 1;
+  }
+  const api2 = apiOrExit();
+  if (!api2) return 1;
+  try {
+    const token = await api2.createApiToken(name);
+    console.log(`Created "${token.name}" (${token.id}).
+`);
+    console.log(token.token ?? "(the API returned no token value)");
+    console.log("\nCopy it now \u2014 it is not stored anywhere it can be read back.");
+    console.log("Use it as STUDIO_TOKEN, or as a bearer token against /api/v1.");
+    return 0;
+  } catch (error2) {
+    console.error(`Could not create a token: ${error2.message}`);
+    return 1;
+  }
+}
 var command = process.argv[2] ?? "help";
 var code = 0;
 if (command === "login") code = await doLogin();
 else if (command === "whoami") code = await doWhoami();
 else if (command === "logout") code = doLogout();
+else if (command === "push-weave") code = await doPushWeave(process.argv[3] ?? "");
+else if (command === "discovery" && process.argv[3] === "status") code = await doDiscoveryStatus();
+else if (command === "token" && process.argv[3] === "create")
+  code = await doTokenCreate(process.argv.slice(4).join(" ").trim());
 else if (command === "serve") {
   await init_server3().then(() => server_exports);
 } else {

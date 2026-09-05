@@ -65,6 +65,8 @@ The server acts as **you**. It reaches exactly the projects your account can rea
 | `/prompt-studio:sync` | Whether the file and the project still agree. |
 | `/prompt-studio:flow` | Change the project by describing what you want. |
 | `/prompt-studio:prompt` | The build prompt, ready to paste elsewhere. |
+| `/prompt-studio:discover` | Push a discovery run to the studio and wait for the decisions. |
+| `/prompt-studio:review` | Where the discovery run has got to, and what is still open. |
 
 You never have to use them — asking in plain English reaches the same tools.
 They exist because nothing in the slash menu otherwise says the server is here.
@@ -92,6 +94,20 @@ three failed ones against a live project.
 | `pull_flow` | Overwrite the linked file with the project. |
 | `push_flow` | Send the linked file to the project. |
 | `sync_status` | Whether the file and the project agree, and which way they have drifted. |
+| `discovery_push_run` | Send `weave/discovery/questions.json` as a run, and record its id. |
+| `discovery_push_docs` | Upload `weave/`, skipping unchanged files; merge `weave/schema.flow` onto the Data canvas. |
+| `discovery_status` | Progress per module, which root questions are still open, whether it is done. |
+| `discovery_wait` | Poll until the run is done, up to five minutes a call. |
+| `discovery_list_items` | The questions, filtered by module, family, needs-a-person or unanswered. |
+| `discovery_answer` | Record one decision, by question key. |
+| `discovery_accept_defaults` | Accept the proposed answer on named keys, a module, or every standing rule. |
+| `discovery_answers` | Every decision recorded so far. |
+| `discovery_writeback` | Fold the decisions back into `issues.md` / `features.md` and re-push them. |
+| `artifact_list` / `artifact_read` / `artifact_write` | The project's files, one at a time. |
+| `list_members` / `add_member` | Who can open the project; share it with a colleague. |
+| `list_comments` / `add_comment` / `resolve_comment` | Review notes on the project. |
+| `list_activity` | What changed, newest first. |
+| `create_api_token` / `list_api_tokens` / `revoke_api_token` | Personal API tokens for CI and `weaver push`. |
 
 ## Keeping a `.flow` file in your repo
 
@@ -104,6 +120,48 @@ claude: link this repo to my dispatch project
 That writes two files — a `.flow` file holding the diagram as text, and a small `.prompt-studio.json` recording which project it belongs to. **Commit both.**
 
 From then on the file is kept current automatically: any `write_flow` updates it too, so it never silently becomes the stale copy. `sync_status` tells you which side has moved, `pull_flow` brings the studio's version down, and `push_flow` sends yours up.
+
+## Discovery: deciding before building
+
+Weaver reads a prototype and produces a knowledge base — an inventory, a list of
+every conflict and gap it found, a feature table, a schema, a diagram per
+journey — and a list of questions that have to be decided before any of it can
+be built. On a real product that is a couple of hundred decisions, which is more
+than a chat window can carry.
+
+So the decisions get made in the studio instead. The whole `weave/` folder is
+pushed to the project, the questions become a run, and a person answers them in
+the Discovery tab — organised by module, root questions first — while Claude
+waits.
+
+```
+claude: /prompt-studio:discover
+        → pushed 178 questions as run 4f2c…
+        → answer them here: https://your-studio/discovery?p=<project>
+        → 40/178 answered · Finance 4/30 ←
+        → done. wrote back 138 issue decisions and 40 feature decisions. 0 PENDING left.
+```
+
+The write-back matters: the gate that lets the build step start is a `grep` for
+`PENDING` in `weave/discovery/*.md`, so a decision that lived only in the
+database would be a decision the build never saw. `discovery_writeback` puts
+each one into the block or table row it belongs to and re-pushes the files.
+
+`weave/schema.flow` is a `data { … }` block, and `discovery_push_docs` merges it
+into the project document — so the tables land on the **Data canvas** that is
+already there, rather than in a picture of a schema nobody can edit.
+
+From a terminal, without Claude:
+
+```bash
+npx prompt-studio-mcp push-weave [dir]        # push weave/ to the linked project
+npx prompt-studio-mcp discovery status        # how far through the questions it is
+npx prompt-studio-mcp token create "CI push"  # an API token for CI — set it as STUDIO_TOKEN
+```
+
+The token is a personal one: it acts as you, with your access to your projects,
+and it is shown once. Use it as a bearer token against `/api/v1` from CI or
+`weaver push`, where there is nowhere to type a password.
 
 ## Four things it does deliberately
 
@@ -123,6 +181,7 @@ From then on the file is kept current automatically: any `write_flow` updates it
 | `PROMPT_STUDIO_EMAIL` | — | CI, where there is no interactive login |
 | `PROMPT_STUDIO_PASSWORD` | — | CI. Prefer `login` on a personal machine. |
 | `PROMPT_STUDIO_HOME` | `~/.prompt-studio` | Where credentials are stored |
+| `PROMPT_STUDIO_APP_URL` | guessed from the API URL | The studio itself, for the links the discovery tools print |
 
 Stored tokens win over environment variables: somebody who ran `login` meant it, and silently preferring a stale env var over that is an hour of confusion.
 

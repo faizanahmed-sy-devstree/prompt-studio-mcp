@@ -91,6 +91,19 @@ describe("folding Flow into a project", () => {
     expect(keys).toContain("home")
   })
 
+  it("carries a theme the source actually stated", () => {
+    // The merge used to be handed no `themeStated` at all, so `mergeDoc` was
+    // told the file stated nothing about the design and dropped every line of
+    // it: a push carrying a preset landed its screens and left the design
+    // behind, and only `replace` — which deletes the rest of the project —
+    // got it through.
+    const source = 'app "Base" {\n  theme { preset telegraph }\n}\nscreen billing "Billing"'
+    const result = applyFlow(base(), source, "merge")
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.doc.theme.preset).toBe("telegraph")
+  })
+
   it("replaces only when replace is asked for by name", () => {
     const result = applyFlow(base(), `screen billing "Billing"`, "replace")
     expect(result.ok).toBe(true)

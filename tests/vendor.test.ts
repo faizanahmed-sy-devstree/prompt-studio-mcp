@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { buildAuthoringPrompt } from "../src/studio/features/flow-lang/authoring-prompt"
-import { checkFlow, newDoc, promptFor, readDoc, toFlow } from "../src/flow"
+import { applyFlow, checkFlow, newDoc, promptFor, readDoc, toFlow } from "../src/flow"
 
 /**
  * The drift check the sync script has always claimed exists.
@@ -103,5 +103,67 @@ describe("the guide it hands Claude asks for a design", () => {
 
   it("asks for the reason as well as the choice", () => {
     expect(buildAuthoringPrompt()).toContain("note")
+  })
+})
+
+/**
+ * The schema block weaver emits, against the parser this server vendors.
+ *
+ * `weave/schema.flow` is a `data { … }` block and nothing else, and it reaches
+ * the Data canvas through `applyFlow` in merge mode. Two copies of a grammar
+ * with a file passed between them is exactly where drift shows up as "the
+ * tables did not appear and nothing said why", so this is written by hand from
+ * the grammar in the authoring prompt rather than round-tripped through the
+ * serializer, which would agree with itself no matter what.
+ */
+const SCHEMA_FLOW = `data {
+  table users "Users" {
+    note "Anyone who can sign in."
+    id         uuid      pk
+    email      string    unique required
+    full_name  string    required
+    role       enum [admin, member] required default "member"
+    created_at timestamp required default "now()"
+  }
+
+  table deals "Deals" {
+    id         uuid      pk
+    owner_id   uuid      required index
+    title      string    required
+    stage      enum [new, qualified, won, lost] required default "new"
+    amount     decimal
+    created_at timestamp required default "now()"
+    updated_at timestamp required default "now()"
+  }
+
+  table tags "Tags" {
+    id   uuid   pk
+    name string unique required
+  }
+
+  rel deals.owner_id -> users.id : many-to-one "a deal belongs to one account manager" on_delete restrict
+  rel deals <-> tags : many-to-many through deal_tags
+}
+`
+
+describe("the data block weaver writes into weave/schema.flow", () => {
+  it("parses with no errors and no warnings", () => {
+    const result = checkFlow(SCHEMA_FLOW)
+    expect(result.errors, JSON.stringify(result.errors)).toHaveLength(0)
+    expect(result.warnings, JSON.stringify(result.warnings)).toHaveLength(0)
+    expect(result.summary).toContain("3 tables, 2 relations")
+  })
+
+  it("merges onto an existing project without taking its screens away", () => {
+    const applied = applyFlow(blank.doc, SCHEMA_FLOW, "merge")
+    if (!applied.ok) throw new Error(applied.issues.join("; "))
+    expect(applied.doc.entities.map((entity) => entity.name)).toEqual(["Users", "Deals", "Tags"])
+    // Both relation shapes survive — the many-to-many is the one a naive
+    // emitter drops, because it has no foreign key column to hang off.
+    expect(applied.doc.relations).toHaveLength(2)
+    expect(applied.doc.relations.map((relation) => relation.kind)).toContain("many-to-many")
+    // The screen the starter had is still there: merge, not replace.
+    expect(applied.doc.screens.map((screen) => screen.title)).toContain("Home")
+    expect(applied.summary).toContain("3 tables")
   })
 })

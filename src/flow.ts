@@ -96,7 +96,10 @@ export function applyFlow(
   // failed save from leaving the caller holding a half-merged document it
   // believes is still the server's.
   const target: ProjectDoc = structuredClone(current)
-  const report = mergeDoc(target, parsed.doc)
+  // `themeStated` and not the default empty list: without it a merge drops
+  // every theme line the source actually stated, so a file carrying a design
+  // landed its screens and left the design behind.
+  const report = mergeDoc(target, parsed.doc, parsed.themeStated)
   return { ok: true, doc: target, summary: `${describeMerge(report)}. ${describe(target)}` }
 }
 

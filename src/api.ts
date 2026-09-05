@@ -40,6 +40,111 @@ export type VersionSummary = {
 
 export type VersionDetail = VersionSummary & { doc: Record<string, unknown> }
 
+// ── discovery ───────────────────────────────────────────────────────────────
+
+/** One question as weaver writes it into `weave/discovery/questions.json`. */
+export type DiscoveryItemInput = {
+  key: string
+  family: string
+  kind?: string
+  severity?: string
+  title: string
+  body?: string
+  modules?: string[]
+  options?: { key: string; label: string; consequence?: string; decision?: string }[]
+  proposed?: string
+  proposed_key?: string
+  needs_user?: boolean
+  depends_on?: string[]
+  position?: number
+}
+
+export type DiscoveryProgress = {
+  total: number
+  answered: number
+  needs_user: number
+  needs_user_answered: number
+  modules: Record<string, { total: number; answered: number }>
+}
+
+export type DiscoveryRun = {
+  id: string
+  label: string
+  source: string
+  done: boolean
+  created_at: string
+  progress: DiscoveryProgress
+}
+
+export type DiscoveryAnswer = {
+  key: string
+  family: string
+  decision: string
+  choice_key: string | null
+  note: string | null
+}
+
+export type DiscoveryItem = DiscoveryItemInput & {
+  id: string
+  answer: DiscoveryAnswer | null
+}
+
+/**
+ * An artifact as the list route reports it — bodies are not in the list, which
+ * is what makes the sha worth having: it says whether a push would change
+ * anything without downloading every file to find out.
+ */
+export type ArtifactSummary = {
+  name: string
+  kind: string
+  size: number
+  updated_at: string
+  /** Named `sha256` by the API; `sha` is tolerated so a rename is not an outage. */
+  sha256?: string
+  sha?: string
+}
+
+export type ArtifactDetail = ArtifactSummary & { body: string }
+
+// ── people, notes, history ──────────────────────────────────────────────────
+
+export type Member = {
+  id: string
+  email: string
+  role: string
+  status: string
+  invited_at: string | null
+  joined_at: string | null
+}
+
+export type Comment = {
+  id: string
+  body: string
+  target_kind: string
+  target_key: string
+  author_email: string
+  resolved_at: string | null
+  created_at: string
+}
+
+export type Activity = {
+  id: string
+  type: string
+  summary: string
+  actor_email: string
+  created_at: string
+}
+
+export type ApiToken = {
+  id: string
+  name: string
+  /** Only ever present on the create response — it is not stored in readable form. */
+  token?: string
+  created_at: string
+  last_used_at: string | null
+  revoked_at: string | null
+}
+
 export type Page<T> = { items: T[]; total: number; has_next: boolean }
 
 export class ApiError extends Error {
@@ -202,6 +307,156 @@ export class Api {
   restoreVersion(id: string, versionId: string): Promise<ProjectSummary> {
     return this.request<ProjectSummary>("POST", `/projects/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`)
   }
+
+  // ── discovery ─────────────────────────────────────────────────────────────
+
+  listRuns(project: string): Promise<DiscoveryRun[]> {
+    return this.request<DiscoveryRun[]>("GET", `${discovery(project)}/runs`)
+  }
+
+  createRun(
+    project: string,
+    body: { label: string; source: string; items: DiscoveryItemInput[] }
+  ): Promise<DiscoveryRun> {
+    return this.request<DiscoveryRun>("POST", `${discovery(project)}/runs`, body)
+  }
+
+  getRun(project: string, runId: string): Promise<DiscoveryRun> {
+    return this.request<DiscoveryRun>("GET", `${discovery(project)}/runs/${encodeURIComponent(runId)}`)
+  }
+
+  listItems(
+    project: string,
+    runId: string,
+    filters: { module?: string; family?: string; needs_user?: boolean; unanswered?: boolean } = {}
+  ): Promise<DiscoveryItem[]> {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== "") query.set(key, String(value))
+    }
+    const suffix = query.toString() ? `?${query}` : ""
+    return this.request<DiscoveryItem[]>(
+      "GET",
+      `${discovery(project)}/runs/${encodeURIComponent(runId)}/items${suffix}`
+    )
+  }
+
+  answerItem(
+    project: string,
+    runId: string,
+    itemId: string,
+    body: { decision: string; choice_key?: string; note?: string }
+  ): Promise<DiscoveryAnswer> {
+    return this.request<DiscoveryAnswer>(
+      "POST",
+      `${discovery(project)}/runs/${encodeURIComponent(runId)}/items/${encodeURIComponent(itemId)}/answer`,
+      body
+    )
+  }
+
+  acceptDefaults(
+    project: string,
+    runId: string,
+    itemIds: string[]
+  ): Promise<{ accepted: number; skipped: string[] }> {
+    return this.request<{ accepted: number; skipped: string[] }>(
+      "POST",
+      `${discovery(project)}/runs/${encodeURIComponent(runId)}/answers/bulk`,
+      { item_ids: itemIds }
+    )
+  }
+
+  listAnswers(project: string, runId: string): Promise<DiscoveryAnswer[]> {
+    return this.request<DiscoveryAnswer[]>(
+      "GET",
+      `${discovery(project)}/runs/${encodeURIComponent(runId)}/answers`
+    )
+  }
+
+  listArtifacts(project: string): Promise<ArtifactSummary[]> {
+    return this.request<ArtifactSummary[]>("GET", `${discovery(project)}/artifacts`)
+  }
+
+  getArtifact(project: string, name: string): Promise<ArtifactDetail> {
+    return this.request<ArtifactDetail>("GET", `${discovery(project)}/artifacts/${artifactPath(name)}`)
+  }
+
+  putArtifact(
+    project: string,
+    name: string,
+    body: { kind: string; body: string }
+  ): Promise<ArtifactSummary> {
+    return this.request<ArtifactSummary>(
+      "PUT",
+      `${discovery(project)}/artifacts/${artifactPath(name)}`,
+      body
+    )
+  }
+
+  // ── people, notes, history ────────────────────────────────────────────────
+
+  listMembers(project: string): Promise<Member[]> {
+    return this.request<Member[]>("GET", `/projects/${encodeURIComponent(project)}/members`)
+  }
+
+  addMember(project: string, body: { email: string; role: string }): Promise<Member> {
+    return this.request<Member>("POST", `/projects/${encodeURIComponent(project)}/members`, body)
+  }
+
+  listComments(project: string, includeResolved = false): Promise<Comment[]> {
+    return this.request<Comment[]>(
+      "GET",
+      `/projects/${encodeURIComponent(project)}/comments?include_resolved=${includeResolved}`
+    )
+  }
+
+  addComment(
+    project: string,
+    body: { body: string; target_kind?: string; target_key?: string }
+  ): Promise<Comment> {
+    return this.request<Comment>("POST", `/projects/${encodeURIComponent(project)}/comments`, body)
+  }
+
+  resolveComment(project: string, commentId: string): Promise<Comment> {
+    return this.request<Comment>(
+      "PATCH",
+      `/projects/${encodeURIComponent(project)}/comments/${encodeURIComponent(commentId)}`,
+      { resolved: true }
+    )
+  }
+
+  listActivity(project: string): Promise<Page<Activity>> {
+    return this.request<Page<Activity>>(
+      "GET",
+      `/projects/${encodeURIComponent(project)}/activity?size=30`
+    )
+  }
+
+  // ── personal access tokens ────────────────────────────────────────────────
+
+  createApiToken(name: string): Promise<ApiToken> {
+    return this.request<ApiToken>("POST", "/users/me/tokens", { name })
+  }
+
+  listApiTokens(): Promise<ApiToken[]> {
+    return this.request<ApiToken[]>("GET", "/users/me/tokens")
+  }
+
+  revokeApiToken(id: string): Promise<ApiToken> {
+    return this.request<ApiToken>("DELETE", `/users/me/tokens/${encodeURIComponent(id)}`)
+  }
+}
+
+function discovery(project: string): string {
+  return `/projects/${encodeURIComponent(project)}/discovery`
+}
+
+/**
+ * Artifact names carry their folder — `discovery/issues.md` — and the route is
+ * a `{name:path}`, so the slashes have to survive the encoding.
+ */
+function artifactPath(name: string): string {
+  return name.split("/").map(encodeURIComponent).join("/")
 }
 
 /** Exchange an email and password for tokens. Used by `login` and by the server. */

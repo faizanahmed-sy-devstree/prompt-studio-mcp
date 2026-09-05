@@ -1,0 +1,35 @@
+data {
+  table user "User" {
+    id uuid pk
+    name string required
+    email string unique required
+    role enum [sales, admin] required default "sales"
+    created_at timestamp required default "now()"
+    updated_at timestamp required default "now()"
+    deleted_at timestamp
+  }
+  table contact "Contact" {
+    id uuid pk
+    name string required
+    email string unique required
+    phone string
+    owner_id uuid required
+    created_at timestamp required default "now()"
+    updated_at timestamp required default "now()"
+    deleted_at timestamp
+  }
+  table deal "Deal" {
+    id uuid pk
+    title string required
+    amount decimal required default "0"
+    stage enum [lead, qualified, won, lost] required default "lead"
+    contact_id uuid required
+    owner_id uuid required
+    created_at timestamp required default "now()"
+    updated_at timestamp required default "now()"
+    deleted_at timestamp
+  }
+  rel contact.owner_id -> user.id : many-to-one on_delete restrict
+  rel deal.contact_id -> contact.id : many-to-one on_delete restrict
+  rel deal.owner_id -> user.id : many-to-one on_delete restrict
+}

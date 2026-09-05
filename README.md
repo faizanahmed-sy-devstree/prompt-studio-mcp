@@ -97,7 +97,7 @@ three failed ones against a live project.
 | `discovery_push_run` | Send `weave/discovery/questions.json` as a run, and record its id. |
 | `discovery_push_docs` | Upload `weave/`, skipping unchanged files; merge `weave/schema.flow` onto the Data canvas. |
 | `discovery_status` | Progress per module, which root questions are still open, whether it is done. |
-| `discovery_wait` | Poll until the run is done, up to five minutes a call. |
+| `discovery_wait` | Poll until the run is done — two minutes a call by default, five at most. |
 | `discovery_list_items` | The questions, filtered by module, family, needs-a-person or unanswered. |
 | `discovery_answer` | Record one decision, by question key. |
 | `discovery_accept_defaults` | Accept the proposed answer on named keys, a module, or every standing rule. |
@@ -181,7 +181,7 @@ and it is shown once. Use it as a bearer token against `/api/v1` from CI or
 | `PROMPT_STUDIO_EMAIL` | — | CI, where there is no interactive login |
 | `PROMPT_STUDIO_PASSWORD` | — | CI. Prefer `login` on a personal machine. |
 | `PROMPT_STUDIO_HOME` | `~/.prompt-studio` | Where credentials are stored |
-| `PROMPT_STUDIO_APP_URL` | guessed from the API URL | The studio itself, for the links the discovery tools print |
+| `PROMPT_STUDIO_APP_URL` | `http://localhost:3000` when the API URL is local, otherwise unset | The studio itself, for the links the discovery tools print. Unset against a remote API, the tools say so instead of guessing a URL |
 
 Stored tokens win over environment variables: somebody who ran `login` meant it, and silently preferring a stale env var over that is an hour of confusion.
 

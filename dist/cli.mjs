@@ -535,6 +535,20 @@ function progressSummary(run, unansweredRoots = []) {
 function rootsOf(items) {
   return items.filter((item) => !(item.depends_on ?? []).length && item.family !== "RULE");
 }
+function studioAppUrl(env = process.env) {
+  const configured = env.PROMPT_STUDIO_APP_URL?.trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  try {
+    const { hostname: hostname2 } = new URL((env.PROMPT_STUDIO_API_URL ?? "").replace(/\/+$/, ""));
+    if (hostname2 === "localhost" || hostname2 === "127.0.0.1") return "http://localhost:3000";
+  } catch {
+  }
+  return null;
+}
+function studioLink(projectId, env = process.env) {
+  const base = studioAppUrl(env);
+  return base ? `Answer them here: ${base}/discovery?p=${encodeURIComponent(projectId)}` : `Project ${projectId} \u2014 set PROMPT_STUDIO_APP_URL to get a clickable studio link.`;
+}
 var KINDS, ISSUES, FEATURES;
 var init_discovery = __esm({
   "src/discovery.ts"() {
@@ -37545,23 +37559,6 @@ function runIdFor(explicit, root) {
     `No run id. Pass run_id, or run discovery_push_run first \u2014 it writes ${RUN_ID_FILE}.`
   );
 }
-function studioUrl(projectId) {
-  const configured = process.env.PROMPT_STUDIO_APP_URL?.replace(/\/+$/, "");
-  const base = configured || guessAppUrl();
-  return `${base}/discovery?p=${encodeURIComponent(projectId)}`;
-}
-function guessAppUrl() {
-  const api2 = (process.env.PROMPT_STUDIO_API_URL ?? DEFAULT_API_URL).replace(/\/+$/, "");
-  try {
-    const url = new URL(api2);
-    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return "http://localhost:3000";
-    url.hostname = url.hostname.replace("-backend.", ".");
-    url.port = "";
-    return url.origin;
-  } catch {
-    return api2;
-  }
-}
 async function mergeSchemaFlow(project, source) {
   const detail = await api.getProject(project);
   const current = readDoc(detail.doc);
@@ -38026,7 +38023,7 @@ ${applied.issues.map((i) => `  ${i}`).join("\n")}`;
           `Pushed ${items.length} question(s) as run ${run.id}.`,
           `Recorded in ${RUN_ID_FILE}.`,
           "",
-          `Answer them here: ${studioUrl(project)}`
+          studioLink(project)
         ].join("\n");
       })
     );
@@ -38094,7 +38091,7 @@ ${applied.issues.map((i) => `  ${i}`).join("\n")}`;
         const open = rootsOf(await api.listItems(project, runId, { unanswered: true }));
         return `${progressSummary(run, open)}
 
-${studioUrl(project)}`;
+${studioLink(project)}`;
       })
     );
     server.registerTool(
@@ -38106,7 +38103,7 @@ ${studioUrl(project)}`;
           run_id: external_exports.string().default(""),
           project_id: external_exports.string().default(""),
           dir: external_exports.string().default(""),
-          timeout_seconds: external_exports.number().int().min(15).max(300).default(300).describe("At most 300 \u2014 a longer wait belongs in a second call")
+          timeout_seconds: external_exports.number().int().min(15).max(300).default(120).describe("Default 120, at most 300 \u2014 a longer wait belongs in a second call")
         }
       },
       async ({ run_id, project_id, dir, timeout_seconds }) => guard(async () => {
@@ -38129,7 +38126,7 @@ Run discovery_writeback next.`;
               "",
               progressSummary(run, open),
               "",
-              `Answer them here: ${studioUrl(project)}`,
+              studioLink(project),
               "Call discovery_wait again to keep waiting."
             ].join("\n");
           }

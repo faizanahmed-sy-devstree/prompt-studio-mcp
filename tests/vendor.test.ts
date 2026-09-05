@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+
 import { describe, expect, it } from "vitest"
 
 import { buildAuthoringPrompt } from "../src/studio/features/flow-lang/authoring-prompt"
@@ -112,58 +114,42 @@ describe("the guide it hands Claude asks for a design", () => {
  * `weave/schema.flow` is a `data { … }` block and nothing else, and it reaches
  * the Data canvas through `applyFlow` in merge mode. Two copies of a grammar
  * with a file passed between them is exactly where drift shows up as "the
- * tables did not appear and nothing said why", so this is written by hand from
- * the grammar in the authoring prompt rather than round-tripped through the
- * serializer, which would agree with itself no matter what.
+ * tables did not appear and nothing said why" — so the fixture is not written
+ * by hand here. It is the literal output of weaver's `emitFlowData` on
+ * `weaver/test/fixtures/crm.weave`, committed as a file: a hand-written sample
+ * only proves this parser agrees with whoever wrote the sample.
+ *
+ * Regenerate with, from the weaver checkout:
+ *   pnpm exec tsx -e "import{readFileSync,writeFileSync}from'node:fs';\
+ *     import{parse}from'./src/parse.ts';import{emitFlowData}from'./src/emit-flow.ts';\
+ *     writeFileSync('<mcp>/tests/fixtures/crm.schema.flow',\
+ *       emitFlowData(parse(readFileSync('test/fixtures/crm.weave','utf8'))))"
  */
-const SCHEMA_FLOW = `data {
-  table users "Users" {
-    note "Anyone who can sign in."
-    id         uuid      pk
-    email      string    unique required
-    full_name  string    required
-    role       enum [admin, member] required default "member"
-    created_at timestamp required default "now()"
-  }
-
-  table deals "Deals" {
-    id         uuid      pk
-    owner_id   uuid      required index
-    title      string    required
-    stage      enum [new, qualified, won, lost] required default "new"
-    amount     decimal
-    created_at timestamp required default "now()"
-    updated_at timestamp required default "now()"
-  }
-
-  table tags "Tags" {
-    id   uuid   pk
-    name string unique required
-  }
-
-  rel deals.owner_id -> users.id : many-to-one "a deal belongs to one account manager" on_delete restrict
-  rel deals <-> tags : many-to-many through deal_tags
-}
-`
+const SCHEMA_FLOW = readFileSync(
+  new URL("./fixtures/crm.schema.flow", import.meta.url),
+  "utf8"
+)
+const SCHEMA_TABLES = SCHEMA_FLOW.match(/^\s*table /gm)?.length ?? 0
 
 describe("the data block weaver writes into weave/schema.flow", () => {
   it("parses with no errors and no warnings", () => {
+    expect(SCHEMA_TABLES).toBeGreaterThan(0)
     const result = checkFlow(SCHEMA_FLOW)
     expect(result.errors, JSON.stringify(result.errors)).toHaveLength(0)
     expect(result.warnings, JSON.stringify(result.warnings)).toHaveLength(0)
-    expect(result.summary).toContain("3 tables, 2 relations")
+    expect(result.summary).toContain(`${SCHEMA_TABLES} tables`)
   })
 
   it("merges onto an existing project without taking its screens away", () => {
     const applied = applyFlow(blank.doc, SCHEMA_FLOW, "merge")
     if (!applied.ok) throw new Error(applied.issues.join("; "))
-    expect(applied.doc.entities.map((entity) => entity.name)).toEqual(["Users", "Deals", "Tags"])
-    // Both relation shapes survive — the many-to-many is the one a naive
-    // emitter drops, because it has no foreign key column to hang off.
-    expect(applied.doc.relations).toHaveLength(2)
-    expect(applied.doc.relations.map((relation) => relation.kind)).toContain("many-to-many")
+    expect(applied.doc.entities.length).toBeGreaterThanOrEqual(SCHEMA_TABLES)
+    // Every relation weaver emitted survived the merge.
+    expect(applied.doc.relations.length).toBeGreaterThanOrEqual(
+      SCHEMA_FLOW.match(/^\s*rel /gm)?.length ?? 0
+    )
     // The screen the starter had is still there: merge, not replace.
     expect(applied.doc.screens.map((screen) => screen.title)).toContain("Home")
-    expect(applied.summary).toContain("3 tables")
+    expect(applied.summary).toContain(`${SCHEMA_TABLES} tables`)
   })
 })

@@ -15,7 +15,7 @@ Take the questions weaver wrote and get them answered in Prompt Studio.
 4. **Give them the URL** the push printed, in plain text on its own line, and
    say roughly how many questions are waiting. This is the point of the whole
    command — do not bury it.
-5. `discovery_wait` — one call waits up to five minutes. Report the module
+5. `discovery_wait` — one call waits two minutes by default (`timeout_seconds`, five minutes at most). Report the module
    progress and the open root questions each time it comes back, then call it
    again. Keep going until it says done, or until they tell you to stop.
 6. `discovery_writeback` — folds the decisions into `weave/discovery/issues.md`

@@ -11,6 +11,8 @@ import {
   progressSummary,
   rootsOf,
   sha256,
+  studioAppUrl,
+  studioLink,
   writeBackDecisions,
 } from "../src/discovery"
 
@@ -244,5 +246,42 @@ describe("the progress summary", () => {
     const roots = rootsOf(items)
     expect(roots.map((item) => item.key)).toEqual(["Q1"])
     expect(progressSummary(run, roots)).toContain("Q1  Tenancy")
+  })
+})
+
+/**
+ * Where the tools send a person.
+ *
+ * This used to be derived from the API host by deleting "-backend" from it,
+ * which printed a confident link to `https://prompt-studio.onrender.com`
+ * whether or not anything was deployed there. A wrong link is worse than none.
+ */
+describe("studioAppUrl", () => {
+  it("takes PROMPT_STUDIO_APP_URL, trailing slashes trimmed", () => {
+    expect(studioAppUrl({ PROMPT_STUDIO_APP_URL: "https://studio.example/" })).toBe(
+      "https://studio.example"
+    )
+  })
+
+  it("pairs a local API with the local dev studio", () => {
+    expect(studioAppUrl({ PROMPT_STUDIO_API_URL: "http://localhost:8010" })).toBe(
+      "http://localhost:3000"
+    )
+    expect(studioAppUrl({ PROMPT_STUDIO_API_URL: "http://127.0.0.1:8010/" })).toBe(
+      "http://localhost:3000"
+    )
+  })
+
+  it("guesses nothing from a remote or missing API URL", () => {
+    expect(studioAppUrl({ PROMPT_STUDIO_API_URL: "https://ps-backend.onrender.com" })).toBeNull()
+    expect(studioAppUrl({})).toBeNull()
+    expect(studioAppUrl({ PROMPT_STUDIO_API_URL: "not a url" })).toBeNull()
+  })
+
+  it("prints a link when it has one and how to get one when it does not", () => {
+    expect(studioLink("p1", { PROMPT_STUDIO_APP_URL: "https://studio.example" })).toBe(
+      "Answer them here: https://studio.example/discovery?p=p1"
+    )
+    expect(studioLink("p1", {})).toContain("set PROMPT_STUDIO_APP_URL")
   })
 })

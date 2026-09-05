@@ -237,3 +237,32 @@ export function progressSummary(run: DiscoveryRun, unansweredRoots: DiscoveryIte
 export function rootsOf(items: DiscoveryItem[]): DiscoveryItem[] {
   return items.filter((item) => !(item.depends_on ?? []).length && item.family !== "RULE")
 }
+
+/**
+ * The studio address, or nothing.
+ *
+ * The app is a separate deployment from the API and nothing on the wire says
+ * where it is, so this used to derive one from the API host by string surgery
+ * — which produced a confident link to a host that need not exist. A wrong URL
+ * is worse than no URL: it sends somebody to a 404 and they blame their token.
+ * So: the explicit setting, the local dev pair, or `null`.
+ */
+export function studioAppUrl(env: NodeJS.ProcessEnv = process.env): string | null {
+  const configured = env.PROMPT_STUDIO_APP_URL?.trim().replace(/\/+$/, "")
+  if (configured) return configured
+  try {
+    const { hostname } = new URL((env.PROMPT_STUDIO_API_URL ?? "").replace(/\/+$/, ""))
+    if (hostname === "localhost" || hostname === "127.0.0.1") return "http://localhost:3000"
+  } catch {
+    // no or unparseable API URL — nothing to infer from
+  }
+  return null
+}
+
+/** The line the discovery tools print under their progress report. */
+export function studioLink(projectId: string, env: NodeJS.ProcessEnv = process.env): string {
+  const base = studioAppUrl(env)
+  return base
+    ? `Answer them here: ${base}/discovery?p=${encodeURIComponent(projectId)}`
+    : `Project ${projectId} — set PROMPT_STUDIO_APP_URL to get a clickable studio link.`
+}

@@ -32,12 +32,13 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
 
 import { Api, ApiError } from "./api"
-import { DEFAULT_API_URL, NOT_SIGNED_IN, resolveAuth } from "./auth"
+import { NOT_SIGNED_IN, resolveAuth } from "./auth"
 import {
   collectWeaveArtifacts,
   progressSummary,
   rootsOf,
   sha256,
+  studioLink,
   writeBackDecisions,
 } from "./discovery"
 import { applyFlow, checkFlow, newDoc, promptFor, readDoc, toFlow } from "./flow"
@@ -599,32 +600,6 @@ function runIdFor(explicit: string, root: string): string {
   )
 }
 
-/**
- * Where a person goes to answer the questions.
- *
- * The studio is a separate deployment from the API, and only the API URL is
- * configured — so the app URL is guessed from it (the backend host without its
- * `-backend`) and `PROMPT_STUDIO_APP_URL` overrides the guess.
- */
-function studioUrl(projectId: string): string {
-  const configured = process.env.PROMPT_STUDIO_APP_URL?.replace(/\/+$/, "")
-  const base = configured || guessAppUrl()
-  return `${base}/discovery?p=${encodeURIComponent(projectId)}`
-}
-
-function guessAppUrl(): string {
-  const api = (process.env.PROMPT_STUDIO_API_URL ?? DEFAULT_API_URL).replace(/\/+$/, "")
-  try {
-    const url = new URL(api)
-    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return "http://localhost:3000"
-    url.hostname = url.hostname.replace("-backend.", ".")
-    url.port = ""
-    return url.origin
-  } catch {
-    return api
-  }
-}
-
 server.registerTool(
   "discovery_push_run",
   {
@@ -668,7 +643,7 @@ server.registerTool(
         `Pushed ${items.length} question(s) as run ${run.id}.`,
         `Recorded in ${RUN_ID_FILE}.`,
         "",
-        `Answer them here: ${studioUrl(project)}`,
+        studioLink(project),
       ].join("\n")
     })
 )
@@ -789,7 +764,7 @@ server.registerTool(
       const runId = runIdFor(run_id, repoRoot(dir))
       const run = await api.getRun(project, runId)
       const open = rootsOf(await api.listItems(project, runId, { unanswered: true }))
-      return `${progressSummary(run, open)}\n\n${studioUrl(project)}`
+      return `${progressSummary(run, open)}\n\n${studioLink(project)}`
     })
 )
 
@@ -808,8 +783,8 @@ server.registerTool(
         .int()
         .min(15)
         .max(300)
-        .default(300)
-        .describe("At most 300 — a longer wait belongs in a second call"),
+        .default(120)
+        .describe("Default 120, at most 300 — a longer wait belongs in a second call"),
     },
   },
   async ({ run_id, project_id, dir, timeout_seconds }) =>
@@ -829,7 +804,7 @@ server.registerTool(
             "",
             progressSummary(run, open),
             "",
-            `Answer them here: ${studioUrl(project)}`,
+            studioLink(project),
             "Call discovery_wait again to keep waiting.",
           ].join("\n")
         }

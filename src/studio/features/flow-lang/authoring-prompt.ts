@@ -136,6 +136,47 @@ code for that tool.
 Alongside this prompt you will be given the client's requirements. Read them,
 decide what screens the product needs, and write the Flow file.
 
+# Before anything else: who is this for, and what did they come to do?
+
+Write these two lines to yourself before you write a single screen. They are
+not part of the output — they decide it.
+
+- **Who opens this?** Someone paid to operate it (staff, admin, dispatcher,
+  back office), or someone who chose to use it (a customer, a member of the
+  public, an end user)?
+- **What single thing did they come to do?** One verb and one noun. "Pin a
+  place I want to go." "Find a plumber near me." "Log tonight's run." Not
+  "manage bucket lists" — that is the operator's sentence, not theirs.
+
+Then apply the rule that follows from it. **The entry screen renders that one
+thing, at full size, as the first thing on the page.** Not a summary of it. Not
+a set of cards leading to it.
+
+- If the answer is a place → a map fills the screen, search over it.
+- If the answer is a thing to read or watch → the collection itself fills the
+  screen.
+- If the answer is a thing to find → the search field is the largest element
+  on the page.
+- If the answer is a thing to capture → the composer or the camera is open.
+
+**Metric cards, KPI tiles, activity feeds and a grid of links to modules
+belong to operators.** Put them on the entry screen only when the requirements
+actually ask someone to monitor or report on something. For a product that
+members of the public choose to open, a dashboard entry screen is wrong even
+when every individual screen behind it is right.
+
+Worked example — an app where people pin places they want to visit:
+
+- **Wrong:** \`home\` with template \`dashboard\`, layout \`dashboard-cards\` —
+  a "Places" count, a "Visited" count, a "Recent activity" list, and cards
+  linking to Map, Lists and Profile.
+- **Right:** \`home\` with template \`explore\`, layout \`map-explore\` — the map
+  fills the screen with every pin already on it and a search field over the
+  top. Counts, if they matter at all, are a line in the profile screen.
+
+The same test applies to every screen you write, not only the first: a screen
+earns its place by doing something, not by summarising what is elsewhere.
+
 ${decided}# Output rules
 
 1. Output **one fenced code block** and nothing else. No preamble, no
@@ -277,6 +318,21 @@ ${decided}# Output rules
 
 15. Put anything that does not fit the grammar into the \`requirements """..."""\`
    block in plain English — business rules, roles, integrations, edge cases.
+
+# Check before you output
+
+Read your entry screen back and answer honestly:
+
+1. Someone opens this product for the first time, having been told one
+   sentence about what it does. Does the first screen let them **do that thing
+   immediately**, or does it describe the product to them first?
+2. Is the largest element on the entry screen the thing they came for — or is
+   it navigation, counts, or a summary?
+3. Would this same entry screen fit a different product in the same industry?
+   If yes it is generic, and generic here means a dashboard.
+
+If any answer is wrong, rewrite the entry screen before you output. Changing
+its \`template\` and \`layout\` is usually the whole fix.
 
 # Grammar
 

@@ -707,6 +707,154 @@ export const screenLayouts: LayoutOption[] = [
       align: "center",
     }),
   },
+  // ----------------------------------------------------------------- explore
+  // Consumer-facing home screens. Before these existed the catalogue offered
+  // nothing but dashboards, tables and forms for the web, so a model told to
+  // "pick the closest listed id" put a metric grid on the home screen of an
+  // app whose whole point was a map. The closest listed id has to be right.
+  {
+    id: "map-explore",
+    name: "Map Explorer",
+    description: "Search over a full-bleed map.",
+    category: "Explore",
+    scope: "screen",
+    templates: ["explore", "search", "list"],
+    promptDetails:
+      "A map-first screen: the map fills the viewport, a prominent search field floats over it, and results are markers on the map and a collapsible panel beside them. Selecting either a marker or a row highlights the other. Zoom, recentre and 'search this area' are always reachable, and permission-denied, no-results and location-unavailable are visible states with a way forward.",
+    wire: col(
+      [
+        row([field(false, 62), pill(14, "accentSoft"), pill(14, "accentSoft")], { gap: 1 }),
+        row(
+          [
+            media(6),
+            col([bar(60, "strong", 2), listRow(), listRow(), listRow()], {
+              gap: 1,
+              pad: 1,
+              tone: "surface",
+              rounded: true,
+              border: true,
+              w: 32,
+            }),
+          ],
+          { gap: 1, grow: 3 }
+        ),
+      ],
+      { gap: 1 }
+    ),
+  },
+  {
+    id: "split-map-list",
+    name: "List & Map",
+    description: "Result rail beside a live map.",
+    category: "Explore",
+    scope: "screen",
+    templates: ["explore", "search", "list"],
+    promptDetails:
+      "A split browse screen: a scrolling list of result cards on the left and a map pinned on the right that keeps its own scroll. Hovering a card raises its marker and hovering a marker scrolls its card into view. Filters sit above the list, the map collapses to a toggle below the tablet breakpoint, and panning the map offers to re-run the search.",
+    wire: row(
+      [
+        col([row([pill(18, "accentSoft"), pill(18, "accentSoft"), spacer(1)], { gap: 1 }), card(), card()], {
+          gap: 1,
+          grow: 2,
+        }),
+        media(6),
+      ],
+      { gap: 1 }
+    ),
+  },
+  {
+    id: "feed-stream",
+    name: "Feed",
+    description: "One centred column of entries.",
+    category: "Explore",
+    scope: "screen",
+    templates: ["explore", "list"],
+    promptDetails:
+      "A feed screen: a single centred column of entries, each with its author, timestamp, body, media and the actions that belong to it. New entries are composed from the top of the same column. Loading is a skeleton of the same shape, older entries page in on scroll, and the empty state explains what to follow or post first.",
+    wire: col(
+      [
+        row([circle("sm", "accentLine"), field(false, 78)], { gap: 1 }),
+        card([row([circle("sm"), bar(34, "strong")], { gap: 1 }), bar(92), media(2)]),
+        card([row([circle("sm"), bar(28, "strong")], { gap: 1 }), bar(84), bar(60)]),
+      ],
+      { gap: 1 }
+    ),
+  },
+  {
+    id: "browse-grid",
+    name: "Browse Grid",
+    description: "Filter chips over a media grid.",
+    category: "Explore",
+    scope: "screen",
+    templates: ["explore", "product", "list"],
+    promptDetails:
+      "A browse screen: a row of filter chips that toggle without a page reload, then a responsive grid of media cards each showing its image, title and one supporting line. The grid reflows 4 → 3 → 2 → 1, cards keep a fixed aspect ratio so the grid never jumps as images load, and an active filter that matches nothing says which filter to clear.",
+    wire: col(
+      [
+        row([pill(14, "accentSoft"), pill(14, "accentSoft"), pill(14, "accentSoft"), spacer(1), bar(10, "line")], {
+          gap: 1,
+        }),
+        grid(
+          4,
+          () => col([bar(100, "accentSoft", 3), bar(70, "strong"), bar(45, "line")], { gap: 1 }),
+          { cols: 4, rows: 2, gap: 1, grow: 1 }
+        ),
+      ],
+      { gap: 1 }
+    ),
+  },
+  {
+    id: "search-first",
+    name: "Search First",
+    description: "One large search, results below.",
+    category: "Explore",
+    scope: "screen",
+    templates: ["explore", "search"],
+    promptDetails:
+      "A screen built around one large search field placed high and centred, with typeahead suggestions and a few example queries beneath it. Results replace the suggestions in place rather than on a new route, the field stays visible as they scroll, and recent searches return when the field is cleared.",
+    wire: col(
+      [
+        spacer(1),
+        heading(40),
+        field(false, 72),
+        row([pill(16, "accentSoft"), pill(16, "accentSoft"), pill(16, "accentSoft")], { gap: 1, align: "center" }),
+        spacer(1),
+        card(),
+      ],
+      { gap: 1, align: "center" }
+    ),
+  },
+  {
+    id: "canvas-editor",
+    name: "Canvas / Editor",
+    description: "Full-bleed canvas, floating tools.",
+    category: "Explore",
+    scope: "screen",
+    templates: ["explore", "detail"],
+    promptDetails:
+      "A workspace screen: the canvas or document fills the viewport and every control floats over it — a tool palette on one edge, a properties inspector on the other, both collapsible. Selection drives the inspector, undo and redo are keyboard-first, and saving is continuous with its state shown rather than a Save button.",
+    wire: row(
+      [
+        col([pill(100, "accentSoft"), pill(100, "surface"), pill(100, "surface"), pill(100, "surface")], {
+          gap: 1,
+          pad: 1,
+          tone: "surface",
+          rounded: true,
+          w: 10,
+        }),
+        media(7),
+        col([bar(70, "strong"), field(), field(), bar(50, "line")], {
+          gap: 1,
+          pad: 1,
+          tone: "surface",
+          rounded: true,
+          border: true,
+          w: 26,
+        }),
+      ],
+      { gap: 1 }
+    ),
+  },
   // ------------------------------------------------------------------ mobile
   // These render inside a phone-shaped frame (LayoutThumb `shape="phone"`),
   // so each wire is just the screen content — the chrome helpers in

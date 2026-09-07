@@ -326,6 +326,14 @@ function navigationBlock(doc: ProjectDoc): string {
     lines.push(
       `Entry point${entries.length === 1 ? "" : "s"}: ${entries.map((s) => `**${s.title}**`).join(", ")}.`
     )
+    // The entry screen is the one place where "build what the layout says"
+    // is not enough. A model that pads it with counts, a welcome panel and
+    // tiles linking to the other screens has technically satisfied every
+    // other instruction in this prompt and still shipped the wrong product.
+    lines.push("")
+    lines.push(
+      `Build ${entries.length === 1 ? "that screen" : "those screens"} so its own content is the first and largest thing on the page. Do not wrap it in a welcome panel, a row of counts, or a grid of tiles linking to the other screens — those belong on a screen someone opened to monitor the product, and only when the screen below says so.`
+    )
   }
   if (ordered.length > 1) {
     lines.push("")

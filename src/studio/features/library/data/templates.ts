@@ -129,6 +129,15 @@ export const screenTemplates: ScreenTemplate[] = [
     defaultLayout: "hero-two-column",
   },
   {
+    id: "explore",
+    name: "Explore",
+    icon: "compass",
+    description: "Map, feed or browse — the thing itself",
+    promptDetails:
+      "a screen that puts the thing the user came for at full size — the map, the feed, the collection — with search and filters over it rather than beside it, and no summary of the product wrapped around it",
+    defaultLayout: "map-explore",
+  },
+  {
     id: "search",
     name: "Search",
     icon: "search",

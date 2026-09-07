@@ -32,6 +32,7 @@ const DESIGNED = {
     // "basic" is the language that tells the agent not to design, and it emits
     // no stylesheet by design — so the fixture picks one that does.
     designLanguage: "modern-soft",
+    designMode: "preset",
     preset: "telegraph",
     shape: { control: 2, card: 4, overlay: 24, pill: true },
     palette: { light: { primary: "oklch(0.55 0.12 250)" }, dark: {} },
@@ -103,5 +104,22 @@ describe("the guide it hands Claude asks for a design", () => {
 
   it("asks for the reason as well as the choice", () => {
     expect(buildAuthoringPrompt()).toContain("note")
+  })
+})
+
+describe("who decides the design survives the trip", () => {
+  it("keeps the choice, and writes it to .flow", () => {
+    const auto = readDoc({ ...DESIGNED, theme: { ...DESIGNED.theme, designMode: "auto" } })
+    expect(auto.theme.designMode).toBe("auto")
+    const flow = toFlow(auto)
+    expect(flow).toContain("decided_by auto")
+    expect(checkFlow(flow).warnings).toHaveLength(0)
+  })
+
+  it("builds the brief instead of a stylesheet", () => {
+    const auto = readDoc({ ...DESIGNED, theme: { ...DESIGNED.theme, designMode: "auto" } })
+    const prompt = promptFor(auto, "web")
+    expect(prompt).toContain("You own the visual design")
+    expect(prompt).not.toContain("--background")
   })
 })

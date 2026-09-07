@@ -21,6 +21,7 @@ import { slugify, uid, uniqueKey } from "../../lib/utils"
 import {
   bodyFontValues,
   colorSchemeValues,
+  designModeValues,
   type Entity,
   type EntityField,
   elevationStrategyValues,
@@ -1552,6 +1553,17 @@ function applyThemeProp(
     // was not understood, so a typo costs a line rather than the file — and the
     // same reason for being here at all: what the serializer writes, the parser
     // has to read, or a round trip resets the design to the defaults.
+    case "decided_by":
+    case "design_mode":
+      doc.theme.designMode = pickThemeValue(
+        normalised,
+        designModeValues,
+        doc.theme.designMode,
+        key,
+        line,
+        warnings
+      )
+      return
     case "preset":
     case "theme_preset": {
       if (!normalised) {

@@ -1,4 +1,4 @@
-49 files vendored from Prompt Studio.
+50 files vendored from Prompt Studio.
 
 features/builder/utils/graph.ts
 features/builder/utils/node-geometry.ts
@@ -30,6 +30,7 @@ features/prompt/engine/boilerplate.ts
 features/prompt/engine/build-prompt.ts
 features/prompt/engine/data-model.ts
 features/prompt/engine/deployment.ts
+features/prompt/engine/design-brief.ts
 features/prompt/engine/security.ts
 features/prompt/engine/targets.ts
 features/prompt/engine/tokens-block.ts

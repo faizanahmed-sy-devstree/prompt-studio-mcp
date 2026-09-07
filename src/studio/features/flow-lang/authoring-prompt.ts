@@ -286,6 +286,7 @@ app "Product name" {
   ui_level 3                # 1 = build exactly what is described, 5 = a showpiece
   builds web, mobile, backend # which builds this product ships — see rule 10
   theme {
+    decided_by auto             # omit this line to choose the design yourself
     preset atrium               # the design this is a variation of
     design modern-soft; primary #2563eb; secondary #10b981
     radius md; buttons filled; density comfortable
@@ -495,6 +496,7 @@ default every product gets.
 - \`elevation\` — ${elevationValues.join(", ")}: how much the surfaces lift off the page
 - \`motion\` — ${motionValues.join(", ")}
 - \`scheme\` — ${colorSchemeValues.join(", ")}: \`both\` ships light and dark, \`dark-first\` designs dark and derives light
+- \`decided_by\` — \`preset\` (the default) or \`auto\`. \`auto\` hands the design decision to whichever agent builds the project: it gets the product, the roles and the journeys plus a method for deciding, and no palette. Write it only when you mean it — with \`auto\`, every other value in this block is ignored
 - \`preset\` — the named design everything else is a variation of. Pick one **by id from the catalogue below**; every other value in this block is an override on top of it
 - \`note\` — one sentence on why this design suits this product, quoted: \`note "A filing product, so it reads as a printed record"\`. Written for the person who will read your file, not for the build agent
 - \`shape\` — corner radii in px, each surface on its own: \`shape control 8 card 12 overlay 16\`. Add the word \`pill\` for fully round actions whatever \`control\` says. This is what expresses "square everywhere, with one pill in it" — a single radius cannot

@@ -37,6 +37,10 @@ export function tokensBlock(doc: ProjectDoc, surface: Surface = "web"): string {
   // palette would be arguing with the user through the prompt.
   if (doc.theme.designLanguage === "basic") return ""
 
+  // `auto` means the agent decides the design. Shipping it a stylesheet would
+  // be deciding for it — the design block carries a method instead.
+  if (doc.theme.designMode === "auto") return ""
+
   const sheet = generateStylesheet(doc.theme, stackFor(doc, surface).styling)
   if (!sheet.source.trim()) return ""
 
@@ -51,7 +55,7 @@ export function tokensBlock(doc: ProjectDoc, surface: Surface = "web"): string {
     "",
     `\`${sheet.path}\``,
     "",
-    "```" + sheet.language,
+    `\`\`\`${sheet.language}`,
     sheet.source.trim(),
     "```",
     "",

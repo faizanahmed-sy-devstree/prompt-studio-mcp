@@ -424,7 +424,7 @@ function applyDials(
     const parsed = parseOklch(value)
     // Anything the palette states some other way — a hex, an alpha border —
     // is left exactly as written rather than approximated into oklch.
-    if (!parsed || parsed.alpha !== 1) {
+    if (parsed?.alpha !== 1) {
       out[name] = value
       continue
     }

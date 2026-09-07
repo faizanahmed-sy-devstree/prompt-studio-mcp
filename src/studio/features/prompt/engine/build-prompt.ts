@@ -32,12 +32,7 @@ import { presetById } from "../../theme/data/presets"
 import {
   colorSchemes,
   describeOption,
-  elevations,
-  fontCharacterMap,
-  fontCharacters,
   iconStyles,
-  motions,
-  typeScales,
 } from "../../theme/data/typography"
 import {
   describeUiLevel,
@@ -50,6 +45,7 @@ import { type ProjectDoc, type Surface, themeSchema, type UserStory } from "../.
 import { BOILERPLATE, cloneLines, usesBoilerplate } from "./boilerplate"
 import { dataModelBlock } from "./data-model"
 import { deploymentBlock } from "./deployment"
+import { designBriefBlock } from "./design-brief"
 import { securityConstraint, verificationNotice } from "./security"
 import { type BlockId, getTarget, type ProjectBlockId } from "./targets"
 import { tokensBlock } from "./tokens-block"
@@ -63,7 +59,7 @@ export type BuiltPrompt = {
   warnings: string[]
 }
 
-const radiusWords: Record<string, string> = {
+const _radiusWords: Record<string, string> = {
   none: "square corners (0px)",
   small: "small radius (4px)",
   medium: "medium radius (8px)",
@@ -441,8 +437,12 @@ function sectionsBlock(doc: ProjectDoc): string {
 /** Read once: a legacy colour field still on its default was never chosen. */
 const THEME_FIELD_DEFAULTS = themeSchema.parse({})
 
-function designBlock(doc: ProjectDoc): string {
+function designBlock(doc: ProjectDoc, surface: Surface = "web"): string {
   const t = doc.theme
+
+  // The design was handed to the agent rather than chosen here.
+  if (t.designMode === "auto") return designBriefBlock(doc, surface)
+
   const language = describeDesignLanguage(t.designLanguage)
 
   // "Basic" is the one language that instructs the agent *not* to design. Every
@@ -810,7 +810,7 @@ function buildForScope(doc: ProjectDoc, surface: Surface): BuiltPrompt {
     navigation: navigationBlock(doc),
     views: viewsBlock(doc),
     sections: sectionsBlock(doc),
-    design: designBlock(doc),
+    design: designBlock(doc, surface),
     // The design block says what the design is; these two say it in values a
     // build agent can only satisfy one way. Both stand down for the "basic"
     // language and for a backend build, by returning an empty body.

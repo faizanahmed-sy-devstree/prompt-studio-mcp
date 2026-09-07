@@ -54,6 +54,9 @@ export const elevationValues = ["flat", "subtle", "layered"] as const
 export const motionValues = ["none", "restrained", "expressive"] as const
 export const colorSchemeValues = ["light", "both", "dark-first"] as const
 
+/** Whether the design is decided here or by the agent that builds it. */
+export const designModeValues = ["preset", "auto"] as const
+
 /**
  * How a preset carries depth.
  *
@@ -171,6 +174,19 @@ export const themeSchema = z.object({
   motion: z.enum(motionValues).default("restrained"),
   colorScheme: z.enum(colorSchemeValues).default("both"),
 
+  /**
+   * Who decides the design.
+   *
+   * `preset` means this document does: a preset plus whatever was tuned on top
+   * of it, shipped to the agent as a stylesheet of real values. `auto` hands
+   * the decision to the build agent instead — it gets the product, the roles
+   * and the journeys, and is asked to derive a design from them rather than
+   * being given one.
+   *
+   * Defaults to `preset`, so every project written before this existed keeps
+   * the design it already had.
+   */
+  designMode: z.enum(designModeValues).default("preset"),
   /** id from features/theme/data/presets.ts — the source of every value below */
   preset: z.string().default("atrium"),
   shape: shapeSchema.default({}),

@@ -85,6 +85,11 @@ export function uiConventionsBlock(
   if (surface === "backend") return ""
   if (doc.theme.designLanguage === "basic") return ""
 
+  // In `auto` the agent picks the scale, the spacing and the field treatment,
+  // so stating this project's would be handing it a design under the name of
+  // craft rules. The design block carries the rules that still apply.
+  if (doc.theme.designMode === "auto") return ""
+
   const tokens = resolveTokens(doc.theme)
   const { scale, spacing, motion } = tokens
 

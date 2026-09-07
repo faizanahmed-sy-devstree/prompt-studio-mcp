@@ -14573,11 +14573,11 @@ var require_util = __commonJS({
       return false;
     }
     exports.schemaHasRules = schemaHasRules;
-    function schemaHasRulesButRef(schema, RULES) {
+    function schemaHasRulesButRef(schema, RULES2) {
       if (typeof schema == "boolean")
         return !schema;
       for (const key in schema)
-        if (key !== "$ref" && RULES.all[key])
+        if (key !== "$ref" && RULES2.all[key])
           return true;
       return false;
     }
@@ -15971,17 +15971,17 @@ var require_validate = __commonJS({
     }
     function schemaKeywords(it, types, typeErrors, errsCount) {
       const { gen, schema, data, allErrors, opts, self } = it;
-      const { RULES } = self;
-      if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES))) {
-        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition));
+      const { RULES: RULES2 } = self;
+      if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES2))) {
+        gen.block(() => keywordCode(it, "$ref", RULES2.all.$ref.definition));
         return;
       }
       if (!opts.jtd)
         checkStrictTypes(it, types);
       gen.block(() => {
-        for (const group of RULES.rules)
+        for (const group of RULES2.rules)
           groupKeywords(group);
-        groupKeywords(RULES.post);
+        groupKeywords(RULES2.post);
       });
       function groupKeywords(group) {
         if (!(0, applicability_1.shouldUseGroup)(schema, group))
@@ -18068,10 +18068,10 @@ var require_core = __commonJS({
       }
       // Remove keyword
       removeKeyword(keyword) {
-        const { RULES } = this;
-        delete RULES.keywords[keyword];
-        delete RULES.all[keyword];
-        for (const group of RULES.rules) {
+        const { RULES: RULES2 } = this;
+        delete RULES2.keywords[keyword];
+        delete RULES2.all[keyword];
+        for (const group of RULES2.rules) {
           const i = group.rules.findIndex((rule2) => rule2.keyword === keyword);
           if (i >= 0)
             group.rules.splice(i, 1);
@@ -18239,9 +18239,9 @@ var require_core = __commonJS({
     }
     var KEYWORD_NAME = /^[a-z_$][a-z0-9_$:-]*$/i;
     function checkKeyword(keyword, def) {
-      const { RULES } = this;
+      const { RULES: RULES2 } = this;
       (0, util_1.eachItem)(keyword, (kwd) => {
-        if (RULES.keywords[kwd])
+        if (RULES2.keywords[kwd])
           throw new Error(`Keyword ${kwd} is already defined`);
         if (!KEYWORD_NAME.test(kwd))
           throw new Error(`Keyword ${kwd} has invalid name`);
@@ -18257,13 +18257,13 @@ var require_core = __commonJS({
       const post = definition === null || definition === void 0 ? void 0 : definition.post;
       if (dataType && post)
         throw new Error('keyword with "post" flag cannot have "type"');
-      const { RULES } = this;
-      let ruleGroup = post ? RULES.post : RULES.rules.find(({ type: t }) => t === dataType);
+      const { RULES: RULES2 } = this;
+      let ruleGroup = post ? RULES2.post : RULES2.rules.find(({ type: t }) => t === dataType);
       if (!ruleGroup) {
         ruleGroup = { type: dataType, rules: [] };
-        RULES.rules.push(ruleGroup);
+        RULES2.rules.push(ruleGroup);
       }
-      RULES.keywords[keyword] = true;
+      RULES2.keywords[keyword] = true;
       if (!definition)
         return;
       const rule2 = {
@@ -18278,7 +18278,7 @@ var require_core = __commonJS({
         addBeforeRule.call(this, ruleGroup, rule2, definition.before);
       else
         ruleGroup.rules.push(rule2);
-      RULES.all[keyword] = rule2;
+      RULES2.all[keyword] = rule2;
       (_a = definition.implements) === null || _a === void 0 ? void 0 : _a.forEach((kwd) => this.addKeyword(kwd));
     }
     function addBeforeRule(ruleGroup, rule2, before) {
@@ -29517,7 +29517,7 @@ var init_ui_levels = __esm({
 });
 
 // src/studio/types/project.ts
-var SCHEMA_VERSION, borderRadiusValues, buttonStyleValues, fontCharacterValues, bodyFontValues, typeScaleValues, iconStyleValues, elevationValues, motionValues, colorSchemeValues, elevationStrategyValues, motionModelValues, inputStyleValues, priorityValues, shapeSchema, paletteSchema, fontsSchema, themeSchema, userStorySchema, flowSchema, viewSchema, surfaceValues, screenSchema, moduleSchema, moduleEdgeSchema, edgeSchema, sectionSchema, fieldKindValues, entityFieldSchema, entitySchema, relationKindValues, relationSchema, stackSchema, structureSchema, conventionsSchema, surfaceConfigSchema, mobileSurfaceDefaults, backendSurfaceDefaults, deploymentSchema, projectDocSchema, snapshotSchema, projectSchema, projectFileSchema;
+var SCHEMA_VERSION, borderRadiusValues, buttonStyleValues, fontCharacterValues, bodyFontValues, typeScaleValues, iconStyleValues, elevationValues, motionValues, colorSchemeValues, designModeValues, elevationStrategyValues, motionModelValues, inputStyleValues, priorityValues, shapeSchema, paletteSchema, fontsSchema, themeSchema, userStorySchema, flowSchema, viewSchema, surfaceValues, screenSchema, moduleSchema, moduleEdgeSchema, edgeSchema, sectionSchema, fieldKindValues, entityFieldSchema, entitySchema, relationKindValues, relationSchema, stackSchema, structureSchema, conventionsSchema, surfaceConfigSchema, mobileSurfaceDefaults, backendSurfaceDefaults, deploymentSchema, projectDocSchema, snapshotSchema, projectSchema, projectFileSchema;
 var init_project = __esm({
   "src/studio/types/project.ts"() {
     "use strict";
@@ -29550,6 +29550,7 @@ var init_project = __esm({
     elevationValues = ["flat", "subtle", "layered"];
     motionValues = ["none", "restrained", "expressive"];
     colorSchemeValues = ["light", "both", "dark-first"];
+    designModeValues = ["preset", "auto"];
     elevationStrategyValues = [
       "shadow",
       "ladder",
@@ -29610,6 +29611,19 @@ var init_project = __esm({
       elevation: external_exports.enum(elevationValues).default("subtle"),
       motion: external_exports.enum(motionValues).default("restrained"),
       colorScheme: external_exports.enum(colorSchemeValues).default("both"),
+      /**
+       * Who decides the design.
+       *
+       * `preset` means this document does: a preset plus whatever was tuned on top
+       * of it, shipped to the agent as a stylesheet of real values. `auto` hands
+       * the decision to the build agent instead — it gets the product, the roles
+       * and the journeys, and is asked to derive a design from them rather than
+       * being given one.
+       *
+       * Defaults to `preset`, so every project written before this existed keeps
+       * the design it already had.
+       */
+      designMode: external_exports.enum(designModeValues).default("preset"),
       /** id from features/theme/data/presets.ts — the source of every value below */
       preset: external_exports.string().default("atrium"),
       shape: shapeSchema.default({}),
@@ -31220,6 +31234,17 @@ function applyThemeProp(doc, key, value, line, warnings, args = "") {
     // was not understood, so a typo costs a line rather than the file — and the
     // same reason for being here at all: what the serializer writes, the parser
     // has to read, or a round trip resets the design to the defaults.
+    case "decided_by":
+    case "design_mode":
+      doc.theme.designMode = pickThemeValue(
+        normalised,
+        designModeValues,
+        doc.theme.designMode,
+        key,
+        line,
+        warnings
+      );
+      return;
     case "preset":
     case "theme_preset": {
       if (!normalised) {
@@ -32015,6 +32040,10 @@ function serializeFlow(doc) {
 function themeLines(theme) {
   const base = defaults.theme;
   const lines = [
+    // Who decides the design. Written only when it is not the default, like
+    // every other dial — but written first when it is `auto`, because it is the
+    // line that makes every value below it moot.
+    ...theme.designMode !== base.designMode ? [`    decided_by ${theme.designMode}`] : [],
     // The preset every value below came from. Written even when it is the
     // default one: it is the name of the design, and a file that omits it reads
     // as though nobody chose.
@@ -33871,7 +33900,7 @@ function applyDials(tokens, vividnessRatio, neutralHue) {
   const out = {};
   for (const [name, value] of Object.entries(tokens)) {
     const parsed = parseOklch(value);
-    if (!parsed || parsed.alpha !== 1) {
+    if (parsed?.alpha !== 1) {
       out[name] = value;
       continue;
     }
@@ -35341,6 +35370,92 @@ var init_deployment = __esm({
   }
 });
 
+// src/studio/features/prompt/engine/design-brief.ts
+function rolePass(doc) {
+  const named = doc.views.map((view) => view.name.trim()).filter(Boolean);
+  if (!named.length) return [];
+  return [
+    "### Before any layout, one pass per role",
+    "",
+    `This product has ${named.length === 1 ? "one role" : `${named.length} roles`}: ${named.join(", ")}. For each, write two lines:`,
+    "",
+    "- The one thing this person came to do, and the one fact they need before they can do it.",
+    "- What they should see first, second and third on their main screen.",
+    "",
+    "Then lay that screen out so visual prominence matches the ranking. If the biggest element is not the answer to the first line, the layout is wrong. Two roles whose first question differs get different first screens \u2014 not one screen with fields hidden.",
+    ""
+  ];
+}
+function designBriefBlock(doc, surface = "web", options = {}) {
+  if (surface === "backend") return "";
+  const note = doc.theme.designNote.trim();
+  return [
+    options.intro === false ? "" : "**You own the visual design of this product.** No palette, typeface or component kit has been chosen for you \u2014 choose them, and be able to defend every choice by pointing at something in this brief.",
+    "",
+    "Derive the design from the subject, not from what applications of this kind usually look like. Read the screens, the roles and the stories above and answer in writing: what domain is this, who uses it, under what conditions, and what is the single most characteristic object or moment in its world. The industry's own materials, vocabulary and visual conventions are where distinctive choices come from \u2014 a claims console and a children's reading tracker must not be able to swap stylesheets.",
+    "",
+    note ? `The person who wrote this brief added: ${note}` : "",
+    note ? "" : "",
+    ...rolePass(doc),
+    "### Write the design plan before any code",
+    "",
+    "Four sections, in concrete values:",
+    "",
+    "- **Palette** \u2014 four to six colours, each named, each with one clause saying what in this product it came from. One accent, reserved for primary actions and focus. Bias the greys toward the accent's hue; a pure mid-grey is the colour of not having decided. Then a dark mode re-chosen for a dark ground, not inverted.",
+    "- **Type** \u2014 one or two families with their roles, loadable with a real fallback stack. If two, they must be visibly different \u2014 not two sans-serifs. State the scale as sizes, line heights and weights, and stay on it.",
+    "- **Layout** \u2014 the structural idea in one sentence, the alignment, and a rough wireframe of the densest screen. One shape language and one depth language: a radius set or square corners; a border, a shadow or a lighter surface \u2014 pick one, not all three.",
+    "- **Principles** \u2014 three sentences on what makes this product's interface unlike a generic one.",
+    "",
+    "If a sentence in that plan contains *clean, modern, sleek, intuitive, seamless, elegant, polished, premium, delightful* or *beautiful*, delete it and write the measurement or the trade-off it was standing in for. Then define the plan once as CSS custom properties and reference the names everywhere.",
+    "",
+    "### Check the plan before you build from it",
+    "",
+    "For each of the four sections, ask: would I have produced this same answer from a generic prompt for any product of this kind? (Work through such a prompt and see whether you arrive somewhere similar.) If yes, that part is a default rather than a decision \u2014 revise it, and say in one line what you changed and why.",
+    "",
+    "Check in particular whether you have reached for a look that is currently the default rather than a choice:",
+    "",
+    ...DEFAULTS.map((line) => `- ${line}`),
+    "",
+    "Any of these is legitimate if this product argues for it. None is legitimate as a starting point.",
+    "",
+    "### Rules that hold whatever you chose",
+    "",
+    ...RULES.map((line) => `- ${line}`),
+    "",
+    "### The floor",
+    "",
+    "Responsive to 360px; a visible focus ring on every interactive element; text contrast meeting WCAG AA in both themes. These are pass or fail, not goals.",
+    "",
+    "Report back with the plan's five decisions \u2014 the reference you designed from, the palette, the typefaces, the shape and depth rule, and the one thing you made loudest on the main screen. Then look at the page and remove one thing that does not serve the product."
+  ].filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n").trim();
+}
+var RULES, DEFAULTS;
+var init_design_brief = __esm({
+  "src/studio/features/prompt/engine/design-brief.ts"() {
+    "use strict";
+    RULES = [
+      "Exactly one element on a screen is the loudest thing, and it is the answer to what that role came to do. Everything else is quieter.",
+      "Structural devices carry information or they do not appear. Numbered markers only for a real sequence; dividers, eyebrows and labels only where they mark a real distinction.",
+      "No row of three equal cards unless there are genuinely three peer items of equal weight.",
+      "No single word in a headline accented with a different colour, weight or italic.",
+      "No uppercase eyebrow label above a heading, no \u201C\u2192\u201D appended to link or button text, no emoji as an icon or in a heading.",
+      "Body text is left-aligned and under 80 characters a line. Centring is for an empty state.",
+      "At most one orchestrated motion moment per page that the person did not trigger. Motion that answers a click is fine and should show what changed. `prefers-reduced-motion` disables all of it.",
+      "Every list, table and form has a designed empty, loading and error state. Errors say what happened and what to do, and do not apologise; empty states name the one action that fills them.",
+      "Buttons name their effect \u2014 \u201CSave changes\u201D, not \u201CSubmit\u201D \u2014 and the same action keeps the same word through the whole flow, so a Publish button produces a Published toast.",
+      "Every value on the page comes from a token you defined. No raw colour or arbitrary size in a class attribute, and no fourth radius invented for one component."
+    ];
+    DEFAULTS = [
+      "cream or warm off-white with a high-contrast serif and a terracotta or clay accent",
+      "near-black with a single acid green or vermilion pop",
+      "the rounded-card kit: every block on the same radius with the same soft grey shadow",
+      "broadsheet hairline rules and dense columns applied to something that is not editorial",
+      "a gradient wash used as decoration \u2014 purple-to-blue, mesh, aurora or blob",
+      "Inter, Roboto, Open Sans or Space Grotesk picked because they are safe"
+    ];
+  }
+});
+
 // src/studio/features/prompt/engine/security.ts
 function securityConstraint(frameworkId) {
   const floor = nextVersionFloors[frameworkId];
@@ -35394,6 +35509,7 @@ var init_security = __esm({
 function tokensBlock(doc, surface = "web") {
   if (surface === "backend") return "";
   if (doc.theme.designLanguage === "basic") return "";
+  if (doc.theme.designMode === "auto") return "";
   const sheet2 = generateStylesheet(doc.theme, stackFor(doc, surface).styling);
   if (!sheet2.source.trim()) return "";
   return [
@@ -35407,7 +35523,7 @@ function tokensBlock(doc, surface = "web") {
     "",
     `\`${sheet2.path}\``,
     "",
-    "```" + sheet2.language,
+    `\`\`\`${sheet2.language}`,
     sheet2.source.trim(),
     "```",
     "",
@@ -35434,6 +35550,7 @@ var init_tokens_block = __esm({
 function uiConventionsBlock(doc, surface = "web") {
   if (surface === "backend") return "";
   if (doc.theme.designLanguage === "basic") return "";
+  if (doc.theme.designMode === "auto") return "";
   const tokens = resolveTokens(doc.theme);
   const { scale: scale2, spacing, motion } = tokens;
   const scaleRows = scale2.map(
@@ -35803,8 +35920,9 @@ function sectionsBlock(doc) {
 
 Render the sections in exactly this order, each as its own full-width band with consistent vertical rhythm.`;
 }
-function designBlock(doc) {
+function designBlock(doc, surface = "web") {
   const t = doc.theme;
+  if (t.designMode === "auto") return designBriefBlock(doc, surface);
   const language = describeDesignLanguage(t.designLanguage);
   if (t.designLanguage === "basic") {
     return [
@@ -36048,7 +36166,7 @@ function buildForScope(doc, surface) {
     navigation: navigationBlock(doc),
     views: viewsBlock(doc),
     sections: sectionsBlock(doc),
-    design: designBlock(doc),
+    design: designBlock(doc, surface),
     // The design block says what the design is; these two say it in values a
     // build agent can only satisfy one way. Both stand down for the "basic"
     // language and for a backend build, by returning an empty body.
@@ -36189,6 +36307,7 @@ var init_build_prompt = __esm({
     init_boilerplate();
     init_data_model();
     init_deployment();
+    init_design_brief();
     init_security();
     init_targets();
     init_tokens_block();
@@ -36617,6 +36736,7 @@ app "Product name" {
   ui_level 3                # 1 = build exactly what is described, 5 = a showpiece
   builds web, mobile, backend # which builds this product ships \u2014 see rule 10
   theme {
+    decided_by auto             # omit this line to choose the design yourself
     preset atrium               # the design this is a variation of
     design modern-soft; primary #2563eb; secondary #10b981
     radius md; buttons filled; density comfortable
@@ -36826,6 +36946,7 @@ default every product gets.
 - \`elevation\` \u2014 ${elevationValues.join(", ")}: how much the surfaces lift off the page
 - \`motion\` \u2014 ${motionValues.join(", ")}
 - \`scheme\` \u2014 ${colorSchemeValues.join(", ")}: \`both\` ships light and dark, \`dark-first\` designs dark and derives light
+- \`decided_by\` \u2014 \`preset\` (the default) or \`auto\`. \`auto\` hands the design decision to whichever agent builds the project: it gets the product, the roles and the journeys plus a method for deciding, and no palette. Write it only when you mean it \u2014 with \`auto\`, every other value in this block is ignored
 - \`preset\` \u2014 the named design everything else is a variation of. Pick one **by id from the catalogue below**; every other value in this block is an override on top of it
 - \`note\` \u2014 one sentence on why this design suits this product, quoted: \`note "A filing product, so it reads as a printed record"\`. Written for the person who will read your file, not for the build agent
 - \`shape\` \u2014 corner radii in px, each surface on its own: \`shape control 8 card 12 overlay 16\`. Add the word \`pill\` for fully round actions whatever \`control\` says. This is what expresses "square everywhere, with one pill in it" \u2014 a single radius cannot

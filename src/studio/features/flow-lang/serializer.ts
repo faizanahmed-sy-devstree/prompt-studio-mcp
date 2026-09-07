@@ -293,6 +293,10 @@ export function serializeFlow(doc: ProjectDoc): string {
 function themeLines(theme: ProjectDoc["theme"]): string[] {
   const base = defaults.theme
   const lines = [
+    // Who decides the design. Written only when it is not the default, like
+    // every other dial — but written first when it is `auto`, because it is the
+    // line that makes every value below it moot.
+    ...(theme.designMode !== base.designMode ? [`    decided_by ${theme.designMode}`] : []),
     // The preset every value below came from. Written even when it is the
     // default one: it is the name of the design, and a file that omits it reads
     // as though nobody chose.
